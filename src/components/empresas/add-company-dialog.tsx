@@ -57,7 +57,7 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
       
       const newCompany = {
         name: data.company.name,
-        cnpj: data.taxId,
+        cnpj: values.cnpj, // Use the submitted CNPJ for consistency
         taxRegime: data.company.simples?.optant ? 'Simples Nacional' : data.company.size?.text || 'Não informado',
         status: data.status.text,
         startDate: data.founded,
