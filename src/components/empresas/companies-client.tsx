@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, PlusCircle } from 'lucide-react';
-import { companies as initialCompanies } from '@/lib/data';
+import { initialCompanies } from '@/lib/data';
 import { AddCompanyDialog } from './add-company-dialog';
 
 type Company = typeof initialCompanies[0];
