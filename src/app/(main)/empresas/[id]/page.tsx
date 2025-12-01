@@ -1,4 +1,5 @@
 
+
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { companies } from '@/lib/data';
@@ -19,7 +20,7 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 
 
 export default function CompanyDetailsPage({ params }: { params: { id: string } }) {
-  const company = companies.find((c) => c.cnpj === params.id);
+  const company = companies.find((c) => c.cnpj.replace(/[^\d]/g, "") === params.id);
 
   if (!company) {
     notFound();

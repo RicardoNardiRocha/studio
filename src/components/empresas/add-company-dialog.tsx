@@ -28,7 +28,7 @@ import { PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  cnpj: z.string().min(14, 'CNPJ deve ter 14 dígitos').max(14, 'CNPJ deve ter 14 dígitos'),
+  cnpj: z.string().min(14, 'CNPJ deve ter 14 dígitos').max(18, 'CNPJ inválido'),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -48,8 +48,9 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
+    const cnpj = values.cnpj.replace(/[^\d]/g, '');
     try {
-      const response = await fetch(`https://open.cnpja.com/office/${values.cnpj}`);
+      const response = await fetch(`https://open.cnpja.com/office/${cnpj}`);
       if (!response.ok) {
         throw new Error('Não foi possível encontrar a empresa. Verifique o CNPJ.');
       }
@@ -57,7 +58,7 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
       
       const newCompany = {
         name: data.company.name,
-        cnpj: values.cnpj, // Use the submitted CNPJ for consistency
+        cnpj: data.taxId,
         taxRegime: data.company.simples?.optant ? 'Simples Nacional' : data.company.size?.text || 'Não informado',
         status: data.status.text,
         startDate: data.founded,

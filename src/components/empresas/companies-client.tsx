@@ -24,8 +24,10 @@ import { companies as initialCompanies } from '@/lib/data';
 import { AddCompanyDialog } from './add-company-dialog';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
+  if (!status) return 'secondary';
   switch (status.toLowerCase()) {
     case 'ativa': return 'default';
+    case 'apto': return 'default';
     case 'inapta': return 'destructive';
     case 'baixada': return 'outline';
     default: return 'secondary';
@@ -37,7 +39,7 @@ export function CompaniesClient() {
 
   const handleCompanyAdded = (newCompany: any) => {
     // Prevent duplicates
-    if (!companies.some(c => c.cnpj === newCompany.cnpj)) {
+    if (!companies.some(c => c.cnpj.replace(/[^\d]/g, "") === newCompany.cnpj.replace(/[^\d]/g, ""))) {
       setCompanies(prev => [...prev, newCompany]);
     }
   };
@@ -79,7 +81,7 @@ export function CompaniesClient() {
                 </TableCell>
                 <TableCell className="text-right">
                   <Button asChild variant="outline" size="icon">
-                    <Link href={`/empresas/${company.cnpj}`}>
+                    <Link href={`/empresas/${company.cnpj.replace(/[^\d]/g, "")}`}>
                       <ChevronRight className="h-4 w-4" />
                       <span className="sr-only">Detalhes</span>
                     </Link>
