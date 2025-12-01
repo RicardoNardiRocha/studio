@@ -19,7 +19,7 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 
 
 export default function CompanyDetailsPage({ params }: { params: { id: string } }) {
-  const company = companies.find((c) => c.id === params.id);
+  const company = companies.find((c) => c.cnpj === params.id);
 
   if (!company) {
     notFound();

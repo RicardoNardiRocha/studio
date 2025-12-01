@@ -78,7 +78,7 @@ export function CompaniesClient() {
                   <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/empresas/${company.id}`} passHref>
+                  <Link href={`/empresas/${company.cnpj}`} passHref>
                     <Button variant="outline" size="icon" asChild>
                       <a>
                         <ChevronRight className="h-4 w-4" />
