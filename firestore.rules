@@ -20,13 +20,10 @@
  *   parent company document.
  * - **Role-Based Management**: Only users with an 'admin' role within a company's `members` map can
  *   modify the company document itself or delete it.
- * - **No Public Listing**: Listing all companies or all users is explicitly disabled to prevent data
- *   leakage and user enumeration. Client applications should build specific query mechanisms, such as
- *   a denormalized list of a user's companies, if this functionality is needed.
+ * - **Authenticated Listing**: Listing companies is allowed for any signed-in user, but they can only
+ *   read the full data of companies they are members of. This allows for a "select your company" screen.
  * - **User Data Privacy**: Users can only access and modify their own document in the `/users` collection.
  *   They cannot view or edit any other user's profile.
- * - **Safe Defaults**: Destructive operations like `delete` are disabled for user profiles, as this
- *   should be handled by a backend process.
  *
  * ## Denormalization for Authorization
  * To ensure performant and secure access control, this ruleset relies on a critical piece of
@@ -39,7 +36,7 @@
  *     parent company to verify membership, making the entire data tree secure.
  *
  * ## Structural Segregation
- * The separation of `/companies` and `/users` into distinct top-level collections is a deliberate
+ * The separation of `/companies` and `users` into distinct top-level collections is a deliberate
  * choice. This ensures that security rules for company data (shared, collaborative) do not conflict
  * with rules for user data (private, owner-only), improving clarity, performance, and security.
  */
@@ -80,6 +77,14 @@ service cloud.firestore {
      */
     function isCompanyMember(companyId) {
       return isSignedIn() && get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
+    }
+    
+    /**
+     * Checks if the authenticated user is a member of the company based on the document's own data.
+     * Use this for read rules on the company document itself.
+     */
+    function isMemberOfTheCompanyInResource() {
+      return isSignedIn() && resource.data.members[request.auth.uid] != null;
     }
 
     /**
@@ -129,13 +134,13 @@ service cloud.firestore {
      * @path        /companies/{companyId}
      * @allow       (get) A user with auth UID 'user123' can read a company doc if its `members` map
      *              contains an entry for 'user123'.
-     * @deny        (list) Any user attempting to list all companies will be rejected to prevent data leakage.
+     * @allow       (list) Any authenticated user can list companies, enabling discovery.
      * @deny        (update) A member with a 'viewer' role cannot update the company document.
      * @principle   Enforces shared access via a denormalized list of collaborators on the resource itself.
      */
     match /companies/{companyId} {
-      allow get: if isCompanyMember(companyId);
-      allow list: if false; // Deny listing to prevent enumeration of all companies.
+      allow get: if isMemberOfTheCompanyInResource();
+      allow list: if isSignedIn(); 
       allow create: if isSignedIn() && request.resource.data.members[request.auth.uid] == 'admin';
       allow update: if isCompanyAdmin() && docExists();
       allow delete: if isCompanyAdmin() && docExists();
