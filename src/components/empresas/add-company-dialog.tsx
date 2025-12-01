@@ -73,7 +73,7 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
 
       setOpen(false);
       form.reset();
-      router.push(`/empresas/${newCompany.cnpj}`);
+      router.push(`/empresas/${cnpj}`);
 
     } catch (error: any) {
       toast({
@@ -108,9 +108,9 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
               name="cnpj"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>CNPJ (apenas números)</FormLabel>
+                  <FormLabel>CNPJ</FormLabel>
                   <FormControl>
-                    <Input placeholder="00000000000000" {...field} />
+                    <Input placeholder="00.000.000/0000-00" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

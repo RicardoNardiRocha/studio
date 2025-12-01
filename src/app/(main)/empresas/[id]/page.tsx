@@ -1,12 +1,23 @@
+'use client';
 
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { companies } from '@/lib/data';
+import { companies as initialCompanies } from '@/lib/data';
 import { notFound } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface Company {
+    name: string;
+    cnpj: string;
+    status: string;
+    taxRegime: string;
+    startDate: string;
+}
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
     if (!status) return 'secondary';
@@ -20,17 +31,65 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 
 
 export default function CompanyDetailsPage({ params }: { params: { id: string } }) {
-  // This is not ideal as it reads from a static list.
-  // A proper implementation would fetch this from a database or a global state.
-  // For now, we simulate finding it in the list.
-  const company = companies.find((c) => c.cnpj.replace(/[^\d]/g, "") === params.id);
+  const [company, setCompany] = useState<Company | null | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const findCompany = async () => {
+        // First, try to find in the static list
+        let foundCompany = initialCompanies.find((c) => c.cnpj.replace(/[^\d]/g, "") === params.id);
+
+        if (foundCompany) {
+            setCompany(foundCompany);
+        } else {
+            // If not found, fetch from the API
+            try {
+                const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${params.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    foundCompany = {
+                        name: data.razao_social,
+                        cnpj: data.cnpj,
+                        taxRegime: data.opcao_pelo_simples ? 'Simples Nacional' : 'Não informado',
+                        status: data.descricao_situacao_cadastral,
+                        startDate: data.data_inicio_atividade,
+                    };
+                    setCompany(foundCompany);
+                } else {
+                    setCompany(null); // Explicitly set to null if not found
+                }
+            } catch (error) {
+                console.error("Failed to fetch company data", error);
+                setCompany(null); // Handle fetch error
+            }
+        }
+        setLoading(false);
+    };
+    findCompany();
+  }, [params.id]);
+
+  if (loading) {
+      return (
+          <>
+            <AppHeader pageTitle="Carregando Empresa..." />
+            <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-8 w-3/4" />
+                        <Skeleton className="h-4 w-1/4" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </CardContent>
+                </Card>
+            </main>
+          </>
+      )
+  }
 
   if (!company) {
-    // This is a temporary measure. In a real app, you might fetch the company
-    // details from an API here if it's not in the initial list.
-    // For now we will return not found. In the future you might want to fetch
-    // the data from an API.
-    return notFound();
+    notFound();
   }
 
   return (

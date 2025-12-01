@@ -35,16 +35,13 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 };
 
 export function CompaniesClient() {
+  // We use state to trigger a re-render when the list changes.
   const [companies, setCompanies] = useState(initialCompanies);
 
   const handleCompanyAdded = (newCompany: any) => {
     // Prevent duplicates
     if (!companies.some(c => c.cnpj === newCompany.cnpj)) {
-       const updatedCompanies = [...companies, newCompany];
-       setCompanies(updatedCompanies);
-       // This is a temporary workaround to update the static data file.
-       // In a real application, this would be handled by a database.
-       initialCompanies.push(newCompany);
+       setCompanies(prevCompanies => [...prevCompanies, newCompany]);
     }
   };
 
