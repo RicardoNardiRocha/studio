@@ -63,10 +63,10 @@ export function AppSidebar() {
                   tooltip={item.label}
                   className="justify-start"
                 >
-                  <>
+                  <span className="flex items-center gap-2">
                     <item.icon />
                     <span className="text-base">{item.label}</span>
-                  </>
+                  </span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
