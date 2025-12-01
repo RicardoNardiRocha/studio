@@ -73,7 +73,7 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
 
       setOpen(false);
       form.reset();
-      router.push(`/empresas/${newCompany.cnpj}`);
+      router.push(`/empresas/${cnpj}`);
 
     } catch (error: any) {
       toast({
