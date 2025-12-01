@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   BarChartBig,
-  FileText,
+  Layers,
   Building,
   Users,
   Briefcase,
@@ -48,8 +48,8 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
-          <FileText className="text-primary h-8 w-8" />
-          <h1 className="text-xl font-bold font-headline text-sidebar-foreground">Eu vou enviar uma imagem para voce refazer a logo</h1>
+          <Layers className="text-primary h-8 w-8" />
+          <h1 className="text-xl font-bold font-headline text-sidebar-foreground">ContabilX</h1>
         </div>
       </SidebarHeader>
       <SidebarContent>
