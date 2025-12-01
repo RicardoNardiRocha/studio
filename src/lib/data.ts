@@ -1,3 +1,4 @@
+
 import { FileText, CalendarClock, AlertTriangle, Building, Workflow, Users, FileWarning } from 'lucide-react';
 
 export const kpiData = [
@@ -158,6 +159,7 @@ export const corporateProcesses = [
 
 export const companies = [
   {
+    id: "1",
     name: "Alpha Inovação Ltda.",
     cnpj: "12.345.678/0001-90",
     taxRegime: "Simples Nacional",
@@ -165,6 +167,7 @@ export const companies = [
     startDate: "15/01/2018",
   },
   {
+    id: "2",
     name: "Beta Soluções S.A.",
     cnpj: "98.765.432/0001-21",
     taxRegime: "Lucro Presumido",
@@ -172,6 +175,7 @@ export const companies = [
     startDate: "22/05/2020",
   },
   {
+    id: "3",
     name: "Gama Tech ME",
     cnpj: "55.444.333/0001-11",
     taxRegime: "Simples Nacional",
@@ -179,6 +183,7 @@ export const companies = [
     startDate: "10/11/2022",
   },
   {
+    id: "4",
     name: "Delta Comércio Eireli",
     cnpj: "10.203.040/0001-50",
     taxRegime: "Lucro Real",

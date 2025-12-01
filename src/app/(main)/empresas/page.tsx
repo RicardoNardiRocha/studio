@@ -1,10 +1,12 @@
+
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { companies } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
     switch(status) {
@@ -42,17 +44,26 @@ export default function CompaniesPage() {
                   <TableHead>Regime Tributário</TableHead>
                   <TableHead>Data de Início</TableHead>
                   <TableHead>Situação</TableHead>
+                  <TableHead><span className="sr-only">Ações</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {companies.map((company, index) => (
-                  <TableRow key={index}>
+                {companies.map((company) => (
+                  <TableRow key={company.id}>
                     <TableCell className="font-medium">{company.name}</TableCell>
                     <TableCell>{company.cnpj}</TableCell>
                     <TableCell>{company.taxRegime}</TableCell>
                     <TableCell>{company.startDate}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                        <Link href={`/empresas/${company.id}`} passHref>
+                            <Button variant="outline" size="icon">
+                                <ChevronRight className="h-4 w-4" />
+                                <span className="sr-only">Detalhes</span>
+                            </Button>
+                        </Link>
                     </TableCell>
                   </TableRow>
                 ))}
