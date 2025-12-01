@@ -128,3 +128,6 @@ export function CompaniesClient() {
           </Table>
         </CardContent>
       </Card>
+    </>
+  );
+}
