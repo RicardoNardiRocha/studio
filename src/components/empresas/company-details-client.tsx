@@ -254,7 +254,7 @@ export function CompanyDetailsClient({ id }: { id: string }) {
             <CardHeader>
                 <CardTitle className='font-headline'>Informações Adicionais (Interno)</CardTitle>
                 <CardDescription>Dados para controle do escritório.</CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
