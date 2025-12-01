@@ -157,11 +157,11 @@ export const corporateProcesses = [
     },
 ];
 
-export let companies = [
+export let initialCompanies = [
   {
     id: "1",
     name: "Alpha Inovação Ltda.",
-    cnpj: "12345678000190",
+    cnpj: "12.345.678/0001-90",
     taxRegime: "Simples Nacional",
     status: "Ativa",
     startDate: "15/01/2018",
@@ -169,7 +169,7 @@ export let companies = [
   {
     id: "2",
     name: "Beta Soluções S.A.",
-    cnpj: "98765432000121",
+    cnpj: "98.765.432/0001-21",
     taxRegime: "Lucro Presumido",
     status: "Ativa",
     startDate: "22/05/2020",
@@ -177,7 +177,7 @@ export let companies = [
   {
     id: "3",
     name: "Gama Tech ME",
-    cnpj: "55444333000111",
+    cnpj: "55.444.333/0001-11",
     taxRegime: "Simples Nacional",
     status: "Inapta",
     startDate: "10/11/2022",
@@ -185,7 +185,7 @@ export let companies = [
   {
     id: "4",
     name: "Delta Comércio Eireli",
-    cnpj: "10203040000150",
+    cnpj: "10.203.040/0001-50",
     taxRegime: "Lucro Real",
     status: "Baixada",
     startDate: "01/03/2015",
