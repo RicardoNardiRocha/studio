@@ -52,7 +52,7 @@ export function CompanyDetailsClient({ id }: { id: string }) {
 
   useEffect(() => {
     const findCompany = async () => {
-        if (!id) return; // <-- Add this check to prevent error
+        if (!id) return;
         setLoading(true);
         const formattedId = id.replace(/[^\d]/g, "");
         
@@ -254,7 +254,7 @@ export function CompanyDetailsClient({ id }: { id: string }) {
             <CardHeader>
                 <CardTitle className='font-headline'>Informações Adicionais (Interno)</CardTitle>
                 <CardDescription>Dados para controle do escritório.</CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent className="space-y-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
