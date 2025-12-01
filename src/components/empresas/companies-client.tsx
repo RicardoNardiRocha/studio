@@ -39,8 +39,12 @@ export function CompaniesClient() {
 
   const handleCompanyAdded = (newCompany: any) => {
     // Prevent duplicates
-    if (!companies.some(c => c.cnpj.replace(/[^\d]/g, "") === newCompany.cnpj.replace(/[^\d]/g, ""))) {
-      setCompanies(prev => [...prev, newCompany]);
+    if (!companies.some(c => c.cnpj === newCompany.cnpj)) {
+       const updatedCompanies = [...companies, newCompany];
+       setCompanies(updatedCompanies);
+       // This is a temporary workaround to update the static data file.
+       // In a real application, this would be handled by a database.
+       initialCompanies.push(newCompany);
     }
   };
 

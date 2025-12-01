@@ -1,5 +1,4 @@
 
-
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { companies } from '@/lib/data';
@@ -21,10 +20,17 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 
 
 export default function CompanyDetailsPage({ params }: { params: { id: string } }) {
+  // This is not ideal as it reads from a static list.
+  // A proper implementation would fetch this from a database or a global state.
+  // For now, we simulate finding it in the list.
   const company = companies.find((c) => c.cnpj.replace(/[^\d]/g, "") === params.id);
 
   if (!company) {
-    notFound();
+    // This is a temporary measure. In a real app, you might fetch the company
+    // details from an API here if it's not in the initial list.
+    // For now we will return not found. In the future you might want to fetch
+    // the data from an API.
+    return notFound();
   }
 
   return (
