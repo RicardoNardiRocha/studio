@@ -13,13 +13,10 @@ import {
   BarChartBig,
   Layers,
   Building,
-  Users,
   Briefcase,
   BookUser,
   ShieldCheck,
   FolderOpen,
-  MessageSquare,
-  Landmark,
   FileCog,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -29,15 +26,12 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const menuItems = [
   { href: '/', label: 'Dashboard', icon: BarChartBig },
-  { href: '/fiscal', label: 'Fiscal', icon: FileCog },
-  { href: '/societario', label: 'Societário', icon: Briefcase },
   { href: '/empresas', label: 'Empresas', icon: Building },
-  { href: '/financeiro', label: 'Financeiro', icon: Landmark },
-  { href: '/contabil', label: 'Contábil', icon: BookUser },
-  { href: '/dp', label: 'Dep. Pessoal', icon: Users },
+  { href: '/societario', label: 'Societário', icon: Briefcase },
   { href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
+  { href: '/fiscal', label: 'Fiscal', icon: FileCog },
   { href: '/documentos', label: 'Documentos', icon: FolderOpen },
-  { href: '/comunicacao', label: 'Comunicação', icon: MessageSquare },
+  { href: '/contabil', label: 'Contábil', icon: BookUser },
 ];
 
 export function AppSidebar() {
