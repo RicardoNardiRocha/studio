@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
-    switch(status) {
-        case 'Apto': return 'default';
-        case 'Inapto': return 'destructive';
-        case 'Baixado': return 'outline';
+    if (!status) return 'secondary';
+    switch(status.toLowerCase()) {
+        case 'ativa': return 'default';
+        case 'inapta': return 'destructive';
+        case 'baixada': return 'outline';
         default: return 'secondary';
     }
 }

@@ -50,18 +50,18 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
     setIsSubmitting(true);
     const cnpj = values.cnpj.replace(/[^\d]/g, '');
     try {
-      const response = await fetch(`https://open.cnpja.com/office/${cnpj}`);
+      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (!response.ok) {
         throw new Error('Não foi possível encontrar a empresa. Verifique o CNPJ.');
       }
       const data = await response.json();
       
       const newCompany = {
-        name: data.company.name,
-        cnpj: data.taxId,
-        taxRegime: data.company.simples?.optant ? 'Simples Nacional' : data.company.size?.text || 'Não informado',
-        status: data.status.text,
-        startDate: data.founded,
+        name: data.razao_social,
+        cnpj: data.cnpj,
+        taxRegime: data.opcao_pelo_simples ? 'Simples Nacional' : 'Não informado',
+        status: data.descricao_situacao_cadastral,
+        startDate: data.data_inicio_atividade,
       };
 
       onCompanyAdded(newCompany);
