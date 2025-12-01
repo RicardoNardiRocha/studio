@@ -37,7 +37,7 @@ export function CompaniesClient() {
 
   const handleCompanyAdded = (newCompany: any) => {
     // Prevent duplicates
-    if (!companies.some(c => c.id === newCompany.id)) {
+    if (!companies.some(c => c.cnpj === newCompany.cnpj)) {
       setCompanies(prev => [...prev, newCompany]);
     }
   };
@@ -69,7 +69,7 @@ export function CompaniesClient() {
           </TableHeader>
           <TableBody>
             {companies.map((company) => (
-              <TableRow key={company.id}>
+              <TableRow key={company.cnpj}>
                 <TableCell className="font-medium">{company.name}</TableCell>
                 <TableCell>{company.cnpj}</TableCell>
                 <TableCell>{company.taxRegime}</TableCell>
@@ -78,9 +78,9 @@ export function CompaniesClient() {
                   <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/empresas/${company.cnpj}`} passHref>
+                  <Link href={`/empresas/${company.cnpj}`} passHref legacyBehavior>
                     <Button variant="outline" size="icon" asChild>
-                      <a>
+                      <a >
                         <ChevronRight className="h-4 w-4" />
                         <span className="sr-only">Detalhes</span>
                       </a>

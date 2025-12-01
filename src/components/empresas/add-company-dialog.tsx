@@ -56,7 +56,6 @@ export function AddCompanyDialog({ onCompanyAdded }: { onCompanyAdded: (company:
       const data = await response.json();
       
       const newCompany = {
-        id: data.taxId,
         name: data.company.name,
         cnpj: data.taxId,
         taxRegime: data.company.simples?.optant ? 'Simples Nacional' : data.company.size?.text || 'Não informado',
