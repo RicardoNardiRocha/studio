@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -20,8 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronRight } from 'lucide-react';
-import { companies as initialCompanies } from '@/lib/data';
-import { AddCompanyDialog } from './add-company-dialog';
+import { companies } from '@/lib/data';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -35,26 +33,13 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 };
 
 export function CompaniesClient() {
-  // We use state to trigger a re-render when the list changes.
-  const [companies, setCompanies] = useState(initialCompanies);
-
-  const handleCompanyAdded = (newCompany: any) => {
-    // Prevent duplicates
-    if (!companies.some(c => c.cnpj === newCompany.cnpj)) {
-       setCompanies(prevCompanies => [...prevCompanies, newCompany]);
-    }
-  };
-
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="font-headline">Cadastro Mestre de Empresas</CardTitle>
-          <CardDescription>
-            Visualize e gerencie todas as empresas atendidas pelo escritório.
-          </CardDescription>
-        </div>
-        <AddCompanyDialog onCompanyAdded={handleCompanyAdded} />
+      <CardHeader>
+        <CardTitle className="font-headline">Cadastro Mestre de Empresas</CardTitle>
+        <CardDescription>
+          Visualize e gerencie todas as empresas atendidas pelo escritório.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
