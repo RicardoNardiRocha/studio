@@ -52,6 +52,7 @@ export function CompanyDetailsClient({ id }: { id: string }) {
 
   useEffect(() => {
     const findCompany = async () => {
+        if (!id) return; // <-- Add this check to prevent error
         setLoading(true);
         const formattedId = id.replace(/[^\d]/g, "");
         
