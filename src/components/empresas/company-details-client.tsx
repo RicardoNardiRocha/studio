@@ -214,4 +214,9 @@ export function CompanyDetailsClient({ id }: { id: string }) {
                     </div>
                 </div>
                  <Button>Salvar Informações</Button>
-            </Card
+            </CardContent>
+          </Card>
+      </main>
+    </>
+  );
+}
