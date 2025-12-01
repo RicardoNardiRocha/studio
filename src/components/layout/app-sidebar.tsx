@@ -49,7 +49,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <FileText className="text-primary h-8 w-8" />
-          <h1 className="text-xl font-bold font-headline text-sidebar-foreground">ContaFlow</h1>
+          <h1 className="text-xl font-bold font-headline text-sidebar-foreground">Eu vou enviar uma imagem para voce refazer a logo</h1>
         </div>
       </SidebarHeader>
       <SidebarContent>
