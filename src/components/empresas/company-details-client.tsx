@@ -52,62 +52,44 @@ export function CompanyDetailsClient({ id }: { id: string }) {
 
   useEffect(() => {
     const findCompany = async () => {
-        if (!id) return;
+        if (!id) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         const formattedId = id.replace(/[^\d]/g, "");
         
+        // Try to find in the static list first
         let foundCompany: Company | undefined | null = initialCompanies.find((c) => c.cnpj.replace(/[^\d]/g, "") === formattedId);
 
-        if (foundCompany) {
-            // Augment static data with API data for full details
-            try {
-                const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${formattedId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    foundCompany = {
-                        ...foundCompany,
-                        fantasyName: data.nome_fantasia,
-                        cnae: data.cnae_fiscal_descricao,
-                        address: `${data.logradouro}, ${data.numero} - ${data.bairro}, ${data.municipio} - ${data.uf}, ${data.cep}`,
-                        phone: data.ddd_telefone_1,
-                        email: data.email,
-                        capital: data.capital_social,
-                        legalNature: data.natureza_juridica,
-                        porte: data.porte,
-                        qsa: data.qsa,
-                    };
-                }
-            } catch (e) {
-                // Ignore if API fails, just show static data
+        // If not found in static list, or to augment with more details
+        try {
+            const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${formattedId}`);
+            if (response.ok) {
+                const data = await response.json();
+                foundCompany = {
+                    name: data.razao_social,
+                    fantasyName: data.nome_fantasia,
+                    cnpj: data.cnpj,
+                    taxRegime: data.opcao_pelo_simples ? 'Simples Nacional' : (data.regime_tributario?.[0]?.forma_de_tributacao || 'Não informado'),
+                    status: data.descricao_situacao_cadastral,
+                    startDate: data.data_inicio_atividade ? new Date(data.data_inicio_atividade).toLocaleDateString('pt-BR') : 'N/A',
+                    cnae: data.cnae_fiscal_descricao,
+                    address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/ -/g,''),
+                    phone: data.ddd_telefone_1,
+                    email: data.email,
+                    capital: data.capital_social,
+                    legalNature: data.natureza_juridica,
+                    porte: data.porte,
+                    qsa: data.qsa,
+                };
+                setCompany(foundCompany);
+            } else {
+                 setCompany(null); // API returned an error (e.g., 404)
             }
-            setCompany(foundCompany);
-        } else {
-            try {
-                const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${formattedId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    foundCompany = {
-                        name: data.razao_social,
-                        fantasyName: data.nome_fantasia,
-                        cnpj: data.cnpj,
-                        taxRegime: data.opcao_pelo_simples ? 'Simples Nacional' : (data.regime_tributario?.[0]?.forma_de_tributacao || 'Não informado'),
-                        status: data.descricao_situacao_cadastral,
-                        startDate: new Date(data.data_inicio_atividade).toLocaleDateString('pt-BR'),
-                        cnae: data.cnae_fiscal_descricao,
-                        address: `${data.logradouro}, ${data.numero}, ${data.complemento} - ${data.bairro}, ${data.municipio} - ${data.uf}, ${data.cep}`,
-                        phone: data.ddd_telefone_1,
-                        email: data.email,
-                        capital: data.capital_social,
-                        legalNature: data.natureza_juridica,
-                        porte: data.porte,
-                        qsa: data.qsa,
-                    };
-                    setCompany(foundCompany);
-                } else {
-                    setCompany(null);
-                }
-            } catch (error) {
-                console.error("Failed to fetch company data", error);
+        } catch (error) {
+            console.error("Failed to fetch company data", error);
+            if (!foundCompany) { // If it wasn't in static list either
                 setCompany(null);
             }
         }
