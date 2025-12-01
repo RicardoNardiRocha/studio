@@ -2,16 +2,16 @@
 
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { initialCompanies } from '@/lib/data';
 import { notFound } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 interface Partner {
   nome_socio: string;
@@ -20,6 +20,7 @@ interface Partner {
 }
 
 interface Company {
+    id: string;
     name: string;
     fantasyName?: string;
     cnpj: string;
@@ -47,58 +48,17 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 }
 
 export function CompanyDetailsClient({ id }: { id: string }) {
-  const [company, setCompany] = useState<Company | null | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    const findCompany = async () => {
-        if (!id) {
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
-        const formattedId = id.replace(/[^\d]/g, "");
-        
-        // Try to find in the static list first
-        let foundCompany: Company | undefined | null = initialCompanies.find((c) => c.cnpj.replace(/[^\d]/g, "") === formattedId);
+  const companyRef = useMemoFirebase(() => {
+    if (!firestore || !id) return null;
+    const formattedId = id.replace(/[^\d]/g, "");
+    return doc(firestore, 'companies', formattedId);
+  }, [firestore, id]);
 
-        // If not found in static list, or to augment with more details
-        try {
-            const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${formattedId}`);
-            if (response.ok) {
-                const data = await response.json();
-                foundCompany = {
-                    name: data.razao_social,
-                    fantasyName: data.nome_fantasia,
-                    cnpj: data.cnpj,
-                    taxRegime: data.opcao_pelo_simples ? 'Simples Nacional' : (data.regime_tributario?.[0]?.forma_de_tributacao || 'Não informado'),
-                    status: data.descricao_situacao_cadastral,
-                    startDate: data.data_inicio_atividade ? new Date(data.data_inicio_atividade).toLocaleDateString('pt-BR') : 'N/A',
-                    cnae: data.cnae_fiscal_descricao,
-                    address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/ -/g,''),
-                    phone: data.ddd_telefone_1,
-                    email: data.email,
-                    capital: data.capital_social,
-                    legalNature: data.natureza_juridica,
-                    porte: data.porte,
-                    qsa: data.qsa,
-                };
-                setCompany(foundCompany);
-            } else {
-                 setCompany(null); // API returned an error (e.g., 404)
-            }
-        } catch (error) {
-            console.error("Failed to fetch company data", error);
-            if (!foundCompany) { // If it wasn't in static list either
-                setCompany(null);
-            }
-        }
-        setLoading(false);
-    };
-    findCompany();
-  }, [id]);
+  const { data: company, isLoading, error } = useDoc<Company>(companyRef);
 
-  if (loading) {
+  if (isLoading) {
       return (
           <>
             <AppHeader pageTitle="Carregando Empresa..." />
@@ -130,9 +90,14 @@ export function CompanyDetailsClient({ id }: { id: string }) {
       )
   }
 
-  if (!company) {
+  if (!company && !isLoading) {
     notFound();
   }
+  
+  if (!company) {
+      return null;
+  }
+
 
   return (
     <>
@@ -249,9 +214,4 @@ export function CompanyDetailsClient({ id }: { id: string }) {
                     </div>
                 </div>
                  <Button>Salvar Informações</Button>
-            </CardContent>
-         </Card>
-      </main>
-    </>
-  );
-}
+            </Card

@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, PlusCircle } from 'lucide-react';
-import { initialCompanies } from '@/lib/data';
+import { ChevronRight, PlusCircle, Loader2 } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
-
-type Company = typeof initialCompanies[0];
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { Skeleton } from '../ui/skeleton';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -37,18 +37,19 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 };
 
 export function CompaniesClient() {
-  const [companies, setCompanies] = useState<Company[]>(initialCompanies);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const firestore = useFirestore();
 
-  const handleCompanyAdded = (newCompany: Company) => {
-    // This is a temporary client-side-only addition.
-    // In a real app, this would re-fetch from a database.
-    const companyExists = companies.some(c => c.cnpj === newCompany.cnpj);
-    if (!companyExists) {
-        setCompanies(prev => [...prev, newCompany]);
-    }
+  const companiesCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'companies');
+  }, [firestore]);
+  
+  const { data: companies, isLoading } = useCollection(companiesCollection);
+
+  const handleCompanyAdded = () => {
+    // Data is now handled by the real-time listener from useCollection
   };
-
 
   return (
     <>
@@ -85,29 +86,45 @@ export function CompaniesClient() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {companies.map((company) => (
-                <TableRow key={company.cnpj}>
-                  <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell>{company.cnpj}</TableCell>
-                  <TableCell>{company.taxRegime}</TableCell>
-                  <TableCell>{company.startDate}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="outline" size="icon">
-                      <Link href={`/empresas/${company.cnpj.replace(/[^\d]/g, "")}`}>
-                        <ChevronRight className="h-4 w-4" />
-                        <span className="sr-only">Detalhes</span>
-                      </Link>
-                    </Button>
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-full" /></TableCell>
+                  </TableRow>
+                ))
+              ) : companies && companies.length > 0 ? (
+                companies.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="font-medium">{company.name}</TableCell>
+                    <TableCell>{company.cnpj}</TableCell>
+                    <TableCell>{company.taxRegime}</TableCell>
+                    <TableCell>{company.startDate}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild variant="outline" size="icon">
+                        <Link href={`/empresas/${company.id.replace(/[^\d]/g, "")}`}>
+                          <ChevronRight className="h-4 w-4" />
+                          <span className="sr-only">Detalhes</span>
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Nenhuma empresa encontrada. Adicione uma para começar.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-    </>
-  );
-}

@@ -15,11 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 interface AddCompanyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCompanyAdded: (company: any) => void;
+  onCompanyAdded: () => void;
 }
 
 export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddCompanyDialogProps) {
@@ -27,9 +29,14 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!firestore) {
+        toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive"});
+        return;
+    }
     setIsLoading(true);
 
     const numericCnpj = cnpj.replace(/[^\d]/g, '');
@@ -47,17 +54,30 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         id: data.cnpj,
         name: data.razao_social,
         cnpj: data.cnpj,
-        taxRegime: data.opcao_pelo_simples ? "Simples Nacional" : data.regime_tributario?.[0]?.forma_de_tributacao || "Não informado",
+        taxRegime: data.opcao_pelo_simples ? "Simples Nacional" : (data.regime_tributario && data.regime_tributario.length > 0 ? data.regime_tributario[0].forma_de_tributacao : "Não informado"),
         status: data.descricao_situacao_cadastral,
         startDate: data.data_inicio_atividade ? new Date(data.data_inicio_atividade).toLocaleDateString('pt-BR') : 'N/A',
+        fantasyName: data.nome_fantasia || '',
+        cnae: data.cnae_fiscal_descricao || '',
+        address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/ - /g,', '),
+        phone: data.ddd_telefone_1 || '',
+        email: data.email || '',
+        capital: data.capital_social || 0,
+        legalNature: data.natureza_juridica || '',
+        porte: data.porte || '',
+        qsa: data.qsa || [],
+        members: { 'adminUserId': 'admin' } // Placeholder for RBAC
       };
+      
+      const companyRef = doc(firestore, 'companies', newCompany.id);
+      setDocumentNonBlocking(companyRef, newCompany, { merge: true });
 
-      onCompanyAdded(newCompany);
       toast({
         title: "Empresa Adicionada!",
-        description: `${newCompany.name} foi adicionada à lista.`,
+        description: `${newCompany.name} foi adicionada ao sistema.`,
       });
 
+      onCompanyAdded();
       onOpenChange(false);
       setCnpj('');
       // Navigate to the new company's detail page
