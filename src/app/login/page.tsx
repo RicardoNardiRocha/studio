@@ -115,8 +115,7 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="animate-spin" />}
-                {!isLoading && 'Entrar'}
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar'}
               </Button>
               <Button variant="outline" className="w-full" disabled={isLoading}>
                 Entrar com Google
