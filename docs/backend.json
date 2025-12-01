@@ -1,0 +1,521 @@
+{
+  "entities": {
+    "Company": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Company",
+      "type": "object",
+      "description": "Represents a company served by the accounting firm.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Company entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the company."
+        },
+        "cnpj": {
+          "type": "string",
+          "description": "CNPJ of the company."
+        },
+        "cnae": {
+          "type": "string",
+          "description": "National Classification of Economic Activities (CNAE) code of the company."
+        },
+        "address": {
+          "type": "string",
+          "description": "Full address of the company."
+        },
+        "taxRegime": {
+          "type": "string",
+          "description": "Tax regime of the company (e.g., Simples Nacional, Lucro Presumido)."
+        },
+        "assessmentRegime": {
+          "type": "string",
+          "description": "Assessment regime of the company."
+        },
+        "registrationStatus": {
+          "type": "string",
+          "description": "Registration status of the company (e.g., Apto, Inapto, Baixado)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Date when the company started its activities.",
+          "format": "date-time"
+        },
+        "mainContact": {
+          "type": "string",
+          "description": "Main contact person for the company."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "cnpj"
+      ]
+    },
+    "FiscalDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FiscalDocument",
+      "type": "object",
+      "description": "Represents a fiscal document (e.g., invoice).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FiscalDocument entity."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N FiscalDocument)"
+        },
+        "documentType": {
+          "type": "string",
+          "description": "Type of the fiscal document (e.g., Livro de entrada, Livro de saída)."
+        },
+        "emissionDate": {
+          "type": "string",
+          "description": "Date when the document was emitted.",
+          "format": "date-time"
+        },
+        "xmlContent": {
+          "type": "string",
+          "description": "XML content of the fiscal document."
+        },
+        "pdfContent": {
+          "type": "string",
+          "description": "PDF content of the fiscal document."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the fiscal document (e.g., Emitida, Cancelada)."
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "documentType"
+      ]
+    },
+    "TaxObligation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TaxObligation",
+      "type": "object",
+      "description": "Represents a tax obligation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the TaxObligation entity."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N TaxObligation)"
+        },
+        "obligationType": {
+          "type": "string",
+          "description": "Type of the tax obligation (e.g., DAS, DEFIS, SPED)."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date for the tax obligation.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the tax obligation (e.g., Gerar, Conferir, Protocolar, Enviar, Arquivar, Entregar ao cliente)."
+        },
+        "responsibleUserId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N TaxObligation)"
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "obligationType",
+        "dueDate"
+      ]
+    },
+    "CorporateProcess": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CorporateProcess",
+      "type": "object",
+      "description": "Represents a corporate process (e.g., opening, amending, closing a company).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CorporateProcess entity."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N CorporateProcess)"
+        },
+        "processType": {
+          "type": "string",
+          "description": "Type of the corporate process (e.g., Abertura, Alteração, Encerramento)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the corporate process.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the corporate process.",
+          "format": "date-time"
+        },
+        "responsibleUserId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N CorporateProcess)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the corporate process (e.g., Em análise, Em exigência, Concluído, Cancelado)."
+        },
+        "attachments": {
+          "type": "array",
+          "description": "List of attachments related to the corporate process.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "processType"
+      ]
+    },
+    "FinancialRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FinancialRecord",
+      "type": "object",
+      "description": "Represents a financial record for a client.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FinancialRecord entity."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N FinancialRecord)"
+        },
+        "recordType": {
+          "type": "string",
+          "description": "Type of the financial record (e.g., Pró-labore, Distribuição de lucros, Faturamento mensal)."
+        },
+        "recordDate": {
+          "type": "string",
+          "description": "Date of the financial record.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the financial record."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the financial record."
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "recordType",
+        "recordDate",
+        "amount"
+      ]
+    },
+    "Document": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Document",
+      "type": "object",
+      "description": "Represents a document stored in the repository.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Document entity."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N Document)"
+        },
+        "documentType": {
+          "type": "string",
+          "description": "Type of the document (e.g., Contrato social, Certidões, Arquivos fiscais)."
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Date when the document was uploaded.",
+          "format": "date-time"
+        },
+        "expirationDate": {
+          "type": "string",
+          "description": "Expiration date of the document.",
+          "format": "date-time"
+        },
+        "responsibleUserId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Document)"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags associated with the document.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fileUrl": {
+          "type": "string",
+          "description": "URL where the document file is stored."
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "documentType",
+        "uploadDate"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the accounting firm's system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., Administrador geral, Sócio, Gestor de setor)."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "List of permissions granted to the user.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role"
+      ]
+    },
+    "InternalCommunication": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InternalCommunication",
+      "type": "object",
+      "description": "Represents an internal communication or notification.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the InternalCommunication entity."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "Reference to Company. (Relationship: Company 1:N InternalCommunication)"
+        },
+        "senderUserId": {
+          "type": "string",
+          "description": "Reference to User who sent the message. (Relationship: User 1:N InternalCommunication)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Content of the message."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of the message.",
+          "format": "date-time"
+        },
+        "moduleId": {
+          "type": "string",
+          "description": "Module in which the communication originated."
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "senderUserId",
+        "message",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "companies/{companyId}",
+        "definition": {
+          "entityName": "Company",
+          "schema": {
+            "$ref": "#/backend/entities/Company"
+          },
+          "description": "Represents a company served by the accounting firm.  Stores core company details.  Includes denormalized 'members' map for authorization independence.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/fiscalDocuments/{fiscalDocumentId}",
+        "definition": {
+          "entityName": "FiscalDocument",
+          "schema": {
+            "$ref": "#/backend/entities/FiscalDocument"
+          },
+          "description": "Represents a fiscal document associated with a company.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "fiscalDocumentId",
+              "description": "Unique identifier for the fiscal document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/taxObligations/{taxObligationId}",
+        "definition": {
+          "entityName": "TaxObligation",
+          "schema": {
+            "$ref": "#/backend/entities/TaxObligation"
+          },
+          "description": "Represents a tax obligation for a company.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "taxObligationId",
+              "description": "Unique identifier for the tax obligation."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/corporateProcesses/{corporateProcessId}",
+        "definition": {
+          "entityName": "CorporateProcess",
+          "schema": {
+            "$ref": "#/backend/entities/CorporateProcess"
+          },
+          "description": "Represents a corporate process (e.g., opening, amending, closing a company).",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "corporateProcessId",
+              "description": "Unique identifier for the corporate process."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/financialRecords/{financialRecordId}",
+        "definition": {
+          "entityName": "FinancialRecord",
+          "schema": {
+            "$ref": "#/backend/entities/FinancialRecord"
+          },
+          "description": "Represents a financial record for a client.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "financialRecordId",
+              "description": "Unique identifier for the financial record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/documents/{documentId}",
+        "definition": {
+          "entityName": "Document",
+          "schema": {
+            "$ref": "#/backend/entities/Document"
+          },
+          "description": "Represents a document stored in the repository.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "documentId",
+              "description": "Unique identifier for the document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "companies/{companyId}/internalCommunications/{internalCommunicationId}",
+        "definition": {
+          "entityName": "InternalCommunication",
+          "schema": {
+            "$ref": "#/backend/entities/InternalCommunication"
+          },
+          "description": "Represents an internal communication or notification.",
+          "params": [
+            {
+              "name": "companyId",
+              "description": "Unique identifier for the company."
+            },
+            {
+              "name": "internalCommunicationId",
+              "description": "Unique identifier for the internal communication."
+            }
+          ]
+        }
+      },
+      {
+        "path": "users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Represents a user of the accounting firm's system.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a multi-client, multi-user accounting ERP system, focusing on role-based access control (RBAC) and data segregation for security and efficiency.  The structure emphasizes authorization independence by denormalizing user roles and company membership within documents, avoiding costly and restrictive `get()` calls in security rules.  Each document that requires role-based access includes a `members` map. All subcollections containing data owned by a `Company` are located under the `companies/{companyId}` document. This creates a clear hierarchical structure for data ownership and access control. User-specific data like internal communications and user profiles are stored in dedicated collections, ensuring privacy. This approach adheres to Structural Segregation, ensuring data with different security needs resides in separate collections. The use of explicit state modeling via the `status` field in various entities promotes clarity and simplifies querying and reporting.  The design inherently supports QAPs via structural segregation, where list operations can be secured based on collection-level rules and membership checks within documents. Hierarchical paths are used extensively to represent ownership relationships, such as `companies/{companyId}/fiscalDocuments/{fiscalDocumentId}`. Company membership is also stored at the root level for fast, global queries. The most critical aspect of this design is the denormalization of access control lists to achieve Authorization Independence, enabling atomic batch operations and simplifying security rule management. For the `CorporateProcess` entity, attachments are stored as URLs, with the application responsible for managing access to the underlying storage locations."
+  }
+}

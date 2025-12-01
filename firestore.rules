@@ -1,0 +1,178 @@
+/**
+ * # Firestore Security Rules
+ *
+ * ## Core Philosophy
+ * This ruleset enforces a strict, multi-tenant security model designed for an accounting ERP system.
+ * The central principle is role-based access control (RBAC) where a user's access to a company's data
+ * is determined by their membership and role within that specific company. The rules are designed to be
+ * secure by default, denying all access unless explicitly granted.
+ *
+ * ## Data Structure
+ * The data is organized hierarchically. Core business data is nested under the `/companies/{companyId}`
+ * collection. This includes fiscal documents, tax obligations, and financial records. This structure
+ * allows for cascading security rules where access to any subcollection document is governed by
+ * permissions on the parent company document. User profiles are stored in a separate top-level
+ * `/users/{userId}` collection to segregate user-specific data from company data.
+ *
+ * ## Key Security Decisions
+ * - **Company Membership is Key**: Access to any document within `/companies/{companyId}` or its
+ *   subcollections is granted only if the requesting user is listed in the `members` map of the
+ *   parent company document.
+ * - **Role-Based Management**: Only users with an 'admin' role within a company's `members` map can
+ *   modify the company document itself or delete it.
+ * - **No Public Listing**: Listing all companies or all users is explicitly disabled to prevent data
+ *   leakage and user enumeration. Client applications should build specific query mechanisms, such as
+ *   a denormalized list of a user's companies, if this functionality is needed.
+ * - **User Data Privacy**: Users can only access and modify their own document in the `/users` collection.
+ *   They cannot view or edit any other user's profile.
+ * - **Safe Defaults**: Destructive operations like `delete` are disabled for user profiles, as this
+ *   should be handled by a backend process.
+ *
+ * ## Denormalization for Authorization
+ * To ensure performant and secure access control, this ruleset relies on a critical piece of
+ * denormalized data: a `members` map on each `companies/{companyId}` document.
+ *
+ *   - **Structure**: `{ "members": { "user_uid_1": "admin", "user_uid_2": "viewer" } }`
+ *   - **Reasoning**: Storing the list of authorized users and their roles directly on the company
+ *     document avoids slow, costly, and sometimes impossible cross-collection queries in security rules.
+ *     A rule for a subcollection like `/fiscalDocuments` can perform a single, fast `get()` on the
+ *     parent company to verify membership, making the entire data tree secure.
+ *
+ * ## Structural Segregation
+ * The separation of `/companies` and `/users` into distinct top-level collections is a deliberate
+ * choice. This ensures that security rules for company data (shared, collaborative) do not conflict
+ * with rules for user data (private, owner-only), improving clarity, performance, and security.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /**
+     * Verifies that the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Verifies if the request is coming from the document owner.
+     * @param userId The UID of the user to check against.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if a document exists before an update or delete operation.
+     */
+    function docExists() {
+      return resource != null;
+    }
+
+    /**
+     * Checks if the authenticated user is a member of a given company.
+     * Relies on a denormalized `members` map on the company document.
+     * @param companyId The ID of the company to check membership for.
+     */
+    function isCompanyMember(companyId) {
+      return isSignedIn() && get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
+    }
+
+    /**
+     * Checks if the authenticated user is an 'admin' for a given company.
+     * This rule should be used for privileged operations like modifying the company document.
+     * @param companyId The ID of the company to check admin status for.
+     */
+    function isCompanyAdmin() {
+      // For updates/deletes on the company doc itself, use `resource.data` to avoid an extra get()
+      return isSignedIn() && resource.data.members[request.auth.uid] == 'admin';
+    }
+
+    /**
+     * On create, validates that the user is a member of the parent company and that
+     * the new document's `companyId` field correctly points back to its parent.
+     * @param companyId The ID of the parent company from the path.
+     */
+    function isCreatingValidSubDoc(companyId) {
+      return isCompanyMember(companyId) && request.resource.data.companyId == companyId;
+    }
+
+    /**
+     * On update, validates that the user is a member of the parent company, the doc exists,
+     * and that the `companyId` field is not being changed.
+     * @param companyId The ID of the parent company from the path.
+     */
+    function isUpdatingValidSubDoc(companyId) {
+      return isCompanyMember(companyId) && docExists() && request.resource.data.companyId == resource.data.companyId;
+    }
+
+    /**
+     * Validates that the user is a member of the parent company and the doc exists before deletion.
+     * @param companyId The ID of the parent company from the path.
+     */
+    function isDeletingValidSubDoc(companyId) {
+      return isCompanyMember(companyId) && docExists();
+    }
+
+
+    // ------------------------------------------------------------------------
+    // Collection Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to company documents. Access is determined by a `members` map
+     *              on the document itself, with special privileges for users with an 'admin' role.
+     * @path        /companies/{companyId}
+     * @allow       (get) A user with auth UID 'user123' can read a company doc if its `members` map
+     *              contains an entry for 'user123'.
+     * @deny        (list) Any user attempting to list all companies will be rejected to prevent data leakage.
+     * @deny        (update) A member with a 'viewer' role cannot update the company document.
+     * @principle   Enforces shared access via a denormalized list of collaborators on the resource itself.
+     */
+    match /companies/{companyId} {
+      allow get: if isCompanyMember(companyId);
+      allow list: if false; // Deny listing to prevent enumeration of all companies.
+      allow create: if isSignedIn() && request.resource.data.members[request.auth.uid] == 'admin';
+      allow update: if isCompanyAdmin() && docExists();
+      allow delete: if isCompanyAdmin() && docExists();
+    }
+
+    /**
+     * @description Secures all subcollections under a company (e.g., fiscalDocuments, taxObligations).
+     *              Access is granted by checking the `members` map on the parent company document.
+     * @path        /companies/{companyId}/{collection}/{documentId}
+     * @allow       (create) A member of 'company-abc' can create a new fiscal document within it.
+     * @deny        (get) A user who is not a member of 'company-abc' cannot read any of its documents.
+     * @deny        (update) A member cannot change the `companyId` field of an existing document.
+     * @principle   Restricts access to a data tree based on permissions defined on the root document.
+     */
+    match /companies/{companyId}/{collection}/{documentId} {
+      allow get, list: if isCompanyMember(companyId);
+      allow create: if isCreatingValidSubDoc(companyId);
+      allow update: if isUpdatingValidSubDoc(companyId);
+      allow delete: if isDeletingValidSubDoc(companyId);
+    }
+
+    /**
+     * @description Manages user profile documents. Rules enforce strict ownership, allowing users
+     *              to access and modify only their own data.
+     * @path        /users/{userId}
+     * @allow       (create) A new user with auth UID 'user123' can create their own profile document
+     *              at `/users/user123`.
+     * @deny        (get) A user with auth UID 'user123' cannot read the profile at `/users/user456`.
+     * @deny        (list) No user can list the contents of the `/users` collection.
+     * @principle   Restricts access to a user's own data tree (Ownership model).
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Prevent user enumeration for security and privacy.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && docExists() && request.resource.data.id == resource.data.id;
+      allow delete: if false; // User deletion should be handled by a secure backend process.
+    }
+  }
+}
