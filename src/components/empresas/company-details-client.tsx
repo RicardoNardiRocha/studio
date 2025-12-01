@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { doc } from 'firebase/firestore';
 
 interface Partner {
@@ -90,7 +90,8 @@ export function CompanyDetailsClient({ id }: { id: string }) {
       )
   }
 
-  if (!company && !isLoading) {
+  if ((!company && !isLoading) || error) {
+    if (error) console.error(error);
     notFound();
   }
   

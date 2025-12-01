@@ -26,7 +26,7 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
       <SidebarTrigger className="sm:hidden" />
       
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-foreground"><Home className="h-4 w-4" /></Link>
+        <Link href="/dashboard" className="hover:text-foreground"><Home className="h-4 w-4" /></Link>
         <ChevronsRight className="h-4 w-4" />
         <span className="font-medium text-foreground">{pageTitle}</span>
       </div>

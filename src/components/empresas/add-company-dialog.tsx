@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore } from '@/firebase/provider';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 
 interface AddCompanyDialogProps {
@@ -81,7 +82,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       onOpenChange(false);
       setCnpj('');
       // Navigate to the new company's detail page
-      router.push(`/empresas/${numericCnpj}`);
+      router.push(`/dashboard/empresas/${numericCnpj}`);
 
     } catch (error: any) {
       console.error(error);
