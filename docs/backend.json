@@ -314,6 +314,59 @@
         "role"
       ]
     },
+    "Partner": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Partner",
+      "type": "object",
+      "description": "Represents a partner or shareholder of one or more companies.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Partner, typically the CPF."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the partner."
+        },
+        "cpf": {
+          "type": "string",
+          "description": "CPF of the partner."
+        },
+        "hasECPF": {
+          "type": "boolean",
+          "description": "Indicates if the partner has an active e-CPF."
+        },
+        "ecpfValidity": {
+          "type": "string",
+          "description": "Expiration date of the e-CPF.",
+          "format": "date"
+        },
+        "govBrLogin": {
+          "type": "string",
+          "description": "Login for the GOV.BR portal."
+        },
+        "govBrPassword": {
+          "type": "string",
+          "description": "Password for the GOV.BR portal."
+        },
+        "associatedCompanies": {
+          "type": "array",
+          "description": "List of company IDs this partner is associated with.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "otherData": {
+          "type": "string",
+          "description": "Additional partner data."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "cpf"
+      ]
+    },
     "InternalCommunication": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "InternalCommunication",
@@ -376,6 +429,22 @@
             {
               "name": "companyId",
               "description": "Unique identifier for the company."
+            }
+          ]
+        }
+      },
+      {
+        "path": "partners/{partnerId}",
+        "definition": {
+          "entityName": "Partner",
+          "schema": {
+            "$ref": "#/backend/entities/Partner"
+          },
+          "description": "Represents a partner or shareholder. Stores personal and access data.",
+          "params": [
+            {
+              "name": "partnerId",
+              "description": "Unique identifier for the partner."
             }
           ]
         }

@@ -1,65 +1,142 @@
+'use client';
+
+import { useState } from 'react';
 import { AppHeader } from '@/components/layout/header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { corporateProcesses } from '@/lib/data';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { ChevronRight, PlusCircle } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
+import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
 
-const getStatusVariant = (status: string) => {
-    switch(status) {
-        case 'Em análise': return 'secondary';
-        case 'Em exigência': return 'destructive';
-        case 'Concluído': return 'default';
-        default: return 'outline';
-    }
-}
+export default function SocietarioPage() {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const firestore = useFirestore();
 
-export default function CorporatePage() {
+  const partnersCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'partners');
+  }, [firestore]);
+
+  const { data: partners, isLoading } = useCollection(partnersCollection);
+
+  const handlePartnerAdded = () => {
+    // A lista será atualizada automaticamente pelo useCollection
+  };
+
   return (
     <>
+      <AddPartnerDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onPartnerAdded={handlePartnerAdded}
+      />
       <AppHeader pageTitle="Módulo Societário" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
-        <div className="flex justify-between items-center">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
             <div>
-                <h1 className="text-2xl font-headline font-bold">Processos Societários</h1>
-                <p className="text-muted-foreground">Gerencie aberturas, alterações e encerramentos de empresas.</p>
+              <CardTitle className="font-headline">
+                Cadastro de Sócios e Administradores
+              </CardTitle>
+              <CardDescription>
+                Gerencie os sócios e administradores de todas as empresas.
+              </CardDescription>
             </div>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Novo Processo
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Sócio
             </Button>
-        </div>
-        
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {corporateProcesses.map((process, index) => (
-                <Card key={index}>
-                    <CardHeader>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <CardTitle className="text-base font-semibold">{process.type}</CardTitle>
-                                <CardDescription>{process.company}</CardDescription>
-                            </div>
-                            <Badge variant={getStatusVariant(process.status)}>{process.status}</Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Fase Atual:</span>
-                            <span className="font-medium">{process.stage}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Responsável:</span>
-                            <span className="font-medium">{process.assignee}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Data Início:</span>
-                            <span className="font-medium">{process.date}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome do Sócio</TableHead>
+                  <TableHead>CPF</TableHead>
+                  <TableHead>E-CPF Ativo?</TableHead>
+                  <TableHead>Validade do E-CPF</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Ações</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-5 w-48" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-32" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-20" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : partners && partners.length > 0 ? (
+                  partners.map((partner) => (
+                    <TableRow key={partner.id}>
+                      <TableCell className="font-medium">
+                        {partner.name}
+                      </TableCell>
+                      <TableCell>{partner.cpf}</TableCell>
+                      <TableCell>
+                        <Badge variant={partner.hasECPF ? 'default' : 'secondary'}>
+                          {partner.hasECPF ? 'Sim' : 'Não'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {partner.ecpfValidity
+                          ? new Date(partner.ecpfValidity).toLocaleDateString('pt-BR')
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild variant="outline" size="icon">
+                          <Link href={`/dashboard/societario/${partner.id}`}>
+                            <ChevronRight className="h-4 w-4" />
+                            <span className="sr-only">Detalhes</span>
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      Nenhum sócio encontrado. Adicione um para começar.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </main>
     </>
   );

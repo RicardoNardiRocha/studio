@@ -1,4 +1,3 @@
-
 import { FileText, CalendarClock, AlertTriangle, Building, Workflow, Users, FileWarning } from 'lucide-react';
 
 export const kpiData = [
@@ -73,13 +72,6 @@ export const documents = [
     { name: 'Balanço 2023 - AgroForte.xlsx', type: 'Contábil', company: 'AgroForte Produtos', expiry: 'N/A', assignee: 'Carlos' },
     { name: 'Procuração RFB - Techware.pdf', type: 'Procuração', company: 'Techware Software', expiry: '01/06/2025', assignee: 'Ana' },
 ]
-
-export const corporateProcesses = [
-    { type: 'Abertura de Empresa', company: 'Startup Visionária Ltda', status: 'Em análise', stage: 'Viabilidade', assignee: 'Carlos', date: '15/07/2024' },
-    { type: 'Alteração Contratual', company: 'Comércio Varejista XYZ', status: 'Em exigência', stage: 'JUCESP', assignee: 'Ana', date: '10/07/2024' },
-    { type: 'Encerramento de Empresa', company: 'Serviços Gerais & Cia', status: 'Concluído', stage: 'Receita Federal', assignee: 'Beatriz', date: '01/07/2024' },
-    { type: 'Abertura de Filial', company: 'Inovatech Soluções', status: 'Em análise', stage: 'Prefeitura', assignee: 'Carlos', date: '18/07/2024' },
-];
 
 export const obligations = [
   { id: '1', name: 'DASN-SIMEI', sector: 'Fiscal', due: '31/05/2025', assignee: 'Ana', status: 'gerar' },
