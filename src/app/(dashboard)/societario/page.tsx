@@ -19,15 +19,19 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link';
 import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
+import { PartnerDetailsDialog } from '@/components/societario/partner-details-dialog';
+import type { Partner } from '@/components/societario/partner-details-dialog';
 
 export default function SocietarioPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+
   const firestore = useFirestore();
 
   const partnersCollection = useMemoFirebase(() => {
@@ -35,19 +39,38 @@ export default function SocietarioPage() {
     return collection(firestore, 'partners');
   }, [firestore]);
 
-  const { data: partners, isLoading } = useCollection(partnersCollection);
+  const { data: partners, isLoading } = useCollection<Partner>(partnersCollection);
 
   const handlePartnerAdded = () => {
     // A lista será atualizada automaticamente pelo useCollection
   };
 
+  const handleOpenDetails = (partner: Partner) => {
+    setSelectedPartner(partner);
+    setIsDetailsDialogOpen(true);
+  };
+  
+  const handleDetailsUpdated = () => {
+    // A lista será atualizada automaticamente pelo useCollection
+  }
+
   return (
     <>
       <AddPartnerDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
         onPartnerAdded={handlePartnerAdded}
       />
+      {selectedPartner && (
+        <PartnerDetailsDialog
+          key={selectedPartner.id}
+          partner={selectedPartner}
+          open={isDetailsDialogOpen}
+          onOpenChange={setIsDetailsDialogOpen}
+          onPartnerUpdated={handleDetailsUpdated}
+        />
+      )}
+
       <AppHeader pageTitle="Módulo Societário" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <Card>
@@ -60,7 +83,7 @@ export default function SocietarioPage() {
                 Gerencie os sócios e administradores de todas as empresas.
               </CardDescription>
             </div>
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Adicionar Sócio
             </Button>
@@ -95,7 +118,7 @@ export default function SocietarioPage() {
                         <Skeleton className="h-5 w-20" />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <Skeleton className="h-8 w-8" />
                       </TableCell>
                     </TableRow>
                   ))
@@ -113,15 +136,13 @@ export default function SocietarioPage() {
                       </TableCell>
                       <TableCell>
                         {partner.ecpfValidity
-                          ? new Date(partner.ecpfValidity).toLocaleDateString('pt-BR')
+                          ? new Date(partner.ecpfValidity + 'T00:00:00-03:00').toLocaleDateString('pt-BR')
                           : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="icon">
-                          <Link href={`/societario/${partner.id}`}>
-                            <ChevronRight className="h-4 w-4" />
-                            <span className="sr-only">Detalhes</span>
-                          </Link>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDetails(partner)}>
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Ver Detalhes</span>
                         </Button>
                       </TableCell>
                     </TableRow>
