@@ -1,23 +1,12 @@
 import { AppHeader } from '@/components/layout/header';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ObligationsTable } from '@/components/obrigacoes/obligations-table';
+import { CorporateProcessesClient } from '@/components/processos/corporate-processes-client';
 
-export default function ObligationsPage() {
+export default function CorporateProcessesPage() {
   return (
     <>
-      <AppHeader pageTitle="Obrigações Gerais" />
+      <AppHeader pageTitle="Módulo de Processos" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
-        <Card>
-          <CardHeader>
-            <CardTitle className='font-headline'>Painel de Controle de Obrigações</CardTitle>
-            <CardDescription>
-              Visualize e gerencie todas as obrigações do escritório em um único lugar.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ObligationsTable />
-          </CardContent>
-        </Card>
+        <CorporateProcessesClient />
       </main>
     </>
   );

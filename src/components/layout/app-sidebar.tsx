@@ -14,10 +14,10 @@ import {
   Layers,
   Building,
   Briefcase,
-  BookUser,
   ShieldCheck,
   FolderOpen,
   FileCog,
+  Workflow,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -28,15 +28,17 @@ const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
   { href: '/empresas', label: 'Empresas', icon: Building },
   { href: '/societario', label: 'Societário', icon: Briefcase },
+  { href: '/processos', label: 'Processos', icon: Workflow },
   { href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
   { href: '/fiscal', label: 'Fiscal', icon: FileCog },
   { href: '/documentos', label: 'Documentos', icon: FolderOpen },
-  { href: '/contabil', label: 'Contábil', icon: BookUser },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar-1');
+
+  const processedPathname = pathname.split('/')[1] || 'dashboard';
 
   return (
     <Sidebar>
@@ -53,7 +55,7 @@ export function AppSidebar() {
               <Link href={item.href} passHref>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href)}
                   tooltip={item.label}
                   className="justify-start"
                 >
@@ -75,7 +77,7 @@ export function AppSidebar() {
           </Avatar>
           <div className="flex flex-col">
             <span className="font-semibold text-sidebar-foreground">Admin</span>
-            <span className="text-xs text-muted-foreground">admin@contaflow.com</span>
+            <span className="text-xs text-muted-foreground">admin@contabilx.com</span>
           </div>
         </div>
       </SidebarFooter>
