@@ -56,16 +56,22 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       
       const data = await response.json();
       
+      // Lógica aprimorada para determinar o regime tributário
+      let taxRegime = "Lucro Presumido / Real";
+      if (data.opcao_pelo_simples || data.simples_nacional) {
+        taxRegime = "Simples Nacional";
+      }
+      
       const newCompany = {
         id: data.cnpj,
         name: data.razao_social,
         cnpj: data.cnpj,
-        taxRegime: data.opcao_pelo_simples ? "Simples Nacional" : (data.descricao_regime_tributario || "Não informado"),
+        taxRegime: taxRegime,
         status: data.descricao_situacao_cadastral,
         startDate: data.data_inicio_atividade ? new Date(data.data_inicio_atividade).toLocaleDateString('pt-BR') : 'N/A',
         fantasyName: data.nome_fantasia || '',
         cnae: data.cnae_fiscal_descricao || '',
-        address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/ - /g,', '),
+        address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/,  -/g,', '),
         phone: data.ddd_telefone_1 || '',
         email: data.email || '',
         capital: data.capital_social || 0,
