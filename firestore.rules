@@ -58,9 +58,10 @@ service cloud.firestore {
     /**
      * Checks if the user is a global administrator.
      * This is determined by the existence of their UID in the /roles_admin collection.
+     * Includes a hardcoded MASTER ADMIN UID.
      */
     function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || request.auth.uid == "GQ6XSRZEKBSDiaLWzszV8gRzELW2";
     }
 
     /**
@@ -69,15 +70,6 @@ service cloud.firestore {
      */
     function isCompanyMember(companyId) {
       return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
-    }
-
-    /**
-     * Checks if a user is an admin of a specific company.
-     * Important: This function is safe for read rules, but NOT for write/update/delete
-     * because `get()` cannot target the document being modified.
-     */
-    function isCompanyAdmin(companyId) {
-      return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] == 'admin';
     }
     
     /**
@@ -97,8 +89,12 @@ service cloud.firestore {
       return isAdmin() || isCompanyMember(companyId);
     }
     
+    /**
+     * Checks if the user creating the company is assigning themselves as admin.
+     */
     function isCreatingOwnCompany() {
-      return request.resource.data.members[request.auth.uid] == 'admin';
+      // On create, request.resource.data represents the document to be created.
+      return isSignedIn() && request.resource.data.members[request.auth.uid] == 'admin';
     }
 
 
@@ -199,8 +195,8 @@ service cloud.firestore {
       allow get: if canReadCompanyData(companyId);
       // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && isCreatingOwnCompany();
-      allow update: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
+      allow create: if isCreatingOwnCompany();
+      allow update: if isSignedIn();
       allow delete: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
     }
     
