@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, useAuth } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 
@@ -29,7 +29,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useAuth();
+  const { user } = useUser();
 
 
   const handleSubmit = async (event: React.FormEvent) => {
