@@ -26,12 +26,12 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
-  { href: '/dashboard/empresas', label: 'Empresas', icon: Building },
-  { href: '/dashboard/societario', label: 'Societário', icon: Briefcase },
-  { href: '/dashboard/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
-  { href: '/dashboard/fiscal', label: 'Fiscal', icon: FileCog },
-  { href: '/dashboard/documentos', label: 'Documentos', icon: FolderOpen },
-  { href: '/dashboard/contabil', label: 'Contábil', icon: BookUser },
+  { href: '/empresas', label: 'Empresas', icon: Building },
+  { href: '/societario', label: 'Societário', icon: Briefcase },
+  { href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
+  { href: '/fiscal', label: 'Fiscal', icon: FileCog },
+  { href: '/documentos', label: 'Documentos', icon: FolderOpen },
+  { href: '/contabil', label: 'Contábil', icon: BookUser },
 ];
 
 export function AppSidebar() {
