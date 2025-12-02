@@ -44,7 +44,8 @@ export default function LoginPage() {
       let errorMessage = 'Ocorreu um erro desconhecido.';
       switch (error.code) {
         case 'auth/user-not-found':
-          errorMessage = 'Nenhum usuário encontrado com este e-mail.';
+        case 'auth/invalid-credential':
+          errorMessage = 'Credenciais inválidas. Verifique seu e-mail e senha.';
           break;
         case 'auth/wrong-password':
           errorMessage = 'Senha incorreta. Por favor, tente novamente.';
@@ -77,8 +78,8 @@ export default function LoginPage() {
       return;
     }
     setIsGoogleLoading(true);
+    const provider = new GoogleAuthProvider();
     try {
-      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       toast({
         title: 'Login bem-sucedido!',
