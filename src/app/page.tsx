@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,7 +12,7 @@ export default function LandingPage() {
       <header className="px-4 lg:px-6 h-14 flex items-center bg-background sticky top-0 z-50 border-b">
         <Link href="#" className="flex items-center justify-center" prefetch={false}>
           <Layers className="h-6 w-6 text-primary" />
-          <span className="sr-only">ContaFlow ERP</span>
+          <span className="sr-only">ContabilX ERP</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
           <Link
@@ -50,7 +51,7 @@ export default function LandingPage() {
                     O ERP Inteligente para Escritórios de Contabilidade
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                    Automatize tarefas, gerencie clientes e ganhe tempo com o ContaFlow. A plataforma completa que integra todos os seus processos.
+                    Automatize tarefas, gerencie clientes e ganhe tempo com o ContabilX. A plataforma completa que integra todos os seus processos.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
@@ -119,13 +120,13 @@ export default function LandingPage() {
                 O que nossos clientes dizem
               </h2>
               <p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                Veja como o ContaFlow está transformando escritórios de contabilidade.
+                Veja como o ContabilX está transformando escritórios de contabilidade.
               </p>
             </div>
             <div className="grid w-full grid-cols-1 lg:grid-cols-3 gap-6 pt-8">
               <Card>
                 <CardContent className="p-6">
-                  <p className="text-lg font-normal">"O ContaFlow revolucionou nossa forma de trabalhar. A automação de tarefas repetitivas nos deu mais tempo para focar na estratégia dos clientes."</p>
+                  <p className="text-lg font-normal">"O ContabilX revolucionou nossa forma de trabalhar. A automação de tarefas repetitivas nos deu mais tempo para focar na estratégia dos clientes."</p>
                 </CardContent>
                 <CardHeader className="flex flex-row items-center gap-4 pt-0">
                   <Avatar>
@@ -237,7 +238,7 @@ export default function LandingPage() {
         </section>
       </main>
       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; 2024 ContaFlow ERP. Todos os direitos reservados.</p>
+        <p className="text-xs text-muted-foreground">&copy; 2024 ContabilX ERP. Todos os direitos reservados.</p>
         <nav className="sm:ml-auto flex gap-4 sm:gap-6">
           <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
             Termos de Serviço

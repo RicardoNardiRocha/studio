@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -107,7 +108,7 @@ export default function LoginPage() {
             Acesse sua conta
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Bem-vindo de volta ao ContaFlow
+            Bem-vindo de volta ao ContabilX
           </p>
         </div>
         <Card>

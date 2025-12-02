@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Poppins, Inter } from 'next/font/google';
 import './globals.css';
@@ -17,7 +18,7 @@ const fontInter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'ContaFlow ERP',
+  title: 'ContabilX ERP',
   description: 'Plataforma completa para gestão de escritórios de contabilidade.',
 };
 
