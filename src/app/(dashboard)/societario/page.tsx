@@ -118,7 +118,7 @@ export default function SocietarioPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="icon">
-                          <Link href={`/dashboard/societario/${partner.id}`}>
+                          <Link href={`/societario/${partner.id}`}>
                             <ChevronRight className="h-4 w-4" />
                             <span className="sr-only">Detalhes</span>
                           </Link>
