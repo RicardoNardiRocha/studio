@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import {
   Card,
@@ -19,11 +18,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
+import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -37,7 +37,10 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 };
 
 export function CompaniesClient() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+
   const firestore = useFirestore();
 
   const companiesCollection = useMemoFirebase(() => {
@@ -45,19 +48,34 @@ export function CompaniesClient() {
     return collection(firestore, 'companies');
   }, [firestore]);
   
-  const { data: companies, isLoading } = useCollection(companiesCollection);
+  const { data: companies, isLoading } = useCollection<Company>(companiesCollection);
 
-  const handleCompanyAdded = () => {
-    // Data is now handled by the real-time listener from useCollection
+  const handleAction = () => {
+    // a lista será atualizada automaticamente pelo useCollection
+  };
+
+  const handleOpenDetails = (company: Company) => {
+    setSelectedCompany(company);
+    setIsDetailsDialogOpen(true);
   };
 
   return (
     <>
       <AddCompanyDialog 
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onCompanyAdded={handleCompanyAdded}
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onCompanyAdded={handleAction}
       />
+      {selectedCompany && (
+         <CompanyDetailsDialog
+          key={selectedCompany.id}
+          company={selectedCompany}
+          open={isDetailsDialogOpen}
+          onOpenChange={setIsDetailsDialogOpen}
+          onCompanyUpdated={handleAction}
+          onCompanyDeleted={handleAction}
+        />
+      )}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -66,7 +84,7 @@ export function CompaniesClient() {
               Visualize e gerencie todas as empresas atendidas pelo escritório.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Nova Empresa
           </Button>
@@ -94,7 +112,7 @@ export function CompaniesClient() {
                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-full" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
                 ))
               ) : companies && companies.length > 0 ? (
@@ -108,12 +126,10 @@ export function CompaniesClient() {
                       <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="outline" size="icon">
-                        <Link href={`/dashboard/empresas/${company.id.replace(/[^\\d]/g, "")}`}>
-                          <ChevronRight className="h-4 w-4" />
-                          <span className="sr-only">Detalhes</span>
-                        </Link>
-                      </Button>
+                       <Button variant="outline" size="icon" onClick={() => handleOpenDetails(company)}>
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Ver Detalhes</span>
+                        </Button>
                     </TableCell>
                   </TableRow>
                 ))

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useFirestore } from '@/firebase/provider';
+import { useFirestore, useAuth } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 
@@ -28,9 +27,10 @@ interface AddCompanyDialogProps {
 export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddCompanyDialogProps) {
   const [cnpj, setCnpj] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useAuth();
+
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -38,6 +38,11 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive"});
         return;
     }
+     if (!user) {
+      toast({ title: "Erro", description: "Você precisa estar autenticado para adicionar uma empresa.", variant: "destructive"});
+      return;
+    }
+
     setIsLoading(true);
 
     const numericCnpj = cnpj.replace(/[^\d]/g, '');
@@ -55,7 +60,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         id: data.cnpj,
         name: data.razao_social,
         cnpj: data.cnpj,
-        taxRegime: data.opcao_pelo_simples ? "Simples Nacional" : (data.regime_tributario && data.regime_tributario.length > 0 ? data.regime_tributario[0].forma_de_tributacao : "Não informado"),
+        taxRegime: data.opcao_pelo_simples ? "Simples Nacional" : (data.descricao_regime_tributario || "Não informado"),
         status: data.descricao_situacao_cadastral,
         startDate: data.data_inicio_atividade ? new Date(data.data_inicio_atividade).toLocaleDateString('pt-BR') : 'N/A',
         fantasyName: data.nome_fantasia || '',
@@ -67,7 +72,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         legalNature: data.natureza_juridica || '',
         porte: data.porte || '',
         qsa: data.qsa || [],
-        members: { 'adminUserId': 'admin' } // Placeholder for RBAC
+        members: { [user.uid]: 'admin' }
       };
       
       const companyRef = doc(firestore, 'companies', newCompany.id);
@@ -81,8 +86,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       onCompanyAdded();
       onOpenChange(false);
       setCnpj('');
-      // Navigate to the new company's detail page
-      router.push(`/dashboard/empresas/${numericCnpj}`);
 
     } catch (error: any) {
       console.error(error);
