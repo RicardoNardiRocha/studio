@@ -72,6 +72,13 @@ service cloud.firestore {
     }
 
     /**
+     * Checks if a user is an admin of a specific company.
+     */
+    function isCompanyAdmin(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] == 'admin';
+    }
+
+    /**
      * Combines admin and company member checks for granting read access.
      */
     function canReadCompanyData(companyId) {
@@ -181,8 +188,8 @@ service cloud.firestore {
       // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isCreatingOwnCompany();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if (isAdmin() || isCompanyAdmin(companyId)) && resource != null;
+      allow delete: if (isAdmin() || isCompanyAdmin(companyId)) && resource != null;
     }
     
     match /partners/{partnerId} {
