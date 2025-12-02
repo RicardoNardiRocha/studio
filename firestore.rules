@@ -73,8 +73,8 @@ service cloud.firestore {
 
     /**
      * Checks if a user is an admin of a specific company.
-     * Important: This function is safe for read and update, but NOT for delete rules
-     * because `get()` cannot target the document being deleted.
+     * Important: This function is safe for read rules, but NOT for write/update/delete
+     * because `get()` cannot target the document being modified.
      */
     function isCompanyAdmin(companyId) {
       return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] == 'admin';
@@ -200,7 +200,7 @@ service cloud.firestore {
       // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isCreatingOwnCompany();
-      allow update: if (isAdmin() || isCompanyAdmin(companyId)) && resource != null;
+      allow update: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
       allow delete: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
     }
     
