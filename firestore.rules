@@ -36,9 +36,9 @@
  *     parent company to verify membership, making the entire data tree secure.
  *
  * ## Structural Segregation
- * The separation of `/companies` and `users` into distinct top-level collections is a deliberate
+ * The separation of `/companies`, `/users`, and `/partners` into distinct top-level collections is a deliberate
  * choice. This ensures that security rules for company data (shared, collaborative) do not conflict
- * with rules for user data (private, owner-only), improving clarity, performance, and security.
+ * with rules for user or partner data (private or firm-wide), improving clarity and security.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -160,6 +160,17 @@ service cloud.firestore {
       allow create: if isCreatingValidSubDoc(companyId);
       allow update: if isUpdatingValidSubDoc(companyId);
       allow delete: if isDeletingValidSubDoc(companyId);
+    }
+    
+    /**
+     * @description Controls access to the partners collection. This data is considered internal
+     *              to the accounting firm.
+     * @path        /partners/{partnerId}
+     * @allow       (read, list, write) Any authenticated user (firm employee) can manage partner data.
+     * @principle   Grants full access to authenticated users for firm-wide data management.
+     */
+    match /partners/{partnerId} {
+        allow read, write: if isSignedIn();
     }
 
     /**
