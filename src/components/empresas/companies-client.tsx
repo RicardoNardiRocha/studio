@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, PlusCircle } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 
@@ -109,7 +109,7 @@ export function CompaniesClient() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="outline" size="icon">
-                        <Link href={`/dashboard/empresas/${company.id.replace(/[^\d]/g, "")}`}>
+                        <Link href={`/dashboard/empresas/${company.id.replace(/[^\\d]/g, "")}`}>
                           <ChevronRight className="h-4 w-4" />
                           <span className="sr-only">Detalhes</span>
                         </Link>

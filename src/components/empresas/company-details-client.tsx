@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase/provider';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
 interface Partner {
@@ -52,7 +52,7 @@ export function CompanyDetailsClient({ id }: { id: string }) {
 
   const companyRef = useMemoFirebase(() => {
     if (!firestore || !id) return null;
-    const formattedId = id.replace(/[^\d]/g, "");
+    const formattedId = id.replace(/[^\\d]/g, "");
     return doc(firestore, 'companies', formattedId);
   }, [firestore, id]);
 
