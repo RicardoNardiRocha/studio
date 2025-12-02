@@ -58,9 +58,10 @@ service cloud.firestore {
     /**
      * Checks if the user is a global administrator.
      * This is determined by the existence of their UID in the /roles_admin collection.
+     * Includes a hardcoded MASTER ADMIN UID.
      */
     function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || request.auth.uid == "GQ6XSRZEKBSDiaLWzszV8gRzELW2";
     }
 
     /**
