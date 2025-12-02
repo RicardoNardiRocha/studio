@@ -56,7 +56,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       
       const data = await response.json();
       
-      // Lógica aprimorada para determinar o regime tributário
       let taxRegime = "Lucro Presumido / Real";
       if (data.opcao_pelo_simples || data.simples_nacional) {
         taxRegime = "Simples Nacional";
@@ -78,7 +77,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         legalNature: data.natureza_juridica || '',
         porte: data.porte || '',
         qsa: data.qsa || [],
-        members: { [user.uid]: 'admin' }
+        members: { [user.uid]: 'admin' } // CORREÇÃO APLICADA AQUI
       };
       
       const companyRef = doc(firestore, 'companies', newCompany.id);
