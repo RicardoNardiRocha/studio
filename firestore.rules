@@ -140,7 +140,7 @@ service cloud.firestore {
      */
     match /companies/{companyId} {
       allow get: if isMemberOfTheCompanyInResource();
-      allow list: if isSignedIn(); 
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.members[request.auth.uid] == 'admin';
       allow update: if isCompanyAdmin() && docExists();
       allow delete: if isCompanyAdmin() && docExists();
