@@ -21,12 +21,23 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon } from 'lucide-react';
+import { Loader2, CalendarIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -36,6 +47,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Textarea } from '../ui/textarea';
 import { Separator } from '../ui/separator';
+
 
 export interface Partner {
   id: string;
@@ -54,6 +66,7 @@ interface PartnerDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPartnerUpdated: () => void;
+  onPartnerDeleted: () => void;
 }
 
 const formSchema = z.object({
@@ -73,8 +86,10 @@ export function PartnerDetailsDialog({
   open,
   onOpenChange,
   onPartnerUpdated,
+  onPartnerDeleted,
 }: PartnerDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -90,6 +105,21 @@ export function PartnerDetailsDialog({
       otherData: partner.otherData || '',
     },
   });
+
+  const handleDelete = () => {
+     if (!firestore) {
+      toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive"});
+      return;
+    }
+    const partnerRef = doc(firestore, 'partners', partner.id);
+    deleteDocumentNonBlocking(partnerRef);
+    toast({
+      title: "Sócio Excluído",
+      description: `${partner.name} foi removido(a) do sistema.`
+    });
+    onPartnerDeleted();
+    onOpenChange(false);
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!firestore) {
@@ -129,7 +159,7 @@ export function PartnerDetailsDialog({
 
       onPartnerUpdated();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: any) => {
       console.error(error);
       toast({
         title: 'Erro ao atualizar sócio',
@@ -255,9 +285,24 @@ export function PartnerDetailsDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Senha GOV.BR</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Não altere se não for necessário" {...field} />
-                  </FormControl>
+                   <div className="relative">
+                    <FormControl>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Não altere se não for necessário"
+                        {...field}
+                      />
+                    </FormControl>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff /> : <Eye />}
+                    </Button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -294,14 +339,38 @@ export function PartnerDetailsDialog({
               )}
             </div>
 
-            <DialogFooter className="pt-4 bg-background sticky bottom-0">
-              <DialogClose asChild>
-                <Button type="button" variant="ghost">Cancelar</Button>
-              </DialogClose>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar Alterações
-              </Button>
+            <DialogFooter className="pt-4 bg-background sticky bottom-0 flex-row justify-between">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir Sócio
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. Isso irá excluir permanentemente os dados do sócio <strong>{partner.name}</strong> do sistema.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                      Sim, excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <div className="flex gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="ghost">Cancelar</Button>
+                </DialogClose>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Salvar Alterações
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>

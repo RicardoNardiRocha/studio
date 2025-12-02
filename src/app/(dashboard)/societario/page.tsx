@@ -50,8 +50,9 @@ export default function SocietarioPage() {
     setIsDetailsDialogOpen(true);
   };
   
-  const handleDetailsUpdated = () => {
+  const handlePartnerAction = () => {
     // A lista será atualizada automaticamente pelo useCollection
+    // Esta função pode ser usada tanto para updates quanto para deletes
   }
 
   return (
@@ -67,7 +68,8 @@ export default function SocietarioPage() {
           partner={selectedPartner}
           open={isDetailsDialogOpen}
           onOpenChange={setIsDetailsDialogOpen}
-          onPartnerUpdated={handleDetailsUpdated}
+          onPartnerUpdated={handlePartnerAction}
+          onPartnerDeleted={handlePartnerAction}
         />
       )}
 
