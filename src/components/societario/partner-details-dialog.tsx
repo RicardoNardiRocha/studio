@@ -159,7 +159,7 @@ export function PartnerDetailsDialog({
 
       onPartnerUpdated();
       onOpenChange(false);
-    } catch (error: any) => {
+    } catch (error: any) {
       console.error(error);
       toast({
         title: 'Erro ao atualizar sócio',
