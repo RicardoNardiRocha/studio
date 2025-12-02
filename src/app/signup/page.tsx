@@ -9,19 +9,19 @@ import { Label } from '@/components/ui/label';
 import { Layers, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
-export default function LoginPage() {
+export default function SignupPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) {
       toast({
@@ -33,68 +33,47 @@ export default function LoginPage() {
     }
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update the user's profile with the name
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: name });
+      }
+
       toast({
-        title: 'Login bem-sucedido!',
+        title: 'Cadastro realizado com sucesso!',
         description: 'Redirecionando para o dashboard...',
       });
+      
+      // Redirect to the dashboard
       router.push('/dashboard');
+
     } catch (error: any) {
       let errorMessage = 'Ocorreu um erro desconhecido.';
       switch (error.code) {
-        case 'auth/user-not-found':
-          errorMessage = 'Nenhum usuário encontrado com este e-mail.';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Senha incorreta. Por favor, tente novamente.';
+        case 'auth/email-already-in-use':
+          errorMessage = 'Este e-mail já está em uso por outra conta.';
           break;
         case 'auth/invalid-email':
           errorMessage = 'O formato do e-mail é inválido.';
           break;
+        case 'auth/weak-password':
+          errorMessage = 'A senha é muito fraca. Ela deve ter no mínimo 6 caracteres.';
+          break;
         default:
-          errorMessage = 'Erro ao fazer login. Verifique suas credenciais.';
+          errorMessage = 'Erro ao criar conta. Tente novamente.';
           break;
       }
       toast({
-        title: 'Erro de Login',
+        title: 'Erro no Cadastro',
         description: errorMessage,
         variant: 'destructive',
       });
-      console.error('Login error:', error);
+      console.error('Signup error:', error);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleGoogleLogin = async () => {
-    if (!auth) {
-      toast({
-        title: 'Erro de Autenticação',
-        description: 'O serviço de autenticação não está disponível.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setIsGoogleLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      toast({
-        title: 'Login bem-sucedido!',
-        description: 'Redirecionando para o dashboard...',
-      });
-      router.push('/dashboard');
-    } catch (error: any) {
-      toast({
-        title: 'Erro com Login Google',
-        description: error.message || 'Não foi possível fazer login com o Google.',
-        variant: 'destructive',
-      });
-      console.error('Google login error:', error);
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -104,19 +83,31 @@ export default function LoginPage() {
             <Layers className="h-10 w-10 text-primary mx-auto" />
           </Link>
           <h1 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-gray-100 font-headline">
-            Acesse sua conta
+            Crie sua conta
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Bem-vindo de volta ao ContaFlow
+            Comece a transformar seu escritório contábil hoje.
           </p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>Insira seu e-mail e senha para continuar.</CardDescription>
+            <CardTitle>Cadastro</CardTitle>
+            <CardDescription>Preencha os campos abaixo para criar sua conta.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleSignup} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome Completo</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Seu nome"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -126,38 +117,31 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Senha</Label>
-                  <Link href="#" className="ml-auto inline-block text-sm underline" prefetch={false}>
-                    Esqueceu sua senha?
-                  </Link>
-                </div>
+                <Label htmlFor="password">Senha</Label>
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Mínimo 6 caracteres"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar'}
-              </Button>
-              <Button variant="outline" className="w-full" disabled={isLoading || isGoogleLoading} onClick={handleGoogleLogin} type="button">
-                 {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar com Google'}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Criar Conta'}
               </Button>
             </form>
           </CardContent>
         </Card>
         <div className="text-center text-sm text-muted-foreground">
-          Não tem uma conta?{' '}
-          <Link href="/signup" className="underline" prefetch={false}>
-            Cadastre-se
+          Já tem uma conta?{' '}
+          <Link href="/login" className="underline" prefetch={false}>
+            Faça login
           </Link>
         </div>
       </div>
