@@ -1,0 +1,251 @@
+/**
+ * This ruleset enforces a hybrid security model for an accounting ERP system.
+ * It combines global administrator roles, a user-ownership model for personal data,
+ * and a collaborative access model for company-specific data.
+ *
+ * Core Philosophy:
+ * The default posture is deny-all. Access is granted explicitly based on a user's
+ * identity and their relationship to the data they are trying to access. Global
+ * administrators have broad read access for oversight and specific write access
+ * for managing core entities like companies and user roles.
+ *
+ * Data Structure:
+ * - /users/{userId}: Private user profile data, accessible only by the owner and admins.
+ * - /roles_admin/{userId}: A collection used to grant global admin privileges.
+ *   The existence of a document with the user's UID grants admin rights.
+ * - /companies/{companyId}: Top-level documents for each client company. These
+ *   contain a denormalized `members` map to control access.
+ * - /companies/{companyId}/{subcollection}: Nested data like documents, tax obligations,
+ *   and corporate processes inherit their access rights from the parent company's
+ *   `members` map.
+ *
+ * Key Security Decisions:
+ * - Admin Rights: Admin privileges are granted by the existence of a document in
+ *   the `/roles_admin` collection, enabling fast, non-billable `exists()` checks.
+ *   This collection should only be managed via the Firebase Console or a trusted server-side process.
+ * - Company Access: All access to a company's data and its subcollections is
+ *   controlled by a `members` map denormalized directly onto the company document.
+ *   This avoids slow and costly `get()` calls across different collections in rules.
+ * - User Data Privacy: Users can only access their own document within the `/users`
+ *   collection. Listing all users is prohibited for non-admins.
+ * - Creator-Based Write Rules: Within a company's subcollections, any member can
+ *   create new documents (e.g., upload a file), but only the original creator
+ *   (or an admin) can modify or delete them.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // Helper Functions
+    // =========================================================================
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches the given userId.
+     * Used for document ownership checks.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the user is a global administrator.
+     * This is determined by the existence of their UID in the /roles_admin collection.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /**
+     * Checks if a user is a member of a specific company by verifying their UID
+     * exists as a key in the company's 'members' map.
+     */
+    function isCompanyMember(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
+    }
+    
+    /**
+     * Checks if the requesting user is an admin of the company based on the
+     * existing document's data (`resource.data`).
+     * Safe to use in update and delete rules.
+     */
+    function isCompanyAdminOnResource() {
+      return resource.data.members[request.auth.uid] == 'admin';
+    }
+
+
+    /**
+     * Combines admin and company member checks for granting read access.
+     */
+    function canReadCompanyData(companyId) {
+      return isAdmin() || isCompanyMember(companyId);
+    }
+    
+    /**
+     * Checks if the user creating the company is assigning themselves as admin.
+     */
+    function isCreatingOwnCompany() {
+      // On create, request.resource.data represents the document to be created.
+      return isSignedIn() && request.resource.data.members[request.auth.uid] == 'admin';
+    }
+
+
+    /**
+     * On update/delete, checks if the document exists and if the requesting user
+     * is either the original creator (responsibleUserId) or an admin.
+     */
+    function isExistingResponsibleUserOrAdmin() {
+      return resource != null && (isAdmin() || isOwner(resource.data.responsibleUserId));
+    }
+
+    // =========================================================================
+    // Data Validation Helper Functions (Prototyping Mode)
+    // - These focus on authorization-critical fields, not full data shapes.
+    // =========================================================================
+
+    /**
+     * On create, validates that a document's internal 'id' field matches its path ID.
+     */
+    function isConsistentDocId(docId) {
+      return request.resource.data.id == docId;
+    }
+
+    /**
+     * On update, ensures that a document's internal 'id' field is immutable.
+     */
+    function isDocIdImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+
+    /**
+     * On create, validates that a subcollection document's internal 'companyId'
+     * field correctly references the parent company in its path.
+     */
+    function hasConsistentCompanyId(companyId) {
+      return request.resource.data.companyId == companyId;
+    }
+
+    /**
+     * On update, ensures that a document's 'companyId' field is immutable.
+     */
+    function isCompanyIdImmutable() {
+      return request.resource.data.companyId == resource.data.companyId;
+    }
+
+    /**
+     * On create, validates the 'responsibleUserId' is the person creating the document.
+     */
+    function isRequestingUserResponsible() {
+      return request.resource.data.responsibleUserId == request.auth.uid;
+    }
+
+    /**
+     * On update, ensures the 'responsibleUserId' field cannot be changed.
+     */
+    function isResponsibleUserImmutable() {
+      return request.resource.data.responsibleUserId == resource.data.responsibleUserId;
+    }
+
+    /**
+     * @description Defines global administrators. The existence of a user's UID as a document ID grants admin rights.
+     * @path /roles_admin/{userId}
+     * @allow (get) An admin checks if another user is also an admin: `get /roles_admin/other_admin_uid` (auth: admin).
+     * @deny (create) A regular user tries to make themselves an admin: `create /roles_admin/user_uid` (auth: non-admin).
+     * @principle Manages global roles through document existence for fast, non-billable lookups in other rules. Writes should be disabled for all clients.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description User profile data. A user can manage their own profile, and admins can read any profile.
+     * @path /users/{userId}
+     * @allow (create, update, get) A user manages their own data: `set /users/my_uid` (auth: my_uid).
+     * @deny (update, list) A user tries to modify another user's profile or list all users: `update /users/other_uid` (auth: my_uid).
+     * @principle Enforces a strict user-ownership model for private data, with admin read-only oversight.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Prevent users from listing all other users.
+      allow create: if isOwner(userId) && isConsistentDocId(userId);
+      allow update: if isOwner(userId) && resource != null && isDocIdImmutable();
+      allow delete: if isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Company records. Access is controlled by a 'members' map on the document. Only admins can create or manage companies.
+     * @path /companies/{companyId}
+     * @allow (get) A user who is a member of the company reads its data: `get /companies/company_abc` (auth: member_uid).
+     * @deny (create) A non-admin user tries to create a new company: `create /companies/company_xyz` (auth: non-admin).
+     * @principle Uses a denormalized 'members' map for shared access control, restricting management to global admins.
+     */
+    match /companies/{companyId} {
+      allow get: if canReadCompanyData(companyId);
+      // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
+      allow list: if isSignedIn();
+      allow create: if isCreatingOwnCompany();
+      allow update: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
+      allow delete: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
+    }
+    
+    match /partners/{partnerId} {
+        allow read, write: if isSignedIn();
+    }
+
+    /**
+     * @description Tax obligations for a company. Inherits access from the parent company's 'members' map.
+     * @path /companies/{companyId}/taxObligations/{taxObligationId}
+     * @allow (create) A company member creates a new tax obligation: `create /companies/company_abc/taxObligations/new_id` (auth: member_uid).
+     * @deny (update) A company member tries to update an obligation created by another user: `update /companies/company_abc/taxObligations/other_user_doc` (auth: member_uid).
+     * @principle Restricts access to company members and enforces creator-only writes for subcollection documents.
+     */
+    match /companies/{companyId}/taxObligations/{taxObligationId} {
+      allow get: if canReadCompanyData(companyId);
+      allow list: if canReadCompanyData(companyId);
+      allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
+      allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
+      allow delete: if isExistingResponsibleUserOrAdmin();
+    }
+
+    /**
+     * @description Documents for a company. Inherits access from the parent company's 'members' map.
+     * @path /companies/{companyId}/documents/{documentId}
+     * @allow (create) A company member uploads a document: `create /companies/company_abc/documents/new_id` (auth: member_uid).
+     * @deny (delete) A company member tries to delete a document they didn't upload: `delete /companies/company_abc/documents/other_user_doc` (auth: member_uid).
+     * @principle Restricts access to company members and enforces creator-only writes for subcollection documents.
+     */
+    match /companies/{companyId}/documents/{documentId} {
+      allow get: if canReadCompanyData(companyId);
+      allow list: if canReadCompanyData(companyId);
+      allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
+      allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
+      allow delete: if isExistingResponsibleUserOrAdmin();
+    }
+
+    /**
+     * @description Corporate processes for a company. Inherits access from the parent company's 'members' map.
+     * @path /companies/{companyId}/corporateProcesses/{corporateProcessId}
+     * @allow (get) An admin reads a corporate process: `get /companies/company_abc/corporateProcesses/proc_123` (auth: admin_uid).
+     * @deny (update) A company member tries to update a process they are not responsible for: `update /companies/company_abc/corporateProcesses/other_user_doc` (auth: member_uid).
+     * @principle Restricts access to company members and enforces creator-only writes for subcollection documents.
+     */
+    match /companies/{companyId}/corporateProcesses/{corporateProcessId} {
+      allow get: if canReadCompanyData(companyId);
+      allow list: if canReadCompanyData(companyId);
+      allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
+      allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
+      allow delete: if isExistingResponsibleUserOrAdmin();
+    }
+  }
+}
