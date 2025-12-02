@@ -77,6 +77,11 @@ service cloud.firestore {
     function canReadCompanyData(companyId) {
       return isAdmin() || isCompanyMember(companyId);
     }
+    
+    function isCreatingOwnCompany() {
+      return request.resource.data.members[request.auth.uid] == 'admin';
+    }
+
 
     /**
      * On update/delete, checks if the document exists and if the requesting user
@@ -175,9 +180,13 @@ service cloud.firestore {
       allow get: if canReadCompanyData(companyId);
       // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
       allow list: if isSignedIn();
-      allow create: if isAdmin();
+      allow create: if isSignedIn() && isCreatingOwnCompany();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
+    }
+    
+    match /partners/{partnerId} {
+        allow read, write: if isSignedIn();
     }
 
     /**
