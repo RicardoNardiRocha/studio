@@ -36,7 +36,7 @@ export default function LandingPage() {
             Preços
           </Link>
           <Button asChild>
-            <Link href="/dashboard">Acessar Plataforma</Link>
+            <Link href="/login">Acessar Plataforma</Link>
           </Button>
         </nav>
       </header>
@@ -55,7 +55,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Button size="lg" asChild>
-                    <Link href="/dashboard">
+                    <Link href="/login">
                       Começar Agora
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
