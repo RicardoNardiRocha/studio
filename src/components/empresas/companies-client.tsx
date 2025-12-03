@@ -18,12 +18,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
+import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -38,6 +39,7 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 
 export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
@@ -66,6 +68,11 @@ export function CompaniesClient() {
         onOpenChange={setIsAddDialogOpen}
         onCompanyAdded={handleAction}
       />
+      <BulkAddCompaniesDialog
+        open={isBulkAddDialogOpen}
+        onOpenChange={setIsBulkAddDialogOpen}
+        onImportCompleted={handleAction}
+      />
       {selectedCompany && (
          <CompanyDetailsDialog
           key={selectedCompany.id}
@@ -84,10 +91,16 @@ export function CompaniesClient() {
               Visualize e gerencie todas as empresas atendidas pelo escritório.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nova Empresa
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsBulkAddDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Importar em Lote
+            </Button>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nova Empresa
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
