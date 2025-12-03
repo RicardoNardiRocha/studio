@@ -46,9 +46,11 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
   }
 };
 
-const getCertificateStatus = (validity?: string): { text: string; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType } => {
+type CertificateStatus = 'Válido' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
+
+const getCertificateStatusInfo = (validity?: string): { text: string; status: CertificateStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType } => {
   if (!validity) {
-    return { text: 'Não informado', variant: 'secondary', Icon: ShieldQuestion };
+    return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion };
   }
   try {
     const validityDate = parseISO(validity);
@@ -56,18 +58,19 @@ const getCertificateStatus = (validity?: string): { text: string; variant: 'defa
     const daysLeft = differenceInDays(validityDate, today);
 
     if (daysLeft < 0) {
-      return { text: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX };
+      return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX };
     }
     if (daysLeft <= 30) {
-      return { text: `Vence em ${daysLeft} dias`, variant: 'destructive', daysLeft, Icon: ShieldCheck };
+      return { text: `Vence em ${daysLeft} dias`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck };
     }
-    return { text: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck };
+    return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck };
   } catch (e) {
-    return { text: 'Data inválida', variant: 'secondary', Icon: ShieldQuestion };
+    return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion };
   }
 };
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
+const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
 
 export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -76,6 +79,8 @@ export function CompaniesClient() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [taxRegimeFilter, setTaxRegimeFilter] = useState('Todos');
+  const [certificateStatusFilter, setCertificateStatusFilter] = useState('Todos');
+
 
   const firestore = useFirestore();
 
@@ -91,9 +96,10 @@ export function CompaniesClient() {
     return companies.filter(company => {
       const nameMatch = company.name.toLowerCase().includes(searchTerm.toLowerCase());
       const taxRegimeMatch = taxRegimeFilter === 'Todos' || company.taxRegime === taxRegimeFilter;
-      return nameMatch && taxRegimeMatch;
+      const certStatusMatch = certificateStatusFilter === 'Todos' || getCertificateStatusInfo(company.certificateA1Validity).status === certificateStatusFilter;
+      return nameMatch && taxRegimeMatch && certStatusMatch;
     });
-  }, [companies, searchTerm, taxRegimeFilter]);
+  }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter]);
 
 
   const handleAction = () => {
@@ -169,6 +175,18 @@ export function CompaniesClient() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-full md:w-auto md:min-w-[200px]">
+              <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por certificado..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {certificateStatuses.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="border rounded-md">
             <Table>
@@ -198,7 +216,7 @@ export function CompaniesClient() {
                   ))
                 ) : filteredCompanies.length > 0 ? (
                   filteredCompanies.map((company) => {
-                     const certStatus = getCertificateStatus(company.certificateA1Validity);
+                     const certStatus = getCertificateStatusInfo(company.certificateA1Validity);
                      return (
                       <TableRow key={company.id}>
                         <TableCell className="font-medium">{company.name}</TableCell>
