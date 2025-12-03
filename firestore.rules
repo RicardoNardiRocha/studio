@@ -58,10 +58,9 @@ service cloud.firestore {
     /**
      * Checks if the user is a global administrator.
      * This is determined by the existence of their UID in the /roles_admin collection.
-     * Includes a hardcoded MASTER ADMIN UID.
      */
     function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) || request.auth.uid == "GQ6XSRZEKBSDiaLWzszV8gRzELW2";
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
     /**
@@ -71,7 +70,7 @@ service cloud.firestore {
     function isCompanyMember(companyId) {
       return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
     }
-    
+
     /**
      * Checks if the requesting user is an admin of the company based on the
      * existing document's data (`resource.data`).
