@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -24,15 +24,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Search, MoreHorizontal } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { collection, query, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '../ui/input';
+import { ProcessDetailsDialog } from './process-details-dialog';
 
-interface CorporateProcess {
+
+export interface CorporateProcess {
   id: string;
   companyId: string;
   companyName: string;
@@ -40,9 +43,12 @@ interface CorporateProcess {
   status: 'Em Análise' | 'Em Exigência' | 'Concluído' | 'Cancelado' | 'Aguardando Documentação';
   startDate: { seconds: number; nanoseconds: number } | Date;
   protocolDate?: { seconds: number; nanoseconds: number } | Date | null;
+  responsibleUserId: string;
 }
 
-const processStatuses: CorporateProcess['status'][] = ['Em Análise', 'Em Exigência', 'Concluído', 'Cancelado', 'Aguardando Documentação'];
+const processStatuses: CorporateProcess['status'][] = ['Aguardando Documentação', 'Em Análise', 'Em Exigência', 'Concluído', 'Cancelado'];
+const processTypes = ['Todos', 'Abertura', 'Alteração', 'Encerramento', 'Outro'];
+
 
 const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
@@ -61,9 +67,15 @@ const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destr
 
 
 export function CorporateProcessesClient() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedProcess, setSelectedProcess] = useState<CorporateProcess | null>(null);
   const [processes, setProcesses] = useState<CorporateProcess[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -75,17 +87,20 @@ export function CorporateProcessesClient() {
         const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
 
         for (const companyDoc of companiesSnapshot.docs) {
-            const processesSnapshot = await getDocs(collection(firestore, `companies/${companyDoc.id}/corporateProcesses`));
+            const q = query(collection(firestore, `companies/${companyDoc.id}/corporateProcesses`), orderBy('startDate', 'desc'));
+            const processesSnapshot = await getDocs(q);
             processesSnapshot.forEach(processDoc => {
                 allProcesses.push({ id: processDoc.id, ...processDoc.data() } as CorporateProcess);
             });
         }
-
+        
+        // Ordena a lista consolidada uma única vez
         setProcesses(allProcesses.sort((a, b) => {
             const dateA = a.startDate instanceof Date ? a.startDate : new Date(a.startDate.seconds * 1000);
             const dateB = b.startDate instanceof Date ? b.startDate : new Date(b.startDate.seconds * 1000);
             return dateB.getTime() - dateA.getTime();
         }));
+
     } catch(e) {
         console.error("Error fetching processes: ", e);
         toast({ title: "Erro ao buscar processos", description: "Não foi possível carregar os dados. Verifique suas permissões.", variant: "destructive"});
@@ -99,8 +114,9 @@ export function CorporateProcessesClient() {
   }, [firestore]);
 
 
-  const handleProcessAdded = () => {
+  const handleProcessAction = () => {
     fetchProcesses();
+    setIsDetailsDialogOpen(false);
   };
   
   const handleStatusChange = async (processId: string, companyId: string, newStatus: CorporateProcess['status']) => {
@@ -116,6 +132,20 @@ export function CorporateProcessesClient() {
     }
   };
 
+  const handleOpenDetails = (process: CorporateProcess) => {
+    setSelectedProcess(process);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const filteredProcesses = useMemo(() => {
+    return processes.filter(p => {
+        const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+        const typeMatch = typeFilter === 'Todos' || p.processType === typeFilter;
+        const statusMatch = statusFilter === 'Todos' || p.status === statusFilter;
+        return searchMatch && typeMatch && statusMatch;
+    });
+  }, [processes, searchTerm, typeFilter, statusFilter]);
+
   const formatDate = (date: any) => {
     if (!date) return 'N/A';
     const d = date instanceof Date ? date : new Date(date.seconds * 1000);
@@ -125,10 +155,20 @@ export function CorporateProcessesClient() {
   return (
     <>
       <AddProcessDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onProcessAdded={handleProcessAdded}
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onProcessAdded={handleProcessAction}
       />
+      {selectedProcess && (
+        <ProcessDetailsDialog
+          key={selectedProcess.id}
+          process={selectedProcess}
+          open={isDetailsDialogOpen}
+          onOpenChange={setIsDetailsDialogOpen}
+          onProcessUpdated={handleProcessAction}
+          onProcessDeleted={handleProcessAction}
+        />
+      )}
       <Card>
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
@@ -139,12 +179,48 @@ export function CorporateProcessesClient() {
               Gerencie aberturas, alterações e encerramentos de empresas.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
+          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
             <PlusCircle className="mr-2 h-4 w-4" />
             Novo Processo
           </Button>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+            <div className="relative w-full md:flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome da empresa..."
+                className="pl-8 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-auto md:min-w-[180px]">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {processTypes.map(type => (
+                    <SelectItem key={type} value={type}>{type === 'Todos' ? 'Todos os Tipos' : type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-auto md:min-w-[180px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por status..." />
+                </SelectTrigger>
+                <SelectContent>
+                   <SelectItem value="Todos">Todos os Status</SelectItem>
+                  {processStatuses.map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="border rounded-md">
             <Table>
               <TableHeader>
@@ -154,6 +230,7 @@ export function CorporateProcessesClient() {
                   <TableHead>Data de Início</TableHead>
                   <TableHead>Data de Protocolo</TableHead>
                   <TableHead className="w-[200px]">Status</TableHead>
+                  <TableHead><span className="sr-only">Ações</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -165,10 +242,11 @@ export function CorporateProcessesClient() {
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
-                ) : processes.length > 0 ? (
-                  processes.map((process) => (
+                ) : filteredProcesses.length > 0 ? (
+                  filteredProcesses.map((process) => (
                     <TableRow key={process.id}>
                       <TableCell className="font-medium">{process.companyName}</TableCell>
                       <TableCell>{process.processType}</TableCell>
@@ -195,11 +273,17 @@ export function CorporateProcessesClient() {
                           </SelectContent>
                         </Select>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDetails(process)}>
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Ver Detalhes</span>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       Nenhum processo societário encontrado.
                     </TableCell>
                   </TableRow>

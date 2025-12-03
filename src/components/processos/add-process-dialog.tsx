@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -48,21 +48,22 @@ interface AddProcessDialogProps {
   onProcessAdded: () => void;
 }
 
+const processTypes = ['Abertura', 'Alteração', 'Encerramento', 'Outro'];
+const processStatuses: Array<'Aguardando Documentação' | 'Em Análise' | 'Em Exigência' | 'Concluído' | 'Cancelado'> = ['Aguardando Documentação', 'Em Análise', 'Em Exigência', 'Concluído', 'Cancelado'];
+
 const formSchema = z.object({
   companyId: z.string({ required_error: 'Selecione uma empresa.' }),
   processType: z.string({ required_error: 'Selecione o tipo de processo.' }),
-  status: z.string({ required_error: 'Selecione o status inicial.' }),
+  status: z.enum(processStatuses),
   startDate: z.date({ required_error: 'A data de início é obrigatória.' }),
   protocolDate: z.date().optional(),
 });
+
 
 type Company = {
   id: string;
   name: string;
 };
-
-const processTypes = ['Abertura', 'Alteração', 'Encerramento', 'Outro'];
-const processStatuses: Array<'Em Análise' | 'Em Exigência' | 'Concluído' | 'Cancelado' | 'Aguardando Documentação'> = ['Em Análise', 'Em Exigência', 'Concluído', 'Cancelado', 'Aguardando Documentação'];
 
 export function AddProcessDialog({
   open,
@@ -76,7 +77,7 @@ export function AddProcessDialog({
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'companies');
+    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
 
   const { data: companies } = useCollection<Company>(companiesCollection);
@@ -122,9 +123,7 @@ export function AddProcessDialog({
       };
 
       const docRef = await addDoc(processCollectionRef, newProcess);
-      // Now update the document with its own ID
       await updateDoc(doc(processCollectionRef, docRef.id), { id: docRef.id });
-
 
       toast({
         title: 'Processo Adicionado!',
