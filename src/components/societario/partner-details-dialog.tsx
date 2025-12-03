@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -36,9 +36,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
@@ -47,6 +47,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Textarea } from '../ui/textarea';
 import { Separator } from '../ui/separator';
+import ReactSelect from 'react-select';
 
 
 export interface Partner {
@@ -79,6 +80,7 @@ const formSchema = z.object({
   govBrLogin: z.string().optional(),
   govBrPassword: z.string().optional(),
   otherData: z.string().optional(),
+  associatedCompanies: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
 });
 
 export function PartnerDetailsDialog({
@@ -93,6 +95,17 @@ export function PartnerDetailsDialog({
   const { toast } = useToast();
   const firestore = useFirestore();
 
+  const companiesCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'companies');
+  }, [firestore]);
+
+  const { data: companies } = useCollection<{id: string; name: string;}>(companiesCollection);
+  
+  const companyOptions = useMemo(() => {
+    return companies?.map(c => ({ value: c.name, label: c.name })) || [];
+  }, [companies]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -103,6 +116,7 @@ export function PartnerDetailsDialog({
       govBrLogin: partner.govBrLogin || '',
       govBrPassword: partner.govBrPassword || '',
       otherData: partner.otherData || '',
+      associatedCompanies: partner.associatedCompanies?.map(c => ({ value: c, label: c })) || [],
     },
   });
 
@@ -137,7 +151,7 @@ export function PartnerDetailsDialog({
       const partnerRef = doc(firestore, 'partners', partnerId);
 
       const updatedPartner = {
-        ...partner, // keep existing fields like associatedCompanies
+        ...partner, // keep existing fields
         id: partnerId,
         name: values.name,
         cpf: values.cpf,
@@ -148,6 +162,7 @@ export function PartnerDetailsDialog({
         govBrLogin: values.govBrLogin || '',
         govBrPassword: values.govBrPassword || '',
         otherData: values.otherData || '',
+        associatedCompanies: values.associatedCompanies?.map(c => c.value) || [],
       };
 
       setDocumentNonBlocking(partnerRef, updatedPartner, { merge: true });
@@ -158,7 +173,6 @@ export function PartnerDetailsDialog({
       });
 
       onPartnerUpdated();
-      onOpenChange(false);
     } catch (error: any) {
       console.error(error);
       toast({
@@ -208,6 +222,33 @@ export function PartnerDetailsDialog({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="associatedCompanies"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Empresas Associadas</FormLabel>
+                  <FormControl>
+                     <ReactSelect
+                        {...field}
+                        isMulti
+                        options={companyOptions}
+                        placeholder="Selecione as empresas..."
+                        noOptionsMessage={() => 'Nenhuma empresa encontrada'}
+                        styles={{
+                          control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+                          menu: (base) => ({ ...base, zIndex: 100 }),
+                          input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+                          multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
+                        }}
+                      />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="hasECPF"
@@ -329,9 +370,11 @@ export function PartnerDetailsDialog({
             <div>
               <h3 className="text-sm font-medium mb-2">Empresas Associadas</h3>
               {partner.associatedCompanies && partner.associatedCompanies.length > 0 ? (
-                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                <ul className="flex flex-wrap gap-2">
                   {partner.associatedCompanies.map((company, index) => (
-                    <li key={index}>{company}</li>
+                    <li key={index}>
+                      <Badge variant="secondary">{company}</Badge>
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -339,7 +382,7 @@ export function PartnerDetailsDialog({
               )}
             </div>
 
-            <DialogFooter className="pt-4 bg-background sticky bottom-0 flex-row justify-between">
+            <DialogFooter className="pt-4 bg-background sticky bottom-0 flex-row justify-between w-full">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">

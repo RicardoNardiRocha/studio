@@ -58,7 +58,6 @@
         "name",
         "cnpj",
         "taxRegime",
-        "assessmentRegime",
         "registrationStatus",
         "startDate"
       ]
@@ -92,6 +91,60 @@
         "name",
         "email",
         "role"
+      ]
+    },
+    "Partner": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Partner",
+      "type": "object",
+      "description": "Represents a partner or administrator associated with one or more companies.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Partner entity, usually the CPF."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the partner."
+        },
+        "cpf": {
+          "type": "string",
+          "description": "CPF of the partner."
+        },
+        "hasECPF": {
+          "type": "boolean",
+          "description": "Indicates if the partner has an active E-CPF."
+        },
+        "ecpfValidity": {
+          "type": "string",
+          "format": "date",
+          "description": "Expiration date of the E-CPF certificate."
+        },
+        "govBrLogin": {
+          "type": "string",
+          "description": "Partner's login for the GOV.BR portal (stored encrypted)."
+        },
+        "govBrPassword": {
+          "type": "string",
+          "description": "Partner's password for the GOV.BR portal (stored encrypted)."
+        },
+        "associatedCompanies": {
+          "type": "array",
+          "description": "List of company names the partner is associated with.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "otherData": {
+          "type": "string",
+          "description": "Field for other relevant partner data."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "cpf",
+        "hasECPF"
       ]
     },
     "TaxObligation": {
@@ -261,6 +314,22 @@
         }
       },
       {
+        "path": "/partners/{partnerId}",
+        "definition": {
+          "entityName": "Partner",
+          "schema": {
+            "$ref": "#/backend/entities/Partner"
+          },
+          "description": "Collection to store partner and administrator information.",
+          "params": [
+            {
+              "name": "partnerId",
+              "description": "The unique identifier for the partner, typically their CPF."
+            }
+          ]
+        }
+      },
+      {
         "path": "/companies/{companyId}",
         "definition": {
           "entityName": "Company",
@@ -340,4 +409,3 @@
     "reasoning": "The Firestore data structure is designed to support the features of the ContaFlow ERP system, focusing on security, scalability, and maintainability. Key considerations include role-based access control, efficient data retrieval, and support for the core features like fiscal document processing, tax obligation management, corporate lifecycle management, financial data integration, and comprehensive document repository.\n\nAuthorization Independence is achieved through denormalization. For example, instead of relying on nested `get()` calls to verify a user's role within a company, the user's role (or relevant permissions) are copied into documents where authorization is required. Specifically:\n\n*   **Company Membership:** A `members` map within the `companies/{companyId}` document stores user roles for that company.  This is then copied to subcollections if needed.\n*   **User Roles:** Global roles (Admin, etc.) are managed using existence checks in dedicated collections (e.g., `/roles_admin/{userId}`).\n\nThis design supports the required QAPs (Rules are not Filters) by:\n\n*   **Structural Segregation:** Data with different access requirements are stored in separate collections.  User-specific data (like settings) resides under `/users/{userId}`, while company-specific data resides under `/companies/{companyId}`.\n*   **Membership Model:** Collaborative data (e.g., documents, tax obligations) associated with a company uses the `members` map denormalized from the company document for access control.\n\nFurthermore, the structure facilitates:\n\n*   **Efficient Queries:** By avoiding nested `get()` calls, queries are more efficient and scalable.\n*   **Simplified Security Rules:** Rules are more straightforward to write and debug because authorization logic is localized.\n*   **Atomic Operations:** Transactions and batch writes are supported because authorization checks do not depend on hierarchical data.\n\nEach entity has a dedicated collection, and relationships between entities are managed via document references. This approach ensures clarity, consistency, and ease of maintenance."
   }
 }
-    

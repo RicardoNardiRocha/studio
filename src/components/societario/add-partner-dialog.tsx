@@ -24,17 +24,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { Loader2, CalendarIcon } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { CalendarIcon } from 'lucide-react';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ReactSelect from 'react-select';
 
 interface AddPartnerDialogProps {
   open: boolean;
@@ -51,7 +51,13 @@ const formSchema = z.object({
   ecpfValidity: z.date().optional(),
   govBrLogin: z.string().optional(),
   govBrPassword: z.string().optional(),
+  associatedCompanies: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
 });
+
+type CompanyOption = {
+  value: string;
+  label: string;
+}
 
 export function AddPartnerDialog({
   open,
@@ -62,12 +68,24 @@ export function AddPartnerDialog({
   const { toast } = useToast();
   const firestore = useFirestore();
 
+  const companiesCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'companies');
+  }, [firestore]);
+
+  const { data: companies } = useCollection<{id: string; name: string;}>(companiesCollection);
+  
+  const companyOptions = useMemo(() => {
+    return companies?.map(c => ({ value: c.name, label: c.name })) || [];
+  }, [companies]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       cpf: '',
       hasECPF: false,
+      associatedCompanies: [],
     },
   });
 
@@ -96,7 +114,7 @@ export function AddPartnerDialog({
           : '',
         govBrLogin: values.govBrLogin || '',
         govBrPassword: values.govBrPassword || '',
-        associatedCompanies: [],
+        associatedCompanies: values.associatedCompanies?.map(c => c.value) || [],
       };
 
       setDocumentNonBlocking(partnerRef, newPartner, { merge: true });
@@ -123,7 +141,7 @@ export function AddPartnerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar Novo Sócio</DialogTitle>
           <DialogDescription>
@@ -131,7 +149,7 @@ export function AddPartnerDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
             <FormField
               control={form.control}
               name="name"
@@ -158,6 +176,31 @@ export function AddPartnerDialog({
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="associatedCompanies"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vincular a Empresas (Opcional)</FormLabel>
+                  <FormControl>
+                     <ReactSelect
+                        {...field}
+                        isMulti
+                        options={companyOptions}
+                        placeholder="Selecione as empresas..."
+                        noOptionsMessage={() => 'Nenhuma empresa encontrada'}
+                        styles={{
+                          control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+                          menu: (base) => ({ ...base, zIndex: 100 }),
+                          input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+                          multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
+                        }}
+                      />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="hasECPF"
@@ -175,7 +218,6 @@ export function AddPartnerDialog({
                 </FormItem>
               )}
             />
-
             {form.watch('hasECPF') && (
               <FormField
                 control={form.control}
@@ -243,8 +285,7 @@ export function AddPartnerDialog({
                 </FormItem>
               )}
             />
-
-            <DialogFooter className="pt-4">
+            <DialogFooter className="pt-4 sticky bottom-0 bg-background py-4">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>

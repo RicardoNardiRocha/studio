@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AppHeader } from '@/components/layout/header';
 import {
   Card,
@@ -19,30 +19,58 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
 import { PartnerDetailsDialog } from '@/components/societario/partner-details-dialog';
 import type { Partner } from '@/components/societario/partner-details-dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
+const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
 
 export default function SocietarioPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [ecpfFilter, setEcpfFilter] = useState<EcpfStatusFilter>('Todos');
 
   const firestore = useFirestore();
 
   const partnersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'partners');
+    return query(collection(firestore, 'partners'), orderBy('name', 'asc'));
   }, [firestore]);
 
   const { data: partners, isLoading } = useCollection<Partner>(partnersCollection);
+  
+  const filteredPartners = useMemo(() => {
+    if (!partners) return [];
+    return partners.filter(partner => {
+      const searchTermLower = searchTerm.toLowerCase();
+      const searchMatch = partner.name.toLowerCase().includes(searchTermLower) || partner.cpf.includes(searchTerm);
 
-  const handlePartnerAdded = () => {
-    // A lista será atualizada automaticamente pelo useCollection
+      const ecpfMatch = ecpfFilter === 'Todos' || (ecpfFilter === 'Sim' && partner.hasECPF) || (ecpfFilter === 'Não' && !partner.hasECPF);
+
+      return searchMatch && ecpfMatch;
+    });
+  }, [partners, searchTerm, ecpfFilter]);
+
+
+  const handleAction = () => {
+    // A lista será atualizada automaticamente pelo useCollection.
+    // Esta função fecha o modal para garantir que, ao reabrir, os dados estejam atualizados.
+    setIsDetailsDialogOpen(false);
   };
 
   const handleOpenDetails = (partner: Partner) => {
@@ -50,17 +78,13 @@ export default function SocietarioPage() {
     setIsDetailsDialogOpen(true);
   };
   
-  const handlePartnerAction = () => {
-    // A lista será atualizada automaticamente pelo useCollection
-    // Esta função pode ser usada tanto para updates quanto para deletes
-  }
 
   return (
     <>
       <AddPartnerDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onPartnerAdded={handlePartnerAdded}
+        onPartnerAdded={handleAction}
       />
       {selectedPartner && (
         <PartnerDetailsDialog
@@ -68,8 +92,8 @@ export default function SocietarioPage() {
           partner={selectedPartner}
           open={isDetailsDialogOpen}
           onOpenChange={setIsDetailsDialogOpen}
-          onPartnerUpdated={handlePartnerAction}
-          onPartnerDeleted={handlePartnerAction}
+          onPartnerUpdated={handleAction}
+          onPartnerDeleted={handleAction}
         />
       )}
 
@@ -91,6 +115,32 @@ export default function SocietarioPage() {
             </Button>
           </CardHeader>
           <CardContent>
+            <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+              <div className="relative w-full md:flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome ou CPF..."
+                  className="pl-8 w-full"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="w-full md:w-auto md:min-w-[180px]">
+                <Select value={ecpfFilter} onValueChange={(value: EcpfStatusFilter) => setEcpfFilter(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por E-CPF..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ecpfStatusOptions.map(status => (
+                      <SelectItem key={status} value={status}>
+                        E-CPF: {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -124,8 +174,8 @@ export default function SocietarioPage() {
                       </TableCell>
                     </TableRow>
                   ))
-                ) : partners && partners.length > 0 ? (
-                  partners.map((partner) => (
+                ) : filteredPartners && filteredPartners.length > 0 ? (
+                  filteredPartners.map((partner) => (
                     <TableRow key={partner.id}>
                       <TableCell className="font-medium">
                         {partner.name}
@@ -158,6 +208,7 @@ export default function SocietarioPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </main>
