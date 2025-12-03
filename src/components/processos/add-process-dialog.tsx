@@ -35,8 +35,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -62,7 +62,7 @@ type Company = {
 };
 
 const processTypes = ['Abertura', 'Alteração', 'Encerramento', 'Outro'];
-const processStatuses = ['Em Análise', 'Em Exigência', 'Concluído', 'Cancelado', 'Aguardando Documentação'];
+const processStatuses: Array<'Em Análise' | 'Em Exigência' | 'Concluído' | 'Cancelado' | 'Aguardando Documentação'> = ['Em Análise', 'Em Exigência', 'Concluído', 'Cancelado', 'Aguardando Documentação'];
 
 export function AddProcessDialog({
   open,
@@ -72,6 +72,7 @@ export function AddProcessDialog({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -83,17 +84,16 @@ export function AddProcessDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      companyId: undefined,
-      processType: undefined,
-      status: 'Em Análise',
+      status: 'Aguardando Documentação',
+      startDate: new Date(),
     },
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({
         title: 'Erro',
-        description: 'Serviço de banco de dados indisponível.',
+        description: 'Serviço de banco de dados ou autenticação indisponível.',
         variant: 'destructive',
       });
       return;
@@ -118,9 +118,13 @@ export function AddProcessDialog({
         status: values.status,
         startDate: values.startDate,
         protocolDate: values.protocolDate || null,
+        responsibleUserId: user.uid,
       };
 
-      await addDoc(processCollectionRef, newProcess);
+      const docRef = await addDoc(processCollectionRef, newProcess);
+      // Now update the document with its own ID
+      await updateDoc(doc(processCollectionRef, docRef.id), { id: docRef.id });
+
 
       toast({
         title: 'Processo Adicionado!',
@@ -129,7 +133,13 @@ export function AddProcessDialog({
 
       onProcessAdded();
       onOpenChange(false);
-      form.reset();
+      form.reset({
+        status: 'Aguardando Documentação',
+        startDate: new Date(),
+        companyId: undefined,
+        processType: undefined,
+        protocolDate: undefined
+      });
     } catch (error: any) {
       console.error(error);
       toast({
@@ -253,7 +263,7 @@ export function AddProcessDialog({
               name="protocolDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Data do Protocolo (JUCESP)</FormLabel>
+                  <FormLabel>Data do Protocolo (Opcional)</FormLabel>
                    <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -267,7 +277,7 @@ export function AddProcessDialog({
                           {field.value ? (
                             format(field.value, 'PPP', { locale: ptBR })
                           ) : (
-                            <span>Escolha uma data (opcional)</span>
+                            <span>Escolha uma data</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
