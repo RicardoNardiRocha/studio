@@ -172,7 +172,13 @@
         },
         "status": {
           "type": "string",
-          "description": "Current status of the tax obligation (e.g., To Generate, To Review, Filed, Sent)."
+          "description": "Current status of the tax obligation.",
+          "enum": [
+            "Pendente",
+            "Em Andamento",
+            "Entregue",
+            "Atrasada"
+          ]
         },
         "responsibleUserId": {
           "type": "string",
