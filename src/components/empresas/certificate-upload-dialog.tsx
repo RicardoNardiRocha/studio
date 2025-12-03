@@ -27,6 +27,9 @@ interface CertificateUploadDialogProps {
   onCertificateUpdated: () => void;
 }
 
+// OID para CNPJ no certificado digital brasileiro
+const CNPJ_OID = '2.16.76.1.3.3';
+
 export function CertificateUploadDialog({
   company,
   open,
@@ -67,7 +70,6 @@ export function CertificateUploadDialog({
         const pfxAsn1 = forge.asn1.fromDer(e.target?.result as string);
         const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, password);
         
-        // Find the certificate bag
         const certBags = p12.getBags({bagType: forge.pki.oids.certBag});
         const certBag = certBags[forge.pki.oids.certBag]?.[0];
 
@@ -80,12 +82,40 @@ export function CertificateUploadDialog({
              throw new Error('Não foi possível ler o certificado do arquivo.');
         }
 
+        // Extrair CNPJ do certificado
+        const subjectAttributes = certificate.subject.attributes;
+        const cnpjAttribute = subjectAttributes.find(attr => attr.type === CNPJ_OID);
+        
+        let certCnpj = '';
+        if (cnpjAttribute && typeof cnpjAttribute.value === 'string') {
+            // O valor pode vir com um prefixo, ex: "21676122" + CNPJ. Removemos o que não for número.
+            certCnpj = cnpjAttribute.value.replace(/\D/g, '').slice(-14);
+        } else {
+             // Fallback para o campo `commonName` (CN) se o OID não estiver presente
+            const commonNameAttr = certificate.subject.getField('CN');
+            if (commonNameAttr && typeof commonNameAttr.value === 'string') {
+                const match = commonNameAttr.value.match(/(\d{2}[\.\s]?\d{3}[\.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2})/);
+                if (match) {
+                    certCnpj = match[0].replace(/\D/g, '');
+                }
+            }
+        }
+        
+        if (!certCnpj) {
+            throw new Error('Não foi possível extrair o CNPJ do certificado.');
+        }
+
+        // Validar se o CNPJ do certificado é o mesmo da empresa
+        const companyCnpj = company.cnpj.replace(/\D/g, '');
+        if (certCnpj !== companyCnpj) {
+            throw new Error(`Este certificado pertence a outro CNPJ (${certCnpj}). Você está tentando adicioná-lo para a empresa com CNPJ ${companyCnpj}.`);
+        }
+
         const validity = certificate.validity.notAfter;
         const validityDateString = validity.toISOString().split('T')[0]; // Formato YYYY-MM-DD
 
-        // Update company document in Firestore
         const companyRef = doc(firestore, 'companies', company.id);
-        await setDocumentNonBlocking(companyRef, { certificateA1Validity: validityDateString }, { merge: true });
+        setDocumentNonBlocking(companyRef, { certificateA1Validity: validityDateString }, { merge: true });
 
         toast({
           title: 'Certificado Processado!',
@@ -97,11 +127,11 @@ export function CertificateUploadDialog({
         setFile(null);
         setPassword('');
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to process certificate:', error);
         toast({
           title: 'Erro ao processar certificado',
-          description: 'Verifique se o arquivo e a senha estão corretos. O arquivo pode estar corrompido ou a senha incorreta.',
+          description: error.message || 'Verifique se o arquivo e a senha estão corretos. O arquivo pode estar corrompido ou a senha incorreta.',
           variant: 'destructive',
         });
       } finally {
@@ -117,9 +147,7 @@ export function CertificateUploadDialog({
         <DialogHeader>
           <DialogTitle>Adicionar/Atualizar Certificado A1</DialogTitle>
           <DialogDescription>
-            Faça o upload do arquivo .pfx e digite a senha para ler e salvar
-            apenas a data de validade. O arquivo e a senha não serão
-            armazenados.
+            Faça o upload do arquivo .pfx e digite a senha. O sistema irá validar o CNPJ e salvar apenas a data de validade. O arquivo e a senha não serão armazenados.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -158,4 +186,3 @@ export function CertificateUploadDialog({
     </Dialog>
   );
 }
-    

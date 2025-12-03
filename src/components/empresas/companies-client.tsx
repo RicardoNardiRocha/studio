@@ -33,7 +33,7 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, isValid } from 'date-fns';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -48,26 +48,34 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
 
 type CertificateStatus = 'Válido' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
 
-const getCertificateStatusInfo = (validity?: string): { text: string; status: CertificateStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType } => {
+const getCertificateStatusInfo = (validity?: string): { text: string; status: CertificateStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
   if (!validity) {
-    return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion };
+    return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
-    const validityDate = parseISO(validity);
+    // Adiciona o fuso horário para garantir que a data seja interpretada corretamente
+    const validityDate = parseISO(validity + 'T00:00:00-03:00');
+    if (!isValid(validityDate)) {
+        return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
+    }
+
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas as datas
     const daysLeft = differenceInDays(validityDate, today);
+    const dateText = validityDate.toLocaleDateString('pt-BR');
 
     if (daysLeft < 0) {
-      return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX };
+      return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX, dateText };
     }
     if (daysLeft <= 30) {
-      return { text: `Vence em ${daysLeft} dias`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck };
+      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck, dateText };
     }
-    return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck };
+    return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck, dateText };
   } catch (e) {
-    return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion };
+    return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
   }
 };
+
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
@@ -225,11 +233,12 @@ export function CompaniesClient() {
                         <TableCell>
                           <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
                         </TableCell>
-                        <TableCell>
-                          <Badge variant={certStatus.variant} className="gap-1">
+                        <TableCell className="space-y-1">
+                          <Badge variant={certStatus.variant} className="gap-1.5 whitespace-nowrap">
                             <certStatus.Icon className="h-3 w-3" />
                             {certStatus.text}
                           </Badge>
+                          <div className="text-xs text-muted-foreground">{certStatus.dateText}</div>
                         </TableCell>
                         <TableCell className="text-right">
                            <Button variant="outline" size="icon" onClick={() => handleOpenDetails(company)}>
@@ -255,4 +264,3 @@ export function CompaniesClient() {
     </>
   );
 }
-    
