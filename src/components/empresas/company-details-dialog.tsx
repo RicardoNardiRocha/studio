@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, ShieldCheck, UploadCloud } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Input } from '../ui/input';
+import { CertificateUploadDialog } from './certificate-upload-dialog';
 
 interface Partner {
   nome_socio: string;
@@ -61,6 +62,7 @@ export interface Company {
     porte?: string;
     qsa?: Partner[];
     members?: { [key: string]: 'admin' | 'viewer' };
+    certificateA1Validity?: string;
 }
 
 interface CompanyDetailsDialogProps {
@@ -87,6 +89,7 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
 
 export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpdated, onCompanyDeleted }: CompanyDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -154,6 +157,13 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
 
 
   return (
+    <>
+    <CertificateUploadDialog
+      company={company}
+      open={isCertUploadOpen}
+      onOpenChange={setIsCertUploadOpen}
+      onCertificateUpdated={onCompanyUpdated}
+    />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl">
        <Form {...form}>
@@ -238,6 +248,24 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                 </p>
               </div>
             </div>
+            
+            <Separator />
+
+            <div>
+                <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-1">
+                        <Label>Data de Vencimento</Label>
+                        <p className="text-sm font-medium text-muted-foreground">
+                            {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
+                        </p>
+                    </div>
+                    <Button type="button" onClick={() => setIsCertUploadOpen(true)}>
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        Adicionar/Atualizar
+                    </Button>
+                </div>
+            </div>
           
             <div>
               <h3 className='font-semibold font-headline mb-2'>Quadro de Sócios e Administradores (QSA)</h3>
@@ -309,5 +337,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
        </Form>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
+    

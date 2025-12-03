@@ -46,6 +46,11 @@
         "mainContactId": {
           "type": "string",
           "description": "Reference to User. Main contact person within the company. (Relationship: User 1:N Company)"
+        },
+        "certificateA1Validity": {
+          "type": "string",
+          "description": "Expiration date of the A1 digital certificate.",
+          "format": "date"
         }
       },
       "required": [
@@ -335,3 +340,4 @@
     "reasoning": "The Firestore data structure is designed to support the features of the ContaFlow ERP system, focusing on security, scalability, and maintainability. Key considerations include role-based access control, efficient data retrieval, and support for the core features like fiscal document processing, tax obligation management, corporate lifecycle management, financial data integration, and comprehensive document repository.\n\nAuthorization Independence is achieved through denormalization. For example, instead of relying on nested `get()` calls to verify a user's role within a company, the user's role (or relevant permissions) are copied into documents where authorization is required. Specifically:\n\n*   **Company Membership:** A `members` map within the `companies/{companyId}` document stores user roles for that company.  This is then copied to subcollections if needed.\n*   **User Roles:** Global roles (Admin, etc.) are managed using existence checks in dedicated collections (e.g., `/roles_admin/{userId}`).\n\nThis design supports the required QAPs (Rules are not Filters) by:\n\n*   **Structural Segregation:** Data with different access requirements are stored in separate collections.  User-specific data (like settings) resides under `/users/{userId}`, while company-specific data resides under `/companies/{companyId}`.\n*   **Membership Model:** Collaborative data (e.g., documents, tax obligations) associated with a company uses the `members` map denormalized from the company document for access control.\n\nFurthermore, the structure facilitates:\n\n*   **Efficient Queries:** By avoiding nested `get()` calls, queries are more efficient and scalable.\n*   **Simplified Security Rules:** Rules are more straightforward to write and debug because authorization logic is localized.\n*   **Atomic Operations:** Transactions and batch writes are supported because authorization checks do not depend on hierarchical data.\n\nEach entity has a dedicated collection, and relationships between entities are managed via document references. This approach ensures clarity, consistency, and ease of maintenance."
   }
 }
+    

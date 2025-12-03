@@ -26,13 +26,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
+import { differenceInDays, parseISO } from 'date-fns';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -42,6 +43,27 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
     case 'inapta': return 'destructive';
     case 'baixada': return 'outline';
     default: return 'secondary';
+  }
+};
+
+const getCertificateStatus = (validity?: string): { text: string; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType } => {
+  if (!validity) {
+    return { text: 'Não informado', variant: 'secondary', Icon: ShieldQuestion };
+  }
+  try {
+    const validityDate = parseISO(validity);
+    const today = new Date();
+    const daysLeft = differenceInDays(validityDate, today);
+
+    if (daysLeft < 0) {
+      return { text: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX };
+    }
+    if (daysLeft <= 30) {
+      return { text: `Vence em ${daysLeft} dias`, variant: 'destructive', daysLeft, Icon: ShieldCheck };
+    }
+    return { text: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck };
+  } catch (e) {
+    return { text: 'Data inválida', variant: 'secondary', Icon: ShieldQuestion };
   }
 };
 
@@ -155,8 +177,8 @@ export function CompaniesClient() {
                   <TableHead>Nome</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead>Regime Tributário</TableHead>
-                  <TableHead>Data de Início</TableHead>
                   <TableHead>Situação</TableHead>
+                  <TableHead>Vencimento A1</TableHead>
                   <TableHead>
                     <span className="sr-only">Ações</span>
                   </TableHead>
@@ -169,29 +191,37 @@ export function CompaniesClient() {
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-28" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
                 ) : filteredCompanies.length > 0 ? (
-                  filteredCompanies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className="font-medium">{company.name}</TableCell>
-                      <TableCell>{company.cnpj}</TableCell>
-                      <TableCell>{company.taxRegime}</TableCell>
-                      <TableCell>{company.startDate}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                         <Button variant="outline" size="icon" onClick={() => handleOpenDetails(company)}>
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Ver Detalhes</span>
-                          </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredCompanies.map((company) => {
+                     const certStatus = getCertificateStatus(company.certificateA1Validity);
+                     return (
+                      <TableRow key={company.id}>
+                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell>{company.cnpj}</TableCell>
+                        <TableCell>{company.taxRegime}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={certStatus.variant} className="gap-1">
+                            <certStatus.Icon className="h-3 w-3" />
+                            {certStatus.text}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                           <Button variant="outline" size="icon" onClick={() => handleOpenDetails(company)}>
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Ver Detalhes</span>
+                            </Button>
+                        </TableCell>
+                      </TableRow>
+                     )
+                    })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
@@ -207,3 +237,4 @@ export function CompaniesClient() {
     </>
   );
 }
+    
