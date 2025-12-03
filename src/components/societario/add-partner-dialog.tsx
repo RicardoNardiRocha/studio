@@ -86,6 +86,9 @@ export function AddPartnerDialog({
       cpf: '',
       hasECPF: false,
       associatedCompanies: [],
+      govBrLogin: '',
+      govBrPassword: '',
+      ecpfValidity: undefined,
     },
   });
 
