@@ -196,8 +196,8 @@ service cloud.firestore {
       // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
       allow list: if isSignedIn();
       allow create: if isCreatingOwnCompany();
-      allow update: if isSignedIn();
-      allow delete: if (isAdmin() || isCompanyAdminOnResource()) && resource != null;
+      allow update: if (isAdmin() || isCompanyMember(companyId)) && resource != null;
+      allow delete: if (isAdmin() || isCompanyMember(companyId)) && resource != null;
     }
     
     match /partners/{partnerId} {

@@ -77,7 +77,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         legalNature: data.natureza_juridica || '',
         porte: data.porte || '',
         qsa: data.qsa || [],
-        members: { [user.uid]: 'admin' } // CORREÇÃO APLICADA AQUI
+        members: { [user.uid]: 'admin' }
       };
       
       const companyRef = doc(firestore, 'companies', newCompany.id);
