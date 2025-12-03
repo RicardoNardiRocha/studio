@@ -115,6 +115,12 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
     onOpenChange(false);
   };
   
+  const handleCertificateUpdated = () => {
+    onCompanyUpdated();
+    // A função `onCompanyUpdated` agora fecha o modal principal,
+    // então não precisamos fazer mais nada aqui.
+  }
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
      if (!firestore) {
       toast({
@@ -130,8 +136,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       const companyRef = doc(firestore, 'companies', company.id);
       
       const updatedCompanyData = {
-        ...company, // Preserva os dados existentes
-        taxRegime: values.taxRegime, // Atualiza o campo alterado
+        taxRegime: values.taxRegime,
       };
 
       setDocumentNonBlocking(companyRef, updatedCompanyData, { merge: true });
@@ -142,7 +147,6 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       });
 
       onCompanyUpdated();
-      onOpenChange(false);
     } catch (error: any) {
        console.error(error);
       toast({
@@ -162,7 +166,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       company={company}
       open={isCertUploadOpen}
       onOpenChange={setIsCertUploadOpen}
-      onCertificateUpdated={onCompanyUpdated}
+      onCertificateUpdated={handleCertificateUpdated}
     />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl">
@@ -340,4 +344,3 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
     </>
   );
 }
-    

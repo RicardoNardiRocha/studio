@@ -111,7 +111,9 @@ export function CompaniesClient() {
 
 
   const handleAction = () => {
-    // a lista será atualizada automaticamente pelo useCollection
+    // Fecha o modal de detalhes. Ao reabrir, ele pegará os dados mais recentes
+    // que foram atualizados automaticamente pelo hook useCollection.
+    setIsDetailsDialogOpen(false);
   };
 
   const handleOpenDetails = (company: Company) => {
