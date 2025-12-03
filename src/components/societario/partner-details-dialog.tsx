@@ -48,6 +48,7 @@ import { ptBR } from 'date-fns/locale';
 import { Textarea } from '../ui/textarea';
 import { Separator } from '../ui/separator';
 import ReactSelect from 'react-select';
+import { Badge } from '@/components/ui/badge';
 
 
 export interface Partner {
