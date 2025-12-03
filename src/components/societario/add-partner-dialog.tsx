@@ -27,7 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc, collection } from 'firebase/firestore';
+import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
@@ -70,7 +70,7 @@ export function AddPartnerDialog({
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'companies');
+    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
 
   const { data: companies } = useCollection<{id: string; name: string;}>(companiesCollection);
