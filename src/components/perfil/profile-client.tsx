@@ -13,6 +13,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   deleteUser,
+  signOut,
 } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -119,7 +120,8 @@ export function ProfileClient() {
     setIsSavingPassword(true);
 
     try {
-      const credential = EmailAuthProvider.credential(user.email!, data.currentPassword);
+      if(!user.email) throw new Error("Usuário sem e-mail não pode alterar senha.");
+      const credential = EmailAuthProvider.credential(user.email, data.currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, data.newPassword);
       toast({
@@ -140,19 +142,19 @@ export function ProfileClient() {
 
   const handleLogout = async () => {
     if (auth) {
-      await auth.signOut();
+      await signOut(auth);
       router.push('/login');
     }
   };
   
   const handleDeleteAccount = async () => {
-      if (!user || !reauthPassword) {
+      if (!user || !reauthPassword || !user.email) {
           toast({title: 'Erro', description: 'Senha necessária para exclusão.', variant: 'destructive'});
           return;
       }
       setIsDeleting(true);
       try {
-          const credential = EmailAuthProvider.credential(user.email!, reauthPassword);
+          const credential = EmailAuthProvider.credential(user.email, reauthPassword);
           await reauthenticateWithCredential(user, credential);
           await deleteUser(user);
           toast({ title: 'Conta Excluída', description: 'Sua conta foi excluída permanentemente.' });
@@ -291,4 +293,3 @@ export function ProfileClient() {
     </div>
   );
 }
-

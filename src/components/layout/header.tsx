@@ -15,20 +15,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { SidebarTrigger } from '../ui/sidebar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
 
 type AppHeaderProps = {
   pageTitle: string;
 };
 
 export function AppHeader({ pageTitle }: AppHeaderProps) {
-  const { auth, user } = useAuth();
+  const auth = useAuth();
+  const { user } = useUser();
   const router = useRouter();
 
   const handleLogout = async () => {
     if (auth) {
-      await auth.signOut();
+      await signOut(auth);
       router.push('/login');
     }
   };
@@ -36,7 +38,7 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
   const userAvatar = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 sm:py-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:border-0 sm:bg-transparent sm:px-6 sm:py-4">
       <SidebarTrigger className="sm:hidden" />
       
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
