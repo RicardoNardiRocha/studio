@@ -290,12 +290,10 @@ export function ProfileClient() {
         </CardContent>
       </Card>
       {user && (
-        <div className="fixed bottom-4 right-6 text-right">
+        <div className="mt-4 text-right">
           <span className="text-xs text-muted-foreground select-all">UID: {user.uid}</span>
         </div>
       )}
     </div>
   );
 }
-
-    
