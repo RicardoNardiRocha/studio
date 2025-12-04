@@ -18,11 +18,13 @@ import {
   FolderOpen,
   FileCog,
   Workflow,
+  User,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useUser } from '@/firebase';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
@@ -34,8 +36,13 @@ const menuItems = [
   { href: '/documentos', label: 'Documentos', icon: FolderOpen },
 ];
 
+const secondaryMenuItems = [
+    { href: '/perfil', label: 'Perfil', icon: User },
+]
+
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useUser();
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar-1');
 
   const processedPathname = pathname.split('/')[1] || 'dashboard';
@@ -70,14 +77,33 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center gap-3 p-3">
+         <SidebarMenu>
+          {secondaryMenuItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <Link href={item.href} passHref>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={item.label}
+                  className="justify-start"
+                >
+                  <span className="flex items-center gap-2">
+                    <item.icon />
+                    <span className="text-base">{item.label}</span>
+                  </span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+        <div className="flex items-center gap-3 p-3 border-t border-sidebar-border">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={userAvatar?.imageUrl} alt="User avatar" data-ai-hint={userAvatar?.imageHint} />
-            <AvatarFallback>AD</AvatarFallback>
+            <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt="User avatar" data-ai-hint={userAvatar?.imageHint} />
+            <AvatarFallback>{user?.displayName?.substring(0, 2).toUpperCase() || 'AD'}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sidebar-foreground">Admin</span>
-            <span className="text-xs text-muted-foreground">admin@contabilx.com</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="font-semibold text-sidebar-foreground truncate">{user?.displayName || 'Admin'}</span>
+            <span className="text-xs text-muted-foreground truncate">{user?.email || 'admin@contabilx.com'}</span>
           </div>
         </div>
       </SidebarFooter>
