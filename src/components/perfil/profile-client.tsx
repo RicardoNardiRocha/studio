@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth, useUser, useStorage } from '@/firebase';
+import { useAuth, useUser, useStorage, useFirestore } from '@/firebase';
 import {
   updateProfile,
   updateEmail,
@@ -14,7 +14,8 @@ import {
   deleteUser,
   signOut,
 } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { uploadProfilePhoto } from '@/lib/storage/upload';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -56,6 +57,7 @@ export function ProfileClient() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const storage = useStorage();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -102,11 +104,13 @@ export function ProfileClient() {
     });
 
     try {
-      const storageRef = ref(storage, `profile-pictures/${user.uid}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
-
+      const downloadURL = await uploadProfilePhoto(storage, user.uid, file);
+      
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
+
+      // Opcional: Salvar a URL também no documento do usuário no Firestore se necessário
+      const userDocRef = doc(firestore, "users", user.uid);
+      await updateDoc(userDocRef, { photoURL: downloadURL });
 
       toast({
         title: 'Foto Atualizada!',
