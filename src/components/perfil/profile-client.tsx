@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -110,7 +110,9 @@ export function ProfileClient() {
         const uploadResult = await uploadBytes(storageRef, file);
         const downloadURL = await getDownloadURL(uploadResult.ref);
 
-        await updateProfile(user, { photoURL: downloadURL });
+        if (auth.currentUser) {
+          await updateProfile(auth.currentUser, { photoURL: downloadURL });
+        }
         
         toast({
             title: 'Foto de Perfil Atualizada!',
@@ -135,12 +137,12 @@ export function ProfileClient() {
 
 
   const handleProfileSubmit = async (data: z.infer<typeof profileSchema>) => {
-    if (!user || !auth) return;
+    if (!user || !auth || !auth.currentUser) return;
     setIsSavingProfile(true);
 
     try {
       if (user.displayName !== data.name) {
-        await updateProfile(user, { displayName: data.name });
+        await updateProfile(auth.currentUser, { displayName: data.name });
       }
       if (user.email !== data.email) {
         // Reautenticação é necessária para mudar o e-mail
@@ -166,14 +168,14 @@ export function ProfileClient() {
   };
 
   const handlePasswordSubmit = async (data: z.infer<typeof passwordSchema>) => {
-    if (!user || !auth) return;
+    if (!user || !auth || !auth.currentUser) return;
     setIsSavingPassword(true);
 
     try {
       if(!user.email) throw new Error("Usuário sem e-mail não pode alterar senha.");
       const credential = EmailAuthProvider.credential(user.email, data.currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, data.newPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, data.newPassword);
       toast({
         title: 'Senha Alterada',
         description: 'Sua senha foi alterada com sucesso.',
@@ -198,15 +200,15 @@ export function ProfileClient() {
   };
   
   const handleDeleteAccount = async () => {
-      if (!user || !reauthPassword || !user.email) {
+      if (!user || !reauthPassword || !user.email || !auth.currentUser) {
           toast({title: 'Erro', description: 'Senha necessária para exclusão.', variant: 'destructive'});
           return;
       }
       setIsDeleting(true);
       try {
           const credential = EmailAuthProvider.credential(user.email, reauthPassword);
-          await reauthenticateWithCredential(user, credential);
-          await deleteUser(user);
+          await reauthenticateWithCredential(auth.currentUser, credential);
+          await deleteUser(auth.currentUser);
           toast({ title: 'Conta Excluída', description: 'Sua conta foi excluída permanentemente.' });
           router.push('/signup');
       } catch (error: any) {
@@ -386,5 +388,3 @@ export function ProfileClient() {
     </div>
   );
 }
-
-    
