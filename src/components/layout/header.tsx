@@ -21,7 +21,7 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
   const userAvatar = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:border-0 sm:bg-transparent sm:px-6 sm:py-4">
       <SidebarTrigger className="sm:hidden" />
       
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -33,8 +33,8 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
       <div className="ml-auto flex items-center gap-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
-              <Avatar className="h-8 w-8">
+            <Button variant="outline" size="icon" className="overflow-hidden rounded-full h-9 w-9">
+              <Avatar className="h-9 w-9">
                 <AvatarImage src={userAvatar?.imageUrl} alt="Avatar" data-ai-hint={userAvatar?.imageHint}/>
                 <AvatarFallback>AD</AvatarFallback>
               </Avatar>
