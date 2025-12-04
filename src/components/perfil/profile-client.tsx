@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useStorage } from '@/firebase';
 import {
   updateProfile,
   updateEmail,
@@ -15,6 +14,7 @@ import {
   deleteUser,
   signOut,
 } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -39,8 +39,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Camera } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -55,12 +56,15 @@ const passwordSchema = z.object({
 export function ProfileClient() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const storage = useStorage();
   const { toast } = useToast();
   const router = useRouter();
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [reauthPassword, setReauthPassword] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -83,6 +87,53 @@ export function ProfileClient() {
     }
   }, [user, profileForm]);
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user || !storage) {
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+            title: 'Arquivo muito grande',
+            description: 'Por favor, selecione uma imagem com no máximo 5MB.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    setIsUploading(true);
+    toast({ title: 'Enviando imagem...', description: 'Aguarde enquanto sua nova foto de perfil é enviada.' });
+
+    try {
+        const storageRef = ref(storage, `profile-pictures/${user.uid}`);
+        const uploadResult = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
+
+        await updateProfile(user, { photoURL: downloadURL });
+        
+        toast({
+            title: 'Foto de Perfil Atualizada!',
+            description: 'Sua nova foto já está visível em todo o sistema.',
+        });
+
+    } catch (error: any) {
+        console.error('Photo upload error:', error);
+        toast({
+            title: 'Erro no Upload',
+            description: 'Não foi possível enviar sua foto. Tente novamente.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsUploading(false);
+        // Reset file input
+        if(fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }
+  };
+
+
   const handleProfileSubmit = async (data: z.infer<typeof profileSchema>) => {
     if (!user || !auth) return;
     setIsSavingProfile(true);
@@ -94,11 +145,10 @@ export function ProfileClient() {
       if (user.email !== data.email) {
         // Reautenticação é necessária para mudar o e-mail
         toast({
-          title: 'Reautenticação Necessária',
-          description: 'Para alterar seu e-mail, por favor, digite sua senha atual na caixa de diálogo de exclusão e tente novamente.',
+          title: 'Funcionalidade desabilitada',
+          description: 'A alteração de e-mail está temporariamente desativada.',
           variant: 'destructive',
         });
-        // Simplificação: usar o mesmo modal de reautenticação da exclusão
       }
       toast({
         title: 'Perfil Atualizado',
@@ -192,6 +242,45 @@ export function ProfileClient() {
 
   return (
     <div className="space-y-6">
+       <Card>
+        <CardHeader>
+          <CardTitle>Foto de Perfil</CardTitle>
+          <CardDescription>Atualize sua foto de perfil.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-6">
+              <div className='relative'>
+                <Avatar className="h-24 w-24">
+                    <AvatarImage src={user?.photoURL || undefined} alt="User Avatar" />
+                    <AvatarFallback className='text-3xl'>
+                        {user?.displayName?.substring(0, 2).toUpperCase() || 'AD'}
+                    </AvatarFallback>
+                </Avatar>
+                 {isUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                        <Loader2 className="h-8 w-8 animate-spin text-white" />
+                    </div>
+                )}
+              </div>
+            <div className='flex flex-col gap-2'>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Alterar Foto
+                </Button>
+                <Input 
+                    ref={fileInputRef}
+                    type="file" 
+                    className="hidden" 
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={handlePhotoUpload}
+                    disabled={isUploading}
+                />
+                <p className='text-xs text-muted-foreground'>JPG, GIF ou PNG. Tamanho máx. de 5MB.</p>
+            </div>
+          </div>
+        </CardContent>
+       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Informações do Perfil</CardTitle>
@@ -297,3 +386,5 @@ export function ProfileClient() {
     </div>
   );
 }
+
+    
