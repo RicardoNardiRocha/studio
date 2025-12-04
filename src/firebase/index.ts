@@ -1,4 +1,3 @@
-
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -7,29 +6,26 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// CLIENT-SIDE ONLY INITIALIZATION
+// Inicialização correta: sempre no CLIENT
 export function initializeFirebase() {
-  // 🚫 Nunca inicializar Firebase no servidor
   if (typeof window === 'undefined') {
+    // Nunca inicializar no servidor
     return {
       firebaseApp: null,
       auth: null,
       firestore: null,
-      storage: null
+      storage: null,
     };
   }
 
-  // Se já existe um app, reutiliza
-  if (getApps().length > 0) {
-    return getSdks(getApp());
+  let firebaseApp: FirebaseApp;
+
+  if (!getApps().length) {
+    firebaseApp = initializeApp(firebaseConfig);
+  } else {
+    firebaseApp = getApp();
   }
 
-  // Inicialização CORRETA no cliente usando firebaseConfig
-  const app = initializeApp(firebaseConfig);
-  return getSdks(app);
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
