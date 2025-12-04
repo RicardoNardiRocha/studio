@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
+import { useEffect, useState } from 'react';
 
 type AppHeaderProps = {
   pageTitle: string;
@@ -27,6 +28,11 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
   const auth = useAuth();
   const { user } = useUser();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleLogout = async () => {
     if (auth) {
@@ -48,26 +54,28 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="overflow-hidden rounded-full h-8 w-8">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt="Avatar" data-ai-hint={userAvatar?.imageHint}/>
-                <AvatarFallback>{user?.displayName?.substring(0, 2).toUpperCase() || 'AD'}</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-                <Link href="/perfil">Perfil</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled>Suporte</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {isClient && (
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="overflow-hidden rounded-full h-8 w-8">
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt="Avatar" data-ai-hint={userAvatar?.imageHint}/>
+                    <AvatarFallback>{user?.displayName?.substring(0, 2).toUpperCase() || 'AD'}</AvatarFallback>
+                </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                    <Link href="/perfil">Perfil</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled>Suporte</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
+            </DropdownMenuContent>
+            </DropdownMenu>
+        )}
       </div>
     </header>
   );
