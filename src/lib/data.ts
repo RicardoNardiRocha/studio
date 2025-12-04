@@ -65,13 +65,7 @@ export const atRiskCompanies = [
 ];
 
 
-export const documents = [
-    { name: 'Contrato Social - Inovatech.pdf', type: 'Contrato', company: 'Inovatech Soluções', expiry: 'N/A', assignee: 'Carlos' },
-    { name: 'CNPJ - Construart.pdf', type: 'Certidão', company: 'Construart Engenharia', expiry: 'N/A', assignee: 'Ana' },
-    { name: 'Cadesp - Padaria Pão Quente.pdf', type: 'Certidão', company: 'Padaria Pão Quente', expiry: '30/12/2024', assignee: 'Beatriz' },
-    { name: 'Balanço 2023 - AgroForte.xlsx', type: 'Contábil', company: 'AgroForte Produtos', expiry: 'N/A', assignee: 'Carlos' },
-    { name: 'Procuração RFB - Techware.pdf', type: 'Procuração', company: 'Techware Software', expiry: '01/06/2025', assignee: 'Ana' },
-]
+export const documents: any[] = [];
 
 export const obligations = [
   { id: '1', name: 'DASN-SIMEI', sector: 'Fiscal', due: '31/05/2025', assignee: 'Ana', status: 'gerar' },

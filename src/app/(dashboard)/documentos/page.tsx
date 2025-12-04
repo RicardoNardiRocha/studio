@@ -35,15 +35,23 @@ export default function DocumentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {documents.map((doc, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{doc.name}</TableCell>
-                    <TableCell>{doc.type}</TableCell>
-                    <TableCell>{doc.company}</TableCell>
-                    <TableCell>{doc.expiry}</TableCell>
-                    <TableCell>{doc.assignee}</TableCell>
+                {documents && documents.length > 0 ? (
+                  documents.map((doc, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{doc.name}</TableCell>
+                      <TableCell>{doc.type}</TableCell>
+                      <TableCell>{doc.company}</TableCell>
+                      <TableCell>{doc.expiry}</TableCell>
+                      <TableCell>{doc.assignee}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      Nenhum documento encontrado.
+                    </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </CardContent>
