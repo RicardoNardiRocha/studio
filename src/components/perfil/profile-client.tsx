@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useStorage } from '@/firebase';
 import {
   updateProfile,
   updateEmail,
@@ -14,6 +14,7 @@ import {
   deleteUser,
   signOut,
 } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -54,6 +55,7 @@ const passwordSchema = z.object({
 export function ProfileClient() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const storage = useStorage();
   const { toast } = useToast();
   const router = useRouter();
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -90,11 +92,38 @@ export function ProfileClient() {
   }, [user, profileForm]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setIsUploading(true);
     toast({
-        title: 'Função desativada',
-        description: 'O upload de fotos está temporariamente desativado.',
-        variant: 'destructive'
+      title: 'Enviando foto...',
+      description: 'Aguarde enquanto sua nova foto de perfil é enviada.',
     });
+
+    try {
+      const storageRef = ref(storage, `profile-pictures/${user.uid}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL: downloadURL });
+      }
+
+      toast({
+        title: 'Foto Atualizada!',
+        description: 'Sua foto de perfil foi alterada com sucesso.',
+      });
+    } catch (error: any) {
+      console.error('Photo upload error: ', error);
+      toast({
+        title: 'Erro no Upload',
+        description: error.message || 'Não foi possível enviar a foto. Verifique as regras do Storage.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
 
@@ -103,19 +132,14 @@ export function ProfileClient() {
     setIsSavingProfile(true);
 
     try {
+      // Apenas atualiza o nome. A alteração de e-mail é um fluxo mais complexo.
       if (user.displayName !== data.name) {
         await updateProfile(auth.currentUser, { displayName: data.name });
       }
-      if (user.email !== data.email) {
-        toast({
-          title: 'Funcionalidade desabilitada',
-          description: 'A alteração de e-mail está temporariamente desativada.',
-          variant: 'destructive',
-        });
-      }
+      
       toast({
         title: 'Perfil Atualizado',
-        description: 'Seu nome foi atualizado com sucesso.',
+        description: 'Seus dados foram atualizados com sucesso.',
       });
     } catch (error: any) {
       toast({
@@ -228,7 +252,7 @@ export function ProfileClient() {
                 )}
               </div>
             <div className='flex flex-col gap-2'>
-                <Button onClick={() => fileInputRef.current?.click()} disabled={true}>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                     <Camera className="mr-2 h-4 w-4" />
                     Alterar Foto
                 </Button>
@@ -238,9 +262,9 @@ export function ProfileClient() {
                     className="hidden" 
                     accept="image/png, image/jpeg, image/gif"
                     onChange={handlePhotoUpload}
-                    disabled={true}
+                    disabled={isUploading}
                 />
-                <p className='text-xs text-muted-foreground'>Upload de fotos temporariamente desativado.</p>
+                <p className='text-xs text-muted-foreground'>Recomendado: 200x200px, até 1MB</p>
             </div>
           </div>
         </CardContent>
@@ -266,6 +290,7 @@ export function ProfileClient() {
                {profileForm.formState.errors.email && (
                 <p className="text-sm text-destructive">{profileForm.formState.errors.email.message}</p>
               )}
+               <p className="text-xs text-muted-foreground">A alteração de e-mail requer um fluxo de verificação e está desabilitada na interface.</p>
             </div>
             <Button type="submit" disabled={isSavingProfile}>
               {isSavingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
