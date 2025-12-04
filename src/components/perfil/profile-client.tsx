@@ -93,7 +93,7 @@ export function ProfileClient() {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !auth.currentUser) return;
 
     setIsUploading(true);
     toast({
@@ -106,9 +106,7 @@ export function ProfileClient() {
       await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(storageRef);
 
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL: downloadURL });
-      }
+      await updateProfile(auth.currentUser, { photoURL: downloadURL });
 
       toast({
         title: 'Foto Atualizada!',
