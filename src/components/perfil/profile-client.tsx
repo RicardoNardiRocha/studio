@@ -208,7 +208,7 @@ export function ProfileClient() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...profileForm.register('email')} />
+              <Input id="email" type="email" {...profileForm.register('email')} disabled />
                {profileForm.formState.errors.email && (
                 <p className="text-sm text-destructive">{profileForm.formState.errors.email.message}</p>
               )}
