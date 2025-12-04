@@ -40,7 +40,6 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Camera } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -91,54 +90,11 @@ export function ProfileClient() {
   }, [user, profileForm]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !user || !auth) {
-        return;
-    }
-    
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast({
-            title: 'Arquivo muito grande',
-            description: 'Por favor, selecione uma imagem com no máximo 5MB.',
-            variant: 'destructive',
-        });
-        return;
-    }
-
-    setIsUploading(true);
-    toast({ title: 'Enviando imagem...', description: 'Aguarde enquanto sua nova foto de perfil é enviada.' });
-
-    try {
-        const storage = getStorage(auth.app);
-        const filePath = `profile-pictures/${user.uid}`;
-        const fileRef = storageRef(storage, filePath);
-
-        await uploadBytes(fileRef, file);
-        const downloadURL = await getDownloadURL(fileRef);
-
-        if (auth.currentUser) {
-            await updateProfile(auth.currentUser, { photoURL: downloadURL });
-            await auth.currentUser.reload();
-        }
-            
-        toast({
-            title: 'Foto de Perfil Atualizada!',
-            description: 'Sua nova foto já está visível em todo o sistema.',
-        });
-        
-    } catch (error: any) {
-        console.error('Photo upload error:', error);
-        toast({
-            title: 'Erro no Upload',
-            description: 'Não foi possível enviar sua foto. Verifique a configuração de CORS do bucket de Storage.',
-            variant: 'destructive',
-        });
-    } finally {
-        setIsUploading(false);
-        if(fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    }
+    toast({
+        title: 'Função desativada',
+        description: 'O upload de fotos está temporariamente desativado.',
+        variant: 'destructive'
+    });
   };
 
 
@@ -272,7 +228,7 @@ export function ProfileClient() {
                 )}
               </div>
             <div className='flex flex-col gap-2'>
-                <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={true}>
                     <Camera className="mr-2 h-4 w-4" />
                     Alterar Foto
                 </Button>
@@ -282,9 +238,9 @@ export function ProfileClient() {
                     className="hidden" 
                     accept="image/png, image/jpeg, image/gif"
                     onChange={handlePhotoUpload}
-                    disabled={isUploading}
+                    disabled={true}
                 />
-                <p className='text-xs text-muted-foreground'>JPG, GIF ou PNG. Tamanho máx. de 5MB.</p>
+                <p className='text-xs text-muted-foreground'>Upload de fotos temporariamente desativado.</p>
             </div>
           </div>
         </CardContent>

@@ -4,33 +4,29 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
-// Inicialização correta: sempre no CLIENT
 export function initializeFirebase() {
   if (typeof window === 'undefined') {
-    // Nunca inicializar no servidor
-    return {
-      firebaseApp: null,
-      auth: null,
-      firestore: null,
-      storage: null,
-    };
+    if (!getApps().length) {
+      initializeApp(firebaseConfig);
+    }
+    const app = getApp();
+    return getSdks(app);
   }
 
-  let firebaseApp: FirebaseApp;
-
-  if (!getApps().length) {
-    firebaseApp = initializeApp(firebaseConfig);
-  } else {
-    firebaseApp = getApp();
+  if (getApps().length) {
+    return getSdks(getApp());
   }
 
+  const firebaseApp = initializeApp(firebaseConfig);
+  return getSdks(firebaseApp);
+}
+
+export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp),
+    firestore: getFirestore(firebaseApp)
   };
 }
 
