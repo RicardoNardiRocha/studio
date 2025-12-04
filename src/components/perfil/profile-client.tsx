@@ -40,7 +40,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Camera } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { uploadFile } from '@/ai/flows/upload-file-flow';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -92,7 +92,7 @@ export function ProfileClient() {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user) {
+    if (!file || !user || !auth) {
         return;
     }
     
@@ -109,37 +109,32 @@ export function ProfileClient() {
     toast({ title: 'Enviando imagem...', description: 'Aguarde enquanto sua nova foto de perfil é enviada.' });
 
     try {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = async () => {
-            const fileDataUri = reader.result as string;
-            const filePath = `profile-pictures/${user.uid}`;
-            
-            const result = await uploadFile({ fileDataUri, filePath });
-            const downloadURL = result.downloadUrl;
+        const storage = getStorage(auth.app);
+        const filePath = `profile-pictures/${user.uid}`;
+        const fileRef = storageRef(storage, filePath);
 
-            if (auth.currentUser) {
-              await updateProfile(auth.currentUser, { photoURL: downloadURL });
-            }
-            
-            toast({
-                title: 'Foto de Perfil Atualizada!',
-                description: 'Sua nova foto já está visível em todo o sistema.',
-            });
-            // Force a reload of user to get new photoURL
-            await auth.currentUser?.reload(); 
-        };
+        await uploadBytes(fileRef, file);
+        const downloadURL = await getDownloadURL(fileRef);
 
+        if (auth.currentUser) {
+            await updateProfile(auth.currentUser, { photoURL: downloadURL });
+            await auth.currentUser.reload();
+        }
+            
+        toast({
+            title: 'Foto de Perfil Atualizada!',
+            description: 'Sua nova foto já está visível em todo o sistema.',
+        });
+        
     } catch (error: any) {
         console.error('Photo upload error:', error);
         toast({
             title: 'Erro no Upload',
-            description: 'Não foi possível enviar sua foto. Tente novamente.',
+            description: 'Não foi possível enviar sua foto. Verifique a configuração de CORS do bucket de Storage.',
             variant: 'destructive',
         });
     } finally {
         setIsUploading(false);
-        // Reset file input
         if(fileInputRef.current) {
             fileInputRef.current.value = '';
         }
