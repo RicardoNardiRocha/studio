@@ -1,5 +1,4 @@
-import { Home, Search, ChevronsRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Home, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,33 +30,26 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
         <span className="font-medium text-foreground">{pageTitle}</span>
       </div>
 
-      <div className="relative ml-auto flex-1 md:grow-0">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Buscar em todo o sistema..."
-          className="w-full rounded-lg bg-secondary pl-8 md:w-[200px] lg:w-[320px]"
-        />
+      <div className="ml-auto flex items-center gap-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={userAvatar?.imageUrl} alt="Avatar" data-ai-hint={userAvatar?.imageHint}/>
+                <AvatarFallback>AD</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Configurações</DropdownMenuItem>
+            <DropdownMenuItem>Suporte</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Sair</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={userAvatar?.imageUrl} alt="Avatar" data-ai-hint={userAvatar?.imageHint}/>
-              <AvatarFallback>AD</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Configurações</DropdownMenuItem>
-          <DropdownMenuItem>Suporte</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Sair</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </header>
   );
 }
