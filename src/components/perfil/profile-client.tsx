@@ -289,7 +289,13 @@ export function ProfileClient() {
             </AlertDialog>
         </CardContent>
       </Card>
-
+      {user && (
+        <div className="fixed bottom-4 right-6 text-right">
+          <span className="text-xs text-muted-foreground select-all">UID: {user.uid}</span>
+        </div>
+      )}
     </div>
   );
 }
+
+    
