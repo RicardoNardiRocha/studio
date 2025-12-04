@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth, useUser, useStorage } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import {
   updateProfile,
   updateEmail,
@@ -14,7 +14,6 @@ import {
   deleteUser,
   signOut,
 } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -26,7 +25,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +40,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Camera } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { uploadFile } from '@/ai/flows/upload-file-flow';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -56,7 +55,6 @@ const passwordSchema = z.object({
 export function ProfileClient() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
-  const storage = useStorage();
   const { toast } = useToast();
   const router = useRouter();
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -65,6 +63,11 @@ export function ProfileClient() {
   const [reauthPassword, setReauthPassword] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -89,7 +92,7 @@ export function ProfileClient() {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user || !storage) {
+    if (!file || !user) {
         return;
     }
     
@@ -106,18 +109,26 @@ export function ProfileClient() {
     toast({ title: 'Enviando imagem...', description: 'Aguarde enquanto sua nova foto de perfil é enviada.' });
 
     try {
-        const storageRef = ref(storage, `profile-pictures/${user.uid}`);
-        const uploadResult = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(uploadResult.ref);
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = async () => {
+            const fileDataUri = reader.result as string;
+            const filePath = `profile-pictures/${user.uid}`;
+            
+            const result = await uploadFile({ fileDataUri, filePath });
+            const downloadURL = result.downloadUrl;
 
-        if (auth.currentUser) {
-          await updateProfile(auth.currentUser, { photoURL: downloadURL });
-        }
-        
-        toast({
-            title: 'Foto de Perfil Atualizada!',
-            description: 'Sua nova foto já está visível em todo o sistema.',
-        });
+            if (auth.currentUser) {
+              await updateProfile(auth.currentUser, { photoURL: downloadURL });
+            }
+            
+            toast({
+                title: 'Foto de Perfil Atualizada!',
+                description: 'Sua nova foto já está visível em todo o sistema.',
+            });
+            // Force a reload of user to get new photoURL
+            await auth.currentUser?.reload(); 
+        };
 
     } catch (error: any) {
         console.error('Photo upload error:', error);
@@ -145,7 +156,6 @@ export function ProfileClient() {
         await updateProfile(auth.currentUser, { displayName: data.name });
       }
       if (user.email !== data.email) {
-        // Reautenticação é necessária para mudar o e-mail
         toast({
           title: 'Funcionalidade desabilitada',
           description: 'A alteração de e-mail está temporariamente desativada.',
@@ -191,13 +201,6 @@ export function ProfileClient() {
       setIsSavingPassword(false);
     }
   };
-
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-      router.push('/login');
-    }
-  };
   
   const handleDeleteAccount = async () => {
       if (!user || !reauthPassword || !user.email || !auth.currentUser) {
@@ -210,6 +213,7 @@ export function ProfileClient() {
           await reauthenticateWithCredential(auth.currentUser, credential);
           await deleteUser(auth.currentUser);
           toast({ title: 'Conta Excluída', description: 'Sua conta foi excluída permanentemente.' });
+          if(auth) await signOut(auth);
           router.push('/signup');
       } catch (error: any) {
           toast({ title: 'Erro ao Excluir Conta', description: 'Sua senha está incorreta ou ocorreu um erro.', variant: 'destructive'});
@@ -218,7 +222,14 @@ export function ProfileClient() {
       }
   }
 
-  if (isUserLoading) {
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+      router.push('/login');
+    }
+  };
+
+  if (!isClient || isUserLoading) {
     return (
         <div className="space-y-6">
             <Card>
@@ -227,6 +238,7 @@ export function ProfileClient() {
                     <Skeleton className="h-4 w-64" />
                 </CardHeader>
                 <CardContent className="space-y-4">
+                     <Skeleton className="h-24 w-24 rounded-full" />
                     <div className="space-y-2">
                         <Skeleton className="h-4 w-16" />
                         <Skeleton className="h-10 w-full" />
