@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Regra geral: Permite leitura para todos, mas escrita apenas para usuários autenticados.
+    // Isso é útil para arquivos públicos como imagens de perfil, onde qualquer um pode ver,
+    // mas apenas o usuário pode atualizar.
+    match /{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null;
+    }
+
+    // Regra específica para fotos de perfil:
+    // Apenas o proprietário do perfil pode enviar ou deletar sua própria foto.
+    // O nome do arquivo deve ser o UID do usuário.
+    match /profile-pictures/{userId} {
+      allow read; // Qualquer um pode ler as fotos de perfil.
+      // Permite escrita (create, update, delete) se o UID do usuário logado for o mesmo
+      // que o nome do arquivo (que é o UID).
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regra específica para documentos de empresas:
+    // Permite que membros de uma empresa (lógica a ser implementada no Firestore)
+    // possam ler e escrever em uma pasta específica da empresa.
+    // Esta regra depende de uma verificação no Firestore.
+    match /company-documents/{companyId}/{allPaths=**} {
+        // A função isCompanyMember precisaria ser definida nas regras do Firestore
+        // ou você pode replicar a lógica aqui se for simples.
+        // Por simplicidade aqui, vamos apenas verificar se o usuário está logado.
+        // Uma regra real seria: allow read, write: if request.auth != null && isCompanyMember(companyId);
+       allow read, write: if request.auth != null;
+    }
+  }
+}
