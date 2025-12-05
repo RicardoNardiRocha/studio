@@ -1,6 +1,10 @@
 'use client';
 
 import { FirebaseStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Firestore, collection, addDoc, doc, updateDoc } from "firebase/firestore";
+import { User } from "firebase/auth";
+import type { Company } from "@/components/empresas/company-details-dialog";
+
 
 /**
  * Uploads a file to a specified folder in Firebase Storage.
@@ -17,6 +21,55 @@ export async function uploadFile(storageInstance: FirebaseStorage, folder: strin
   await uploadBytes(fileRef, file);
   return await getDownloadURL(fileRef);
 }
+
+/**
+ * Uploads a company document, saves its metadata to Firestore, and returns the document data.
+ * @param company - The company object the document belongs to.
+ * @param file - The file to upload.
+ * @param user - The currently authenticated user.
+ * @param firestore - Firestore instance.
+ * @param storage - Firebase Storage instance.
+ * @returns A promise that resolves with the newly created document's data.
+ */
+export async function uploadCompanyDocument(
+  company: Company,
+  file: File,
+  user: User,
+  firestore: Firestore,
+  storage: FirebaseStorage
+): Promise<any> {
+    const folder = `companies/${company.id}/documents`;
+    const fileUrl = await uploadFile(storage, folder, file);
+    
+    const documentCollectionRef = collection(firestore, 'companies', company.id, 'documents');
+    
+    // Extrai o tipo do arquivo ou define como 'Outro'
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    let fileType = 'Outro';
+    if (fileExtension === 'pdf') fileType = 'PDF';
+    if (fileExtension === 'xml') fileType = 'XML';
+    if (fileExtension === 'doc' || fileExtension === 'docx') fileType = 'Word';
+    if (fileExtension === 'xls' || fileExtension === 'xlsx') fileType = 'Excel';
+
+    const newDocumentData = {
+        companyId: company.id,
+        companyName: company.name,
+        name: file.name,
+        type: fileType,
+        expirationDate: null,
+        uploadDate: new Date(),
+        responsibleUserId: user.uid,
+        responsibleUserName: user.displayName || 'Não definido',
+        fileUrl: fileUrl,
+        fileName: file.name,
+    };
+
+    const docRef = await addDoc(documentCollectionRef, newDocumentData);
+    await updateDoc(doc(documentCollectionRef, docRef.id), { id: docRef.id });
+
+    return { ...newDocumentData, id: docRef.id };
+}
+
 
 /**
  * Uploads a profile photo for a specific user.
