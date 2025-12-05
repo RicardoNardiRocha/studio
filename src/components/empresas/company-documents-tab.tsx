@@ -214,7 +214,7 @@ export function CompanyDocumentsTab({ company }: CompanyDocumentsTabProps) {
               </TableRow>
             )}
           </TableBody>
-        </div>
+        </Table>
       </div>
     </div>
   );
