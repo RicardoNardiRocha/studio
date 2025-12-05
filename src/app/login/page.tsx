@@ -10,14 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Layers, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
   const auth = useAuth();
   const { toast } = useToast();
@@ -68,36 +67,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    if (!auth) {
-      toast({
-        title: 'Erro de Autenticação',
-        description: 'O serviço de autenticação não está disponível.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setIsGoogleLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      toast({
-        title: 'Login bem-sucedido!',
-        description: 'Redirecionando para o dashboard...',
-      });
-      router.push('/dashboard');
-    } catch (error: any) {
-      toast({
-        title: 'Erro com Login Google',
-        description: error.message || 'Não foi possível fazer login com o Google.',
-        variant: 'destructive',
-      });
-      console.error('Google login error:', error);
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  }
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-8">
@@ -128,7 +97,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -144,14 +113,11 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={isLoading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar'}
-              </Button>
-              <Button variant="outline" className="w-full" disabled={isLoading || isGoogleLoading} onClick={handleGoogleLogin} type="button">
-                 {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Entrar com Google'}
               </Button>
             </form>
           </CardContent>

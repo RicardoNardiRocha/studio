@@ -281,7 +281,7 @@
   },
   "auth": {
     "providers": [
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
