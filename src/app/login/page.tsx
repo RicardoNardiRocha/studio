@@ -156,12 +156,6 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-        <div className="text-center text-sm text-muted-foreground">
-          Não tem uma conta?{' '}
-          <Link href="/signup" className="underline" prefetch={false}>
-            Cadastre-se
-          </Link>
-        </div>
       </div>
     </div>
   );

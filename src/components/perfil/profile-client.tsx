@@ -179,26 +179,6 @@ export function ProfileClient() {
     }
   };
   
-  const handleDeleteAccount = async () => {
-      if (!user || !reauthPassword || !user.email || !auth.currentUser) {
-          toast({title: 'Erro', description: 'Senha necessária para exclusão.', variant: 'destructive'});
-          return;
-      }
-      setIsDeleting(true);
-      try {
-          const credential = EmailAuthProvider.credential(user.email, reauthPassword);
-          await reauthenticateWithCredential(auth.currentUser, credential);
-          await deleteUser(auth.currentUser);
-          toast({ title: 'Conta Excluída', description: 'Sua conta foi excluída permanentemente.' });
-          if(auth) await signOut(auth);
-          router.push('/signup');
-      } catch (error: any) {
-          toast({ title: 'Erro ao Excluir Conta', description: 'Sua senha está incorreta ou ocorreu um erro.', variant: 'destructive'});
-      } finally {
-          setIsDeleting(false);
-      }
-  }
-
   const handleLogout = async () => {
     if (auth) {
       await signOut(auth);
@@ -338,36 +318,6 @@ export function ProfileClient() {
         </CardHeader>
         <CardContent className='flex flex-col sm:flex-row gap-4'>
             <Button variant="outline" onClick={handleLogout}>Sair da Conta</Button>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive">Excluir Conta</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Esta ação não pode ser desfeita. Isso excluirá permanentemente sua conta e removerá seus dados de nossos servidores. Para confirmar, digite sua senha atual.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="space-y-2">
-                        <Label htmlFor="reauth-password">Senha Atual</Label>
-                        <Input 
-                            id="reauth-password"
-                            type="password"
-                            value={reauthPassword}
-                            onChange={(e) => setReauthPassword(e.target.value)}
-                            placeholder="Digite sua senha para confirmar"
-                        />
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDeleteAccount} disabled={isDeleting || !reauthPassword}>
-                             {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Eu entendo, excluir minha conta
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </CardContent>
       </Card>
       {user && (

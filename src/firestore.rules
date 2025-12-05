@@ -178,9 +178,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin(); // Prevent users from listing all other users.
-      allow create: if isOwner(userId) && isConsistentDocId(userId);
+      allow create: if false; // Users can no longer create their own profile documents.
       allow update: if isOwner(userId) && resource != null && isDocIdImmutable();
-      allow delete: if isOwner(userId) && resource != null;
+      allow delete: if isAdmin();
     }
 
     /**
