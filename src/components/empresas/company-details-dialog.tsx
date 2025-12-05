@@ -38,6 +38,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Input } from '../ui/input';
 import { CertificateUploadDialog } from './certificate-upload-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CompanyDocumentsTab } from './company-documents-tab';
 
 interface Partner {
   nome_socio: string;
@@ -117,8 +119,6 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   
   const handleCertificateUpdated = () => {
     onCompanyUpdated();
-    // A função `onCompanyUpdated` agora fecha o modal principal,
-    // então não precisamos fazer mais nada aqui.
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -169,7 +169,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       onCertificateUpdated={handleCertificateUpdated}
     />
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh]">
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <DialogHeader>
@@ -182,129 +182,138 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
             </div>
           </DialogHeader>
           
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4 py-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
-              <div>
-                <Label className='text-muted-foreground'>CNPJ</Label>
-                <p className="font-medium">{company.cnpj}</p>
-              </div>
-              <div>
-                <Label className='text-muted-foreground'>Data de Abertura</Label>
-                <p className="font-medium">{company.startDate}</p>
-              </div>
-               <FormField
-                  control={form.control}
-                  name="taxRegime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Regime Tributário</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                        disabled={company.taxRegime === 'Simples Nacional'}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o regime" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Simples Nacional" disabled>Simples Nacional</SelectItem>
-                          <SelectItem value="Lucro Presumido">Lucro Presumido</SelectItem>
-                          <SelectItem value="Lucro Real">Lucro Real</SelectItem>
-                           <SelectItem value="Lucro Presumido / Real">Lucro Presumido / Real</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              <div>
-                <Label className='text-muted-foreground'>Porte</Label>
-                <p className="font-medium">{company.porte || 'Não informado'}</p>
-              </div>
-              <div>
-                <Label className='text-muted-foreground'>Natureza Jurídica</Label>
-                <p className="font-medium">{company.legalNature || 'Não informado'}</p>
-              </div>
-              <div>
-                <Label className='text-muted-foreground'>Capital Social</Label>
-                <p className="font-medium">{company.capital?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}</p>
-              </div>
-              <div className='col-span-2'>
-                <Label className='text-muted-foreground'>Atividade Principal (CNAE)</Label>
-                <p className="font-medium">{company.cnae || 'Não informado'}</p>
-              </div>
-            </div>
-
-            <Separator/>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className='space-y-2'>
-                <h3 className="font-semibold font-headline">Endereço</h3>
-                <p className="text-sm text-muted-foreground">{company.address || 'Não informado'}</p>
-              </div>
-              <div className='space-y-2'>
-                <h3 className="font-semibold font-headline">Contato</h3>
-                <p className="text-sm text-muted-foreground">
-                  Telefone: {company.phone || 'Não informado'} <br/>
-                  Email: {company.email || 'Não informado'}
-                </p>
-              </div>
-            </div>
-            
-            <Separator />
-
-            <div>
-                <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-1">
-                        <Label>Data de Vencimento</Label>
-                        <p className="text-sm font-medium text-muted-foreground">
-                            {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
-                        </p>
-                    </div>
-                    <Button type="button" onClick={() => setIsCertUploadOpen(true)}>
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        Adicionar/Atualizar
-                    </Button>
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Detalhes da Empresa</TabsTrigger>
+                <TabsTrigger value="documents">Documentos</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="overflow-y-auto max-h-[calc(90vh-220px)] pr-4 py-4 space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <Label className='text-muted-foreground'>CNPJ</Label>
+                    <p className="font-medium">{company.cnpj}</p>
                 </div>
-            </div>
-          
-            <div>
-              <h3 className='font-semibold font-headline mb-2'>Quadro de Sócios e Administradores (QSA)</h3>
-              <div className="border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Qualificação</TableHead>
-                      <TableHead>Data de Entrada</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {company.qsa && company.qsa.length > 0 ? (
-                      company.qsa.map((socio, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{socio.nome_socio}</TableCell>
-                          <TableCell>{socio.qualificacao_socio}</TableCell>
-                          <TableCell>{new Date(socio.data_entrada_sociedade).toLocaleDateString('pt-BR')}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                          Nenhum sócio ou administrador encontrado.
-                        </TableCell>
-                      </TableRow>
+                <div>
+                    <Label className='text-muted-foreground'>Data de Abertura</Label>
+                    <p className="font-medium">{company.startDate}</p>
+                </div>
+                <FormField
+                    control={form.control}
+                    name="taxRegime"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Regime Tributário</FormLabel>
+                        <Select 
+                            onValueChange={field.onChange} 
+                            defaultValue={field.value}
+                            disabled={company.taxRegime === 'Simples Nacional'}
+                        >
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecione o regime" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="Simples Nacional" disabled>Simples Nacional</SelectItem>
+                            <SelectItem value="Lucro Presumido">Lucro Presumido</SelectItem>
+                            <SelectItem value="Lucro Real">Lucro Real</SelectItem>
+                            <SelectItem value="Lucro Presumido / Real">Lucro Presumido / Real</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
                     )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          </div>
+                    />
+                <div>
+                    <Label className='text-muted-foreground'>Porte</Label>
+                    <p className="font-medium">{company.porte || 'Não informado'}</p>
+                </div>
+                <div>
+                    <Label className='text-muted-foreground'>Natureza Jurídica</Label>
+                    <p className="font-medium">{company.legalNature || 'Não informado'}</p>
+                </div>
+                <div>
+                    <Label className='text-muted-foreground'>Capital Social</Label>
+                    <p className="font-medium">{company.capital?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}</p>
+                </div>
+                <div className='col-span-2'>
+                    <Label className='text-muted-foreground'>Atividade Principal (CNAE)</Label>
+                    <p className="font-medium">{company.cnae || 'Não informado'}</p>
+                </div>
+                </div>
 
-          <DialogFooter className="pt-4 flex-row justify-between w-full">
+                <Separator/>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className='space-y-2'>
+                    <h3 className="font-semibold font-headline">Endereço</h3>
+                    <p className="text-sm text-muted-foreground">{company.address || 'Não informado'}</p>
+                </div>
+                <div className='space-y-2'>
+                    <h3 className="font-semibold font-headline">Contato</h3>
+                    <p className="text-sm text-muted-foreground">
+                    Telefone: {company.phone || 'Não informado'} <br/>
+                    Email: {company.email || 'Não informado'}
+                    </p>
+                </div>
+                </div>
+                
+                <Separator />
+
+                <div>
+                    <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-1">
+                            <Label>Data de Vencimento</Label>
+                            <p className="text-sm font-medium text-muted-foreground">
+                                {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
+                            </p>
+                        </div>
+                        <Button type="button" onClick={() => setIsCertUploadOpen(true)}>
+                            <UploadCloud className="mr-2 h-4 w-4" />
+                            Adicionar/Atualizar
+                        </Button>
+                    </div>
+                </div>
+            
+                <div>
+                <h3 className='font-semibold font-headline mb-2'>Quadro de Sócios e Administradores (QSA)</h3>
+                <div className="border rounded-md">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Qualificação</TableHead>
+                        <TableHead>Data de Entrada</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {company.qsa && company.qsa.length > 0 ? (
+                        company.qsa.map((socio, index) => (
+                            <TableRow key={index}>
+                            <TableCell className="font-medium">{socio.nome_socio}</TableCell>
+                            <TableCell>{socio.qualificacao_socio}</TableCell>
+                            <TableCell>{new Date(socio.data_entrada_sociedade).toLocaleDateString('pt-BR')}</TableCell>
+                            </TableRow>
+                        ))
+                        ) : (
+                        <TableRow>
+                            <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                            Nenhum sócio ou administrador encontrado.
+                            </TableCell>
+                        </TableRow>
+                        )}
+                    </TableBody>
+                    </Table>
+                </div>
+                </div>
+            </TabsContent>
+            <TabsContent value="documents" className="overflow-y-auto max-h-[calc(90vh-220px)]">
+                <CompanyDocumentsTab company={company} />
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="pt-4 flex-row justify-between w-full border-t">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">

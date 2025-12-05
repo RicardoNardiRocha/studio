@@ -31,16 +31,18 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser, useStorage } from '@/firebase';
-import { addDoc, collection, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { useFirestore, useUser, useStorage } from '@/firebase';
+import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Input } from '../ui/input';
 import { uploadFile } from '@/lib/storage/upload';
+import type { Company } from '@/components/empresas/company-details-dialog';
 
 interface AddDocumentDialogProps {
+  company: Company;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDocumentAdded: () => void;
@@ -49,27 +51,18 @@ interface AddDocumentDialogProps {
 const documentTypes = ['Contrato Social', 'Alvará', 'Certidão Negativa', 'Procuração', 'Documento Fiscal', 'Outro'];
 
 const formSchema = z.object({
-  companyId: z.string({ required_error: 'Selecione uma empresa.' }),
   name: z.string().min(3, 'O nome do arquivo é obrigatório.'),
   type: z.string({ required_error: 'Selecione o tipo de documento.' }),
   file: z.any().refine(file => file?.length == 1, 'O arquivo é obrigatório.'),
   expirationDate: z.date().optional(),
 });
 
-type Company = { id: string; name: string };
-
-export function AddDocumentDialog({ open, onOpenChange, onDocumentAdded }: AddDocumentDialogProps) {
+export function AddDocumentDialog({ company, open, onOpenChange, onDocumentAdded }: AddDocumentDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const storage = useStorage();
   const { user } = useUser();
-
-  const companiesCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
-  }, [firestore]);
-  const { data: companies } = useCollection<Company>(companiesCollection);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,20 +76,15 @@ export function AddDocumentDialog({ open, onOpenChange, onDocumentAdded }: AddDo
     setIsLoading(true);
 
     try {
-      const company = companies?.find(c => c.id === values.companyId);
-      if (!company) throw new Error('Empresa não encontrada.');
-
       const fileToUpload = values.file[0] as File;
       
-      // 1. Upload do arquivo para o Storage
       const folder = `companies/${company.id}/documents`;
       const fileUrl = await uploadFile(storage, folder, fileToUpload);
       
-      // 2. Criação do documento no Firestore
-      const documentCollectionRef = collection(firestore, 'companies', values.companyId, 'documents');
+      const documentCollectionRef = collection(firestore, 'companies', company.id, 'documents');
       
       const newDocument = {
-        companyId: values.companyId,
+        companyId: company.id,
         companyName: company.name,
         name: values.name,
         type: values.type,
@@ -133,28 +121,13 @@ export function AddDocumentDialog({ open, onOpenChange, onDocumentAdded }: AddDo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Adicionar Novo Documento</DialogTitle>
+          <DialogTitle>Novo Documento para {company.name}</DialogTitle>
           <DialogDescription>
             Preencha os dados e selecione o arquivo para upload.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="companyId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Empresa</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger></FormControl>
-                    <SelectContent>{companies?.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
             <FormField
                 control={form.control}
                 name="file"
