@@ -1,24 +1,32 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // Regra específica para fotos de perfil:
-    // Permite que usuários autenticados leiam e escrevam em seus próprios caminhos.
-    match /profile-pictures/{userId} {
-      allow read; // Qualquer um pode ler as fotos de perfil.
-      // Permite escrita (create, update, delete) se o UID do usuário logado for o mesmo
-      // que o {userId} no caminho do arquivo.
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // Helper function to check if the user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Regra específica para documentos de empresas:
-    // Uma regra mais robusta dependeria de uma verificação no Firestore para ver se o usuário é membro da empresa.
-    match /company-documents/{companyId}/{allPaths=**} {
-       // Por enquanto, apenas usuários autenticados podem ler e escrever.
-       allow read, write: if request.auth != null;
+    // Helper function to check if the user is a member of the company.
+    // This requires a Firestore read, which is billed.
+    function isCompanyMember(companyId) {
+      return exists(/databases/(default)/documents/companies/$(companyId)/members/$(request.auth.uid));
+    }
+    
+    // Profile pictures: Users can only write to their own folder.
+    // Anyone can read profile pictures.
+    match /profile-pictures/{userId}/{fileName} {
+      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if true;
     }
 
-    // Regra geral de fallback: Nega acesso a todos os outros caminhos.
+    // Company documents: Only members of the company can read or write documents.
+    match /companies/{companyId}/documents/{fileName} {
+      allow read, write: if isSignedIn() && isCompanyMember(companyId);
+    }
+
+    // Fallback rule: Deny all other read/write operations for security.
     match /{allPaths=**} {
       allow read, write: if false;
     }

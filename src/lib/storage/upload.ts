@@ -1,8 +1,6 @@
 'use client';
 
-import { useStorage } from "@/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { FirebaseStorage } from "firebase/storage";
+import { FirebaseStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 /**
  * Uploads a file to a specified folder in Firebase Storage.
@@ -29,8 +27,7 @@ export async function uploadFile(storageInstance: FirebaseStorage, folder: strin
  * @returns A promise that resolves with the public download URL of the file.
  */
 export const uploadProfilePhoto = (storageInstance: FirebaseStorage, userId: string, file: File) => {
-    // The path includes the userId to ensure files are stored in a user-specific directory
-    const path = `profile-pictures/${userId}/${Date.now()}-${file.name}`;
+    const path = `profile-pictures/${userId}/${file.name}`;
     const fileRef = ref(storageInstance, path);
     return uploadBytes(fileRef, file).then(() => getDownloadURL(fileRef));
 }
