@@ -31,6 +31,28 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   const firestore = useFirestore();
   const { user } = useUser();
 
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const onlyNumbers = value.replace(/[^\d]/g, '');
+
+    let formattedCnpj = onlyNumbers.slice(0, 14);
+
+    if (formattedCnpj.length > 2) {
+      formattedCnpj = `${formattedCnpj.slice(0, 2)}.${formattedCnpj.slice(2)}`;
+    }
+    if (formattedCnpj.length > 6) {
+      formattedCnpj = `${formattedCnpj.slice(0, 6)}.${formattedCnpj.slice(6)}`;
+    }
+    if (formattedCnpj.length > 10) {
+      formattedCnpj = `${formattedCnpj.slice(0, 10)}/${formattedCnpj.slice(10)}`;
+    }
+    if (formattedCnpj.length > 15) {
+      formattedCnpj = `${formattedCnpj.slice(0, 15)}-${formattedCnpj.slice(15)}`;
+    }
+
+    setCnpj(formattedCnpj);
+  };
+
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -122,10 +144,11 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
               <Input
                 id="cnpj"
                 value={cnpj}
-                onChange={(e) => setCnpj(e.target.value)}
+                onChange={handleCnpjChange}
                 placeholder="00.000.000/0001-00"
                 className="col-span-3"
                 required
+                maxLength={18}
               />
             </div>
           </div>
