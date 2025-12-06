@@ -57,19 +57,21 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     if (!firestore) return;
   
     // Ignora MEI (213-5)
-    if (companyData.legalNature && companyData.legalNature.includes('213-5')) {
-      console.log('Empresa é MEI ou EI, pulando cadastro de sócio.');
+    const legalNatureCode = companyData.legalNature?.match(/^(\d{3}-\d)/)?.[0];
+    if (legalNatureCode === '213-5') {
+      console.log('Empresa é MEI, pulando cadastro de sócio.');
       return;
     }
   
     if (companyData.qsa && Array.isArray(companyData.qsa)) {
       for (const socio of companyData.qsa) {
         // Pula sócios sem CPF ou com CPF mascarado
-        if (!socio.cpf_representante_legal || socio.cpf_representante_legal.startsWith('***')) {
+        const partnerCpfRaw = socio.cpf_representante_legal || '';
+        if (!partnerCpfRaw || partnerCpfRaw.startsWith('***')) {
             continue;
         }
         
-        const partnerId = socio.cpf_representante_legal.replace(/[^\d]/g, '');
+        const partnerId = partnerCpfRaw.replace(/[^\d]/g, '');
         if (!partnerId || partnerId.length !== 11) continue;
 
         const partnerRef = doc(firestore, 'partners', partnerId);
