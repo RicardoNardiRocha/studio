@@ -15,8 +15,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { Partner } from '../societario/partner-details-dialog';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -78,15 +78,13 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   
           if (partnerDoc.exists()) {
             // Sócio já existe, atualiza as empresas associadas
-            const existingData = partnerDoc.data();
-            const associatedCompanies = existingData.associatedCompanies || [];
-            if (!associatedCompanies.includes(companyData.name)) {
-              associatedCompanies.push(companyData.name);
-              setDocumentNonBlocking(partnerRef, { associatedCompanies }, { merge: true });
-            }
+            const existingData = partnerDoc.data() as Partner;
+            const associatedCompanies = new Set(existingData.associatedCompanies || []);
+            associatedCompanies.add(companyData.name);
+            await setDoc(partnerRef, { associatedCompanies: Array.from(associatedCompanies) }, { merge: true });
           } else {
             // Sócio não existe, cria um novo
-            const newPartner = {
+            const newPartner: Partner = {
               id: partnerId,
               name: socio.nome_socio,
               cpf: socio.cpf_representante_legal,
@@ -96,7 +94,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
               govBrPassword: '',
               associatedCompanies: [companyData.name],
             };
-            setDocumentNonBlocking(partnerRef, newPartner);
+            await setDoc(partnerRef, newPartner);
           }
         } catch (error) {
           console.error(`Erro ao processar sócio ${socio.nome_socio}:`, error);
@@ -175,7 +173,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       };
       
       // 3. Salva a nova empresa
-      setDocumentNonBlocking(companyRef, newCompany, { merge: true });
+      await setDoc(companyRef, newCompany, { merge: true });
 
       // 4. Processa os sócios
       await handlePartnerRegistration(newCompany);
@@ -239,3 +237,5 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     </Dialog>
   );
 }
+
+    

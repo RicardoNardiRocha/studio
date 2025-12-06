@@ -104,35 +104,35 @@ export default function SocietarioPage() {
     try {
         const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
 
-        // 1. Build a map of all partners and their associated companies from all QSAs
         const partnerToCompanyMap = new Map<string, { name: string; cpf: string; companies: Set<string> }>();
 
         companiesSnapshot.docs.forEach(companyDoc => {
             const companyData = companyDoc.data();
             if (companyData.qsa && Array.isArray(companyData.qsa)) {
                 companyData.qsa.forEach((socio: any) => {
-                    const partnerCpf = socio.cpf_representante_legal?.replace(/[^\d]/g, '');
-                    if (!partnerCpf || partnerCpf.length !== 11) return;
+                    const partnerCpfRaw = socio.cpf_representante_legal || '';
+                    if (partnerCpfRaw.startsWith('***')) return;
+                    
+                    const partnerId = partnerCpfRaw.replace(/[^\d]/g, '');
+                    if (!partnerId || partnerId.length !== 11) return;
 
-                    if (!partnerToCompanyMap.has(partnerCpf)) {
-                        partnerToCompanyMap.set(partnerCpf, {
+                    if (!partnerToCompanyMap.has(partnerId)) {
+                        partnerToCompanyMap.set(partnerId, {
                             name: socio.nome_socio,
-                            cpf: socio.cpf_representante_legal,
+                            cpf: partnerCpfRaw,
                             companies: new Set()
                         });
                     }
-                    partnerToCompanyMap.get(partnerCpf)!.companies.add(companyData.name);
+                    partnerToCompanyMap.get(partnerId)!.companies.add(companyData.name);
                 });
             }
         });
 
-        // 2. Iterate through the map and update/create partners in Firestore
         for (const [partnerId, partnerData] of partnerToCompanyMap.entries()) {
             const partnerRef = doc(firestore, 'partners', partnerId);
             const partnerDoc = await getDoc(partnerRef);
 
             if (partnerDoc.exists()) {
-                // Partner exists, update their associated companies
                 const existingData = partnerDoc.data() as Partner;
                 const existingCompanies = new Set(existingData.associatedCompanies || []);
                 const originalSize = existingCompanies.size;
@@ -144,7 +144,6 @@ export default function SocietarioPage() {
                     partnersUpdated++;
                 }
             } else {
-                // Partner does not exist, create a new one
                 const newPartner: Partner = {
                     id: partnerId,
                     name: partnerData.name,
@@ -367,3 +366,5 @@ export default function SocietarioPage() {
     </>
   );
 }
+
+    
