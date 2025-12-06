@@ -64,9 +64,13 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   
     if (companyData.qsa && companyData.qsa.length > 0) {
       for (const socio of companyData.qsa) {
-        if (socio.cpf_representante_legal === '***.000.000-**' || !socio.cpf_representante_legal) continue;
+        if (!socio.cpf_representante_legal || socio.cpf_representante_legal.startsWith('***')) {
+            continue;
+        }
         
         const partnerId = socio.cpf_representante_legal.replace(/[^\d]/g, '');
+        if (!partnerId) continue;
+
         const partnerRef = doc(firestore, 'partners', partnerId);
   
         try {
