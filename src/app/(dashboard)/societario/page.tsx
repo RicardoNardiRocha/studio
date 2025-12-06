@@ -88,7 +88,7 @@ export default function SocietarioPage() {
     return query(collection(firestore, 'partners'), orderBy('name', 'asc'));
   }, [firestore]);
 
-  const { data: partners, isLoading } = useCollection<Partner>(partnersCollection);
+  const { data: partners, isLoading, forceRefetch } = useCollection<Partner>(partnersCollection);
 
   const handleSyncPartners = async () => {
     if (!firestore) {
@@ -100,73 +100,70 @@ export default function SocietarioPage() {
 
     let partnersAdded = 0;
     let partnersUpdated = 0;
-    let processedCpf = new Set<string>();
-
+    
     try {
         const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-        const allPartnersPromises: Promise<void>[] = [];
+
+        // 1. Build a map of all partners and their associated companies from all QSAs
+        const partnerToCompanyMap = new Map<string, { name: string; cpf: string; companies: Set<string> }>();
 
         companiesSnapshot.docs.forEach(companyDoc => {
             const companyData = companyDoc.data();
-            if (companyData.qsa && Array.isArray(companyData.qsa) && companyData.qsa.length > 0) {
-                 companyData.qsa.forEach(socio => {
-                    if (!socio.cpf_representante_legal || socio.cpf_representante_legal.startsWith('***')) {
-                        return; // Pula sócio com CPF inválido
+            if (companyData.qsa && Array.isArray(companyData.qsa)) {
+                companyData.qsa.forEach((socio: any) => {
+                    const partnerCpf = socio.cpf_representante_legal?.replace(/[^\d]/g, '');
+                    if (!partnerCpf || partnerCpf.length !== 11) return;
+
+                    if (!partnerToCompanyMap.has(partnerCpf)) {
+                        partnerToCompanyMap.set(partnerCpf, {
+                            name: socio.nome_socio,
+                            cpf: socio.cpf_representante_legal,
+                            companies: new Set()
+                        });
                     }
-
-                    const partnerId = socio.cpf_representante_legal.replace(/[^\d]/g, '');
-                    if (!partnerId) return;
-
-                    // Processa cada CPF apenas uma vez para evitar múltiplas escritas concorrentes
-                    if (processedCpf.has(partnerId)) return;
-                    processedCpf.add(partnerId);
-
-                    const promise = async () => {
-                        const partnerRef = doc(firestore, 'partners', partnerId);
-                        const partnerDoc = await getDoc(partnerRef);
-
-                        if (partnerDoc.exists()) {
-                            const existingData = partnerDoc.data() as Partner;
-                            const associatedCompanies = new Set(existingData.associatedCompanies || []);
-                            
-                            // Adicionar todas as empresas que têm este sócio
-                            companiesSnapshot.docs.forEach(compDoc => {
-                                const compData = compDoc.data();
-                                if(compData.qsa?.some((s: any) => s.cpf_representante_legal?.replace(/[^\d]/g, '') === partnerId)) {
-                                    associatedCompanies.add(compData.name);
-                                }
-                            });
-                            
-                            const newCompaniesArray = Array.from(associatedCompanies);
-
-                            if (newCompaniesArray.length > (existingData.associatedCompanies?.length || 0)) {
-                                await setDoc(partnerRef, { associatedCompanies: newCompaniesArray }, { merge: true });
-                                partnersUpdated++;
-                            }
-                        } else {
-                             const newPartner: Partner = {
-                                id: partnerId,
-                                name: socio.nome_socio,
-                                cpf: socio.cpf_representante_legal,
-                                hasECPF: false,
-                                ecpfValidity: '',
-                                govBrLogin: '',
-                                govBrPassword: '',
-                                associatedCompanies: [companyData.name],
-                                otherData: '',
-                            };
-                            await setDoc(partnerRef, newPartner);
-                            partnersAdded++;
-                        }
-                    };
-                    allPartnersPromises.push(promise());
+                    partnerToCompanyMap.get(partnerCpf)!.companies.add(companyData.name);
                 });
             }
         });
 
-        await Promise.all(allPartnersPromises);
+        // 2. Iterate through the map and update/create partners in Firestore
+        for (const [partnerId, partnerData] of partnerToCompanyMap.entries()) {
+            const partnerRef = doc(firestore, 'partners', partnerId);
+            const partnerDoc = await getDoc(partnerRef);
+
+            if (partnerDoc.exists()) {
+                // Partner exists, update their associated companies
+                const existingData = partnerDoc.data() as Partner;
+                const existingCompanies = new Set(existingData.associatedCompanies || []);
+                const originalSize = existingCompanies.size;
+
+                partnerData.companies.forEach(companyName => existingCompanies.add(companyName));
+
+                if (existingCompanies.size > originalSize) {
+                    await setDoc(partnerRef, { associatedCompanies: Array.from(existingCompanies) }, { merge: true });
+                    partnersUpdated++;
+                }
+            } else {
+                // Partner does not exist, create a new one
+                const newPartner: Partner = {
+                    id: partnerId,
+                    name: partnerData.name,
+                    cpf: partnerData.cpf,
+                    hasECPF: false,
+                    ecpfValidity: '',
+                    govBrLogin: '',
+                    govBrPassword: '',
+                    associatedCompanies: Array.from(partnerData.companies),
+                    otherData: '',
+                };
+                await setDoc(partnerRef, newPartner);
+                partnersAdded++;
+            }
+        }
         
-        toast({ title: "Sincronização Concluída!", description: `${partnersAdded} sócios adicionados e ${partnersUpdated} atualizados.` });
+        toast({ title: "Sincronização Concluída!", description: `${partnersAdded} sócio(s) novo(s) adicionado(s) e ${partnersUpdated} cadastro(s) atualizado(s).` });
+        forceRefetch();
+
     } catch (error: any) {
         console.error("Erro ao sincronizar sócios:", error);
         toast({ title: "Erro na Sincronização", description: error.message || "Ocorreu um erro inesperado.", variant: "destructive" });
@@ -192,6 +189,7 @@ export default function SocietarioPage() {
 
   const handleAction = () => {
     setIsDetailsDialogOpen(false);
+    forceRefetch();
   };
 
   const handleOpenDetails = (partner: Partner) => {
