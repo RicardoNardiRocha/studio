@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -53,6 +53,59 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     setCnpj(formattedCnpj);
   };
 
+  const handlePartnerRegistration = async (companyData: any) => {
+    if (!firestore) return;
+  
+    // Verifica se é MEI ou Empresário Individual (código 213-5)
+    if (companyData.legalNature && companyData.legalNature.includes('213-5')) {
+      console.log('Empresa é MEI ou EI, pulando cadastro de sócio.');
+      return;
+    }
+  
+    if (companyData.qsa && companyData.qsa.length > 0) {
+      for (const socio of companyData.qsa) {
+        if (socio.cpf_representante_legal === '***.000.000-**' || !socio.cpf_representante_legal) continue;
+        
+        const partnerId = socio.cpf_representante_legal.replace(/[^\d]/g, '');
+        const partnerRef = doc(firestore, 'partners', partnerId);
+  
+        try {
+          const partnerDoc = await getDoc(partnerRef);
+  
+          if (partnerDoc.exists()) {
+            // Sócio já existe, atualiza as empresas associadas
+            const existingData = partnerDoc.data();
+            const associatedCompanies = existingData.associatedCompanies || [];
+            if (!associatedCompanies.includes(companyData.name)) {
+              associatedCompanies.push(companyData.name);
+              setDocumentNonBlocking(partnerRef, { associatedCompanies }, { merge: true });
+            }
+          } else {
+            // Sócio não existe, cria um novo
+            const newPartner = {
+              id: partnerId,
+              name: socio.nome_socio,
+              cpf: socio.cpf_representante_legal,
+              hasECPF: false,
+              ecpfValidity: '',
+              govBrLogin: '',
+              govBrPassword: '',
+              associatedCompanies: [companyData.name],
+            };
+            setDocumentNonBlocking(partnerRef, newPartner);
+          }
+        } catch (error) {
+          console.error(`Erro ao processar sócio ${socio.nome_socio}:`, error);
+          toast({
+            title: "Atenção",
+            description: `Não foi possível processar o sócio ${socio.nome_socio}.`,
+            variant: "destructive"
+          });
+        }
+      }
+    }
+  };
+
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -70,6 +123,21 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     const numericCnpj = cnpj.replace(/[^\d]/g, '');
 
     try {
+      // 1. Verificar se a empresa já existe
+      const companyRef = doc(firestore, 'companies', numericCnpj);
+      const companySnap = await getDoc(companyRef);
+
+      if (companySnap.exists()) {
+        toast({
+          title: 'Empresa já adicionada',
+          description: `A empresa ${companySnap.data().name} já está cadastrada no sistema.`,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // 2. Se não existe, busca na API
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numericCnpj}`);
       
       if (!response.ok) {
@@ -102,12 +170,15 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         members: { [user.uid]: 'admin' }
       };
       
-      const companyRef = doc(firestore, 'companies', newCompany.id);
+      // 3. Salva a nova empresa
       setDocumentNonBlocking(companyRef, newCompany, { merge: true });
+
+      // 4. Processa os sócios
+      await handlePartnerRegistration(newCompany);
 
       toast({
         title: "Empresa Adicionada!",
-        description: `${newCompany.name} foi adicionada ao sistema.`,
+        description: `${newCompany.name} foi adicionada e seus sócios foram vinculados.`,
       });
 
       onCompanyAdded();
