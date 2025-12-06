@@ -41,10 +41,23 @@ import { CertificateUploadDialog } from './certificate-upload-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompanyDocumentsTab } from './company-documents-tab';
 
-interface Partner {
+// Interface para os dados brutos da API
+interface RawPartnerFromApi {
   nome_socio: string;
   qualificacao_socio: string;
   data_entrada_sociedade: string;
+  cnpj_cpf_do_socio?: string;
+  percentual_capital_social?: number;
+  // Adicione outros campos brutos conforme necessário
+}
+
+// Interface para os dados normalizados que usaremos no app
+interface NormalizedPartner {
+    name: string;
+    qualification: string;
+    entryDate: string; // Formato dd/MM/yyyy
+    cpfCnpj: string;
+    sharePercent: number | null;
 }
 
 export interface Company {
@@ -62,7 +75,7 @@ export interface Company {
     capital?: number;
     legalNature?: string;
     porte?: string;
-    qsa?: Partner[];
+    qsa?: RawPartnerFromApi[]; // Usamos a interface de dados brutos aqui
     members?: { [key: string]: 'admin' | 'viewer' };
     certificateA1Validity?: string;
 }
@@ -89,6 +102,34 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
     }
 }
 
+// Função para normalizar os dados do QSA
+const normalizeQsaData = (qsa: RawPartnerFromApi[] | undefined): NormalizedPartner[] => {
+    if (!qsa) {
+        return [];
+    }
+
+    return qsa.map(socio => {
+        let entryDateFormatted = 'N/A';
+        if (socio.data_entrada_sociedade) {
+            try {
+                const [year, month, day] = socio.data_entrada_sociedade.split('-');
+                entryDateFormatted = `${day}/${month}/${year}`;
+            } catch (e) {
+                // Mantém N/A se a data for inválida
+            }
+        }
+
+        return {
+            name: socio.nome_socio || '',
+            qualification: socio.qualificacao_socio || '',
+            entryDate: entryDateFormatted,
+            cpfCnpj: socio.cnpj_cpf_do_socio || '',
+            sharePercent: socio.percentual_capital_social ?? null,
+        };
+    });
+};
+
+
 export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpdated, onCompanyDeleted }: CompanyDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
@@ -101,6 +142,8 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       taxRegime: company.taxRegime,
     },
   });
+
+  const normalizedQsa = normalizeQsaData(company.qsa);
 
   const handleDelete = () => {
     if (!firestore) {
@@ -289,12 +332,12 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {company.qsa && company.qsa.length > 0 ? (
-                            company.qsa.map((socio, index) => (
+                            {normalizedQsa.length > 0 ? (
+                            normalizedQsa.map((socio, index) => (
                                 <TableRow key={index}>
-                                <TableCell className="font-medium">{socio.nome_socio}</TableCell>
-                                <TableCell>{socio.qualificacao_socio}</TableCell>
-                                <TableCell>{new Date(socio.data_entrada_sociedade).toLocaleDateString('pt-BR')}</TableCell>
+                                <TableCell className="font-medium">{socio.name}</TableCell>
+                                <TableCell>{socio.qualification}</TableCell>
+                                <TableCell>{socio.entryDate}</TableCell>
                                 </TableRow>
                             ))
                             ) : (
