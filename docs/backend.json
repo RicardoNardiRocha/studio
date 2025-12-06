@@ -111,6 +111,10 @@
           "type": "string",
           "description": "CPF of the partner."
         },
+        "qualification": {
+          "type": "string",
+          "description": "The partner's qualification or role in the company (e.g., Sócio-Administrador)."
+        },
         "hasECPF": {
           "type": "boolean",
           "description": "Indicates if the partner has an active E-CPF."

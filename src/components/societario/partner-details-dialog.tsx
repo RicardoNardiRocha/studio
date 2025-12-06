@@ -55,6 +55,7 @@ export interface Partner {
   id: string;
   name: string;
   cpf: string;
+  qualification?: string;
   hasECPF: boolean;
   ecpfValidity?: string;
   govBrLogin?: string;

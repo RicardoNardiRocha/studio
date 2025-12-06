@@ -89,6 +89,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
               id: partnerId,
               name: socio.nome_socio,
               cpf: socio.cpf_representante_legal,
+              qualification: socio.qualificacao_socio,
               hasECPF: false,
               ecpfValidity: '',
               govBrLogin: '',
