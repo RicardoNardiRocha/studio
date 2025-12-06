@@ -56,20 +56,19 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   const handlePartnerRegistration = async (companyData: any) => {
     if (!firestore) return;
   
-    // Verifica se é MEI ou Empresário Individual (código 213-5)
     if (companyData.legalNature && companyData.legalNature.includes('213-5')) {
       console.log('Empresa é MEI ou EI, pulando cadastro de sócio.');
       return;
     }
   
-    if (companyData.qsa && companyData.qsa.length > 0) {
+    if (companyData.qsa && Array.isArray(companyData.qsa)) {
       for (const socio of companyData.qsa) {
         if (!socio.cpf_representante_legal || socio.cpf_representante_legal.startsWith('***')) {
             continue;
         }
         
         const partnerId = socio.cpf_representante_legal.replace(/[^\d]/g, '');
-        if (!partnerId) continue;
+        if (!partnerId || partnerId.length !== 11) continue;
 
         const partnerRef = doc(firestore, 'partners', partnerId);
   
@@ -77,13 +76,11 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
           const partnerDoc = await getDoc(partnerRef);
   
           if (partnerDoc.exists()) {
-            // Sócio já existe, atualiza as empresas associadas
             const existingData = partnerDoc.data() as Partner;
             const associatedCompanies = new Set(existingData.associatedCompanies || []);
             associatedCompanies.add(companyData.name);
             await setDoc(partnerRef, { associatedCompanies: Array.from(associatedCompanies) }, { merge: true });
           } else {
-            // Sócio não existe, cria um novo
             const newPartner: Partner = {
               id: partnerId,
               name: socio.nome_socio,
@@ -93,6 +90,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
               govBrLogin: '',
               govBrPassword: '',
               associatedCompanies: [companyData.name],
+              otherData: ''
             };
             await setDoc(partnerRef, newPartner);
           }
@@ -125,7 +123,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     const numericCnpj = cnpj.replace(/[^\d]/g, '');
 
     try {
-      // 1. Verificar se a empresa já existe
       const companyRef = doc(firestore, 'companies', numericCnpj);
       const companySnap = await getDoc(companyRef);
 
@@ -139,7 +136,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         return;
       }
       
-      // 2. Se não existe, busca na API
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numericCnpj}`);
       
       if (!response.ok) {
@@ -172,10 +168,8 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         members: { [user.uid]: 'admin' }
       };
       
-      // 3. Salva a nova empresa
-      await setDoc(companyRef, newCompany, { merge: true });
+      await setDoc(companyRef, newCompany);
 
-      // 4. Processa os sócios
       await handlePartnerRegistration(newCompany);
 
       toast({
@@ -237,5 +231,3 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     </Dialog>
   );
 }
-
-    
