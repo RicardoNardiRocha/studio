@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -51,6 +51,62 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
 
     setCnpj(formattedCnpj);
   };
+  
+  const handlePartnerRegistration = async (company: any) => {
+    if (!firestore) return;
+    if (!company.qsa || company.qsa.length === 0) {
+      console.log(`Nenhum QSA encontrado para a empresa ${company.name}.`);
+      return;
+    }
+    if (company.legalNature?.includes('Empresário (Individual)') || company.legalNature?.includes('Microempreendedor Individual')) {
+        console.log(`Empresa ${company.name} é MEI/EI, pulando cadastro de sócio.`);
+        return;
+    }
+
+    for (const socio of company.qsa) {
+      // cnpj_cpf_do_socio pode vir com '***.000.000-**'
+      const socioCpfCnpj = socio.cnpj_cpf_do_socio?.replace(/[^\d]/g, '');
+      const socioNome = socio.nome_socio;
+
+      if (!socioCpfCnpj || socioCpfCnpj.startsWith('00000000') || !socioNome) {
+        console.log("Sócio com CPF/CNPJ inválido ou nome ausente, pulando:", socio);
+        continue;
+      }
+
+      try {
+        const partnerRef = doc(firestore, 'partners', socioCpfCnpj);
+        const partnerSnap = await getDoc(partnerRef);
+
+        if (partnerSnap.exists()) {
+          // Sócio já existe, apenas atualiza a lista de empresas
+          const partnerData = partnerSnap.data();
+          const associatedCompanies = partnerData.associatedCompanies || [];
+          if (!associatedCompanies.includes(company.name)) {
+            const updatedCompanies = [...associatedCompanies, company.name];
+            await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
+          }
+        } else {
+          // Sócio não existe, cria um novo
+          const newPartner = {
+            id: socioCpfCnpj,
+            name: socio.nome_socio,
+            cpf: socio.cnpj_cpf_do_socio,
+            qualification: socio.qualificacao_socio,
+            hasECPF: false,
+            ecpfValidity: '',
+            govBrLogin: '',
+            govBrPassword: '',
+            associatedCompanies: [company.name],
+            otherData: '',
+          };
+          await setDoc(partnerRef, newPartner);
+        }
+      } catch (error) {
+        console.error(`Erro ao processar o sócio ${socio.nome_socio}:`, error);
+      }
+    }
+  };
+
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -114,6 +170,8 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       };
       
       await setDoc(companyRef, newCompany);
+      
+      await handlePartnerRegistration(newCompany);
 
       toast({
         title: "Empresa Adicionada!",
