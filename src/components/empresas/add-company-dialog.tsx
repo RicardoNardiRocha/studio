@@ -64,11 +64,18 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     }
 
     for (const socio of company.qsa) {
-      // cnpj_cpf_do_socio pode vir com '***.000.000-**'
-      const socioCpfCnpj = socio.cnpj_cpf_do_socio?.replace(/[^\d]/g, '');
+      const socioCpfCnpjRaw = socio.cnpj_cpf_do_socio || '';
+
+      // Pula sócios cujo CPF/CNPJ está mascarado (começa com ***)
+      if (socioCpfCnpjRaw.startsWith('***')) {
+        console.log("Sócio com CPF/CNPJ mascarado, pulando:", socio.nome_socio);
+        continue;
+      }
+      
+      const socioCpfCnpj = socioCpfCnpjRaw.replace(/[^\d]/g, '');
       const socioNome = socio.nome_socio;
 
-      if (!socioCpfCnpj || socioCpfCnpj.startsWith('00000000') || !socioNome) {
+      if (!socioCpfCnpj || socioCpfCnpj.length < 11 || !socioNome) {
         console.log("Sócio com CPF/CNPJ inválido ou nome ausente, pulando:", socio);
         continue;
       }
@@ -78,7 +85,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         const partnerSnap = await getDoc(partnerRef);
 
         if (partnerSnap.exists()) {
-          // Sócio já existe, apenas atualiza a lista de empresas
           const partnerData = partnerSnap.data();
           const associatedCompanies = partnerData.associatedCompanies || [];
           if (!associatedCompanies.includes(company.name)) {
@@ -86,11 +92,16 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
             await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
           }
         } else {
-          // Sócio não existe, cria um novo
+          // Só para garantir que o CPF formatado esteja correto
+          let formattedCpf = socioCpfCnpj;
+          if(formattedCpf.length === 11){
+             formattedCpf = `${formattedCpf.slice(0, 3)}.${formattedCpf.slice(3, 6)}.${formattedCpf.slice(6, 9)}-${formattedCpf.slice(9)}`;
+          }
+
           const newPartner = {
             id: socioCpfCnpj,
             name: socio.nome_socio,
-            cpf: socio.cnpj_cpf_do_socio,
+            cpf: formattedCpf,
             qualification: socio.qualificacao_socio,
             hasECPF: false,
             ecpfValidity: '',
