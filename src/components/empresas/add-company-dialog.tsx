@@ -57,7 +57,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     if (!firestore) return;
   
     // Ignora MEI (213-5)
-    const legalNatureCode = companyData.legalNature?.match(/^(\d{3}-\d)/)?.[0];
+    const legalNatureCode = companyData.natureza_juridica?.match(/^(\d{3}-\d)/)?.[0];
     if (legalNatureCode === '213-5') {
       console.log('Empresa é MEI, pulando cadastro de sócio.');
       return;
@@ -66,7 +66,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
     if (companyData.qsa && Array.isArray(companyData.qsa)) {
       for (const socio of companyData.qsa) {
         // Pula sócios sem CPF ou com CPF mascarado
-        const partnerCpfRaw = socio.cpf_representante_legal || '';
+        const partnerCpfRaw = socio.cpf_representante_legal || socio.cpf || '';
         if (!partnerCpfRaw || partnerCpfRaw.startsWith('***')) {
             continue;
         }
@@ -82,19 +82,19 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
           if (partnerDoc.exists()) {
             const existingData = partnerDoc.data() as Partner;
             const associatedCompanies = new Set(existingData.associatedCompanies || []);
-            associatedCompanies.add(companyData.name);
+            associatedCompanies.add(companyData.razao_social);
             await setDoc(partnerRef, { associatedCompanies: Array.from(associatedCompanies) }, { merge: true });
           } else {
             const newPartner: Omit<Partner, 'id'> & {id: string} = {
               id: partnerId,
               name: socio.nome_socio,
-              cpf: socio.cpf_representante_legal,
+              cpf: partnerCpfRaw,
               qualification: socio.qualificacao_socio,
               hasECPF: false,
               ecpfValidity: '',
               govBrLogin: '',
               govBrPassword: '',
-              associatedCompanies: [companyData.name],
+              associatedCompanies: [companyData.razao_social],
               otherData: ''
             };
             await setDoc(partnerRef, newPartner);
@@ -172,7 +172,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       await setDoc(companyRef, newCompany);
 
       // Garante que o processamento dos sócios termine ANTES de continuar
-      await handlePartnerRegistration(newCompany);
+      await handlePartnerRegistration(data);
 
       toast({
         title: "Empresa Adicionada!",
