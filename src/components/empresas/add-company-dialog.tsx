@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import type { Partner } from '../societario/partner-details-dialog';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -52,61 +51,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
 
     setCnpj(formattedCnpj);
   };
-
-  const handlePartnerRegistration = async (companyData: any) => {
-    if (!firestore) return;
-  
-    // Ignora MEI (213-5)
-    const legalNatureCode = companyData.natureza_juridica?.match(/^(\d{3}-\d)/)?.[0];
-    if (legalNatureCode === '213-5') {
-      console.log('Empresa é MEI, pulando cadastro de sócio.');
-      return;
-    }
-  
-    if (companyData.qsa && Array.isArray(companyData.qsa)) {
-      for (const socio of companyData.qsa) {
-        // Pula sócios sem CPF ou com CPF mascarado
-        const partnerCpfRaw = socio.cpf_representante_legal || socio.cpf || '';
-        if (!partnerCpfRaw || partnerCpfRaw.startsWith('***')) {
-            continue;
-        }
-        
-        const partnerId = partnerCpfRaw.replace(/[^\d]/g, '');
-        if (!partnerId || partnerId.length !== 11) continue;
-
-        const partnerRef = doc(firestore, 'partners', partnerId);
-  
-        try {
-          const partnerDoc = await getDoc(partnerRef);
-  
-          if (partnerDoc.exists()) {
-            const existingData = partnerDoc.data() as Partner;
-            const associatedCompanies = new Set(existingData.associatedCompanies || []);
-            associatedCompanies.add(companyData.razao_social);
-            await setDoc(partnerRef, { associatedCompanies: Array.from(associatedCompanies) }, { merge: true });
-          } else {
-            const newPartner: Omit<Partner, 'id'> & {id: string} = {
-              id: partnerId,
-              name: socio.nome_socio,
-              cpf: partnerCpfRaw,
-              qualification: socio.qualificacao_socio,
-              hasECPF: false,
-              ecpfValidity: '',
-              govBrLogin: '',
-              govBrPassword: '',
-              associatedCompanies: [companyData.razao_social],
-              otherData: ''
-            };
-            await setDoc(partnerRef, newPartner);
-          }
-        } catch (error) {
-          console.error(`Erro ao processar sócio ${socio.nome_socio}:`, error);
-          // Continua o processo mesmo se um sócio falhar
-        }
-      }
-    }
-  };
-
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -171,12 +115,9 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       
       await setDoc(companyRef, newCompany);
 
-      // Garante que o processamento dos sócios termine ANTES de continuar
-      await handlePartnerRegistration(data);
-
       toast({
         title: "Empresa Adicionada!",
-        description: `${newCompany.name} foi adicionada e seus sócios foram vinculados.`,
+        description: `${newCompany.name} foi adicionada com sucesso.`,
       });
 
       onCompanyAdded();
