@@ -82,20 +82,19 @@ export function EcpfUploadDialog({
              throw new Error('Não foi possível ler o certificado do arquivo.');
         }
 
-        // Extrair CPF do certificado
         const subjectAttributes = certificate.subject.attributes;
-        const cpfAttribute = subjectAttributes.find(attr => attr.type === CPF_OID);
+        const commonNameAttr = certificate.subject.getField('CN');
+        const certCommonName = commonNameAttr ? (commonNameAttr.value as string).split(':')[0] : '';
         
         let certCpf = '';
+        const cpfAttribute = subjectAttributes.find(attr => attr.type === CPF_OID);
+        
         if (cpfAttribute && typeof cpfAttribute.value === 'string') {
             certCpf = cpfAttribute.value.replace(/\D/g, '');
-        } else {
-            const commonNameAttr = certificate.subject.getField('CN');
-            if (commonNameAttr && typeof commonNameAttr.value === 'string') {
-                const match = commonNameAttr.value.match(/(\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[-\s]?\d{2})/);
-                if (match) {
-                    certCpf = match[0].replace(/\D/g, '');
-                }
+        } else if (commonNameAttr && typeof commonNameAttr.value === 'string') {
+            const match = commonNameAttr.value.match(/(\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[-\s]?\d{2})/);
+            if (match) {
+                certCpf = match[0].replace(/\D/g, '');
             }
         }
         
@@ -104,8 +103,21 @@ export function EcpfUploadDialog({
         }
 
         const partnerCpf = partner.cpf.replace(/\D/g, '');
-        if (certCpf !== partnerCpf) {
-            throw new Error(`Este certificado pertence a outro CPF (${certCpf}). Você está tentando adicioná-lo para o sócio com CPF ${partnerCpf}.`);
+        const partnerNameLower = partner.name.toLowerCase();
+        const certNameLower = certCommonName.toLowerCase();
+
+        const isCpfMatch = partnerCpf.includes(certCpf) || certCpf.includes(partnerCpf);
+        const isNameMatch = partnerNameLower === certNameLower;
+
+        if (!isCpfMatch || !isNameMatch) {
+            let errorMsg = `Este certificado não corresponde ao sócio ${partner.name}.`;
+            if(!isNameMatch) {
+                errorMsg += ` (Nome no certificado: ${certCommonName})`;
+            }
+             if(!isCpfMatch) {
+                errorMsg += ` (CPF no certificado não corresponde: ${certCpf})`;
+            }
+            throw new Error(errorMsg);
         }
 
         const validity = certificate.validity.notAfter;
@@ -113,13 +125,14 @@ export function EcpfUploadDialog({
 
         const partnerRef = doc(firestore, 'partners', partner.id);
         setDocumentNonBlocking(partnerRef, { 
+            cpf: certCpf.length === 11 ? `${certCpf.slice(0,3)}.${certCpf.slice(3,6)}.${certCpf.slice(6,9)}-${certCpf.slice(9)}` : partner.cpf,
             ecpfValidity: validityDateString,
             hasECPF: true,
         }, { merge: true });
 
         toast({
           title: 'Certificado Processado!',
-          description: `A data de validade (${new Date(validity).toLocaleDateString('pt-BR')}) foi salva para ${partner.name}.`,
+          description: `A data de validade (${new Date(validity).toLocaleDateString('pt-BR')}) foi salva para ${partner.name}. O CPF foi atualizado.`,
         });
 
         onCertificateUpdated();
