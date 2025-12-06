@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
 import { PartnerDetailsDialog } from '@/components/societario/partner-details-dialog';
@@ -34,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, isValid } from 'date-fns';
 
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
@@ -78,10 +77,8 @@ export default function SocietarioPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [ecpfFilter, setEcpfFilter] = useState<EcpfStatusFilter>('Todos');
   const [validityFilter, setValidityFilter] = useState<'Todos' | ValidityStatus>('Todos');
-  const [isSyncing, setIsSyncing] = useState(false);
 
   const firestore = useFirestore();
-  const { toast } = useToast();
 
   const partnersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -90,87 +87,6 @@ export default function SocietarioPage() {
 
   const { data: partners, isLoading, forceRefetch } = useCollection<Partner>(partnersCollection);
 
-  const handleSyncPartners = async () => {
-    if (!firestore) {
-        toast({ title: "Erro", description: "Serviço de banco de dados indisponível.", variant: "destructive" });
-        return;
-    }
-    setIsSyncing(true);
-    toast({ title: "Iniciando sincronização...", description: "Buscando sócios em todas as empresas cadastradas." });
-
-    let partnersAdded = 0;
-    let partnersUpdated = 0;
-    
-    try {
-        const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-
-        const partnerToCompanyMap = new Map<string, { name: string; cpf: string; companies: Set<string> }>();
-
-        companiesSnapshot.docs.forEach(companyDoc => {
-            const companyData = companyDoc.data();
-            if (companyData.qsa && Array.isArray(companyData.qsa)) {
-                companyData.qsa.forEach((socio: any) => {
-                    const partnerCpfRaw = socio.cpf_representante_legal || '';
-                    if (partnerCpfRaw.startsWith('***')) return;
-                    
-                    const partnerId = partnerCpfRaw.replace(/[^\d]/g, '');
-                    if (!partnerId || partnerId.length !== 11) return;
-
-                    if (!partnerToCompanyMap.has(partnerId)) {
-                        partnerToCompanyMap.set(partnerId, {
-                            name: socio.nome_socio,
-                            cpf: partnerCpfRaw,
-                            companies: new Set()
-                        });
-                    }
-                    partnerToCompanyMap.get(partnerId)!.companies.add(companyData.name);
-                });
-            }
-        });
-
-        for (const [partnerId, partnerData] of partnerToCompanyMap.entries()) {
-            const partnerRef = doc(firestore, 'partners', partnerId);
-            const partnerDoc = await getDoc(partnerRef);
-
-            if (partnerDoc.exists()) {
-                const existingData = partnerDoc.data() as Partner;
-                const existingCompanies = new Set(existingData.associatedCompanies || []);
-                const originalSize = existingCompanies.size;
-
-                partnerData.companies.forEach(companyName => existingCompanies.add(companyName));
-
-                if (existingCompanies.size > originalSize) {
-                    await setDoc(partnerRef, { associatedCompanies: Array.from(existingCompanies) }, { merge: true });
-                    partnersUpdated++;
-                }
-            } else {
-                const newPartner: Partner = {
-                    id: partnerId,
-                    name: partnerData.name,
-                    cpf: partnerData.cpf,
-                    hasECPF: false,
-                    ecpfValidity: '',
-                    govBrLogin: '',
-                    govBrPassword: '',
-                    associatedCompanies: Array.from(partnerData.companies),
-                    otherData: '',
-                };
-                await setDoc(partnerRef, newPartner);
-                partnersAdded++;
-            }
-        }
-        
-        toast({ title: "Sincronização Concluída!", description: `${partnersAdded} sócio(s) novo(s) adicionado(s) e ${partnersUpdated} cadastro(s) atualizado(s).` });
-        forceRefetch();
-
-    } catch (error: any) {
-        console.error("Erro ao sincronizar sócios:", error);
-        toast({ title: "Erro na Sincronização", description: error.message || "Ocorreu um erro inesperado.", variant: "destructive" });
-    } finally {
-        setIsSyncing(false);
-    }
-  };
-  
   const filteredPartners = useMemo(() => {
     if (!partners) return [];
     return partners.filter(partner => {
@@ -228,10 +144,6 @@ export default function SocietarioPage() {
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                 <Button onClick={handleSyncPartners} variant="outline" disabled={isSyncing}>
-                    {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                    Sincronizar Sócios
-                 </Button>
                 <Button onClick={() => setIsAddDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Adicionar Sócio
@@ -366,5 +278,3 @@ export default function SocietarioPage() {
     </>
   );
 }
-
-    
