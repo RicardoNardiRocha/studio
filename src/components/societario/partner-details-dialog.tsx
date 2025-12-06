@@ -35,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Loader2, CalendarIcon, Eye, EyeOff, Trash2, UploadCloud } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
@@ -49,6 +49,7 @@ import { Textarea } from '../ui/textarea';
 import { Separator } from '../ui/separator';
 import ReactSelect from 'react-select';
 import { Badge } from '@/components/ui/badge';
+import { EcpfUploadDialog } from './ecpf-upload-dialog';
 
 
 export interface Partner {
@@ -94,6 +95,7 @@ export function PartnerDetailsDialog({
 }: PartnerDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
 
@@ -135,6 +137,10 @@ export function PartnerDetailsDialog({
     });
     onPartnerDeleted();
     onOpenChange(false);
+  };
+  
+  const handleCertificateUpdated = () => {
+    onPartnerUpdated();
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -188,238 +194,247 @@ export function PartnerDetailsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Detalhes de {partner.name}</DialogTitle>
-          <DialogDescription>
-            Visualize e edite as informações do sócio. O CPF não pode ser alterado.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome Completo</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nome do sócio" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cpf"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CPF</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="associatedCompanies"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Empresas Associadas</FormLabel>
-                  <FormControl>
-                     <ReactSelect
-                        {...field}
-                        isMulti
-                        options={companyOptions}
-                        placeholder="Selecione as empresas..."
-                        noOptionsMessage={() => 'Nenhuma empresa encontrada'}
-                        styles={{
-                          control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
-                          menu: (base) => ({ ...base, zIndex: 100 }),
-                          input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
-                          multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
-                        }}
-                      />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="hasECPF"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel>Possui E-CPF Ativo?</FormLabel>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            {form.watch('hasECPF') && (
+    <>
+      <EcpfUploadDialog
+        partner={partner}
+        open={isCertUploadOpen}
+        onOpenChange={setIsCertUploadOpen}
+        onCertificateUpdated={handleCertificateUpdated}
+      />
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes de {partner.name}</DialogTitle>
+            <DialogDescription>
+              Visualize e edite as informações do sócio. O CPF não pode ser alterado.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
               <FormField
                 control={form.control}
-                name="ecpfValidity"
+                name="name"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Validade do E-CPF</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={'outline'}
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP', { locale: ptBR })
-                            ) : (
-                              <span>Escolha uma data</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <FormItem>
+                    <FormLabel>Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome do sócio" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            )}
-             <FormField
-              control={form.control}
-              name="govBrLogin"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Login GOV.BR</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Login do portal GOV.BR" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="govBrPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Senha GOV.BR</FormLabel>
-                   <div className="relative">
+              <FormField
+                control={form.control}
+                name="cpf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CPF</FormLabel>
                     <FormControl>
-                      <Input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Não altere se não for necessário"
+                      <Input {...field} disabled />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="associatedCompanies"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Empresas Associadas</FormLabel>
+                    <FormControl>
+                       <ReactSelect
+                          {...field}
+                          isMulti
+                          options={companyOptions}
+                          placeholder="Selecione as empresas..."
+                          noOptionsMessage={() => 'Nenhuma empresa encontrada'}
+                          styles={{
+                            control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+                            menu: (base) => ({ ...base, zIndex: 100 }),
+                            input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+                            multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
+                          }}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="rounded-lg border p-4 space-y-4">
+                <div className="flex flex-row items-center justify-between">
+                  <div className="space-y-0.5">
+                    <h3 className="font-medium">Certificado Digital (e-CPF)</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {form.getValues('hasECPF')
+                        ? 'e-CPF Ativo'
+                        : 'Nenhum e-CPF configurado.'}
+                    </p>
+                  </div>
+                  <Button type="button" onClick={() => setIsCertUploadOpen(true)}>
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    Adicionar/Atualizar
+                  </Button>
+                </div>
+
+                {form.watch('hasECPF') && (
+                <FormField
+                  control={form.control}
+                  name="ecpfValidity"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Validade do E-CPF</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'PPP', { locale: ptBR })
+                              ) : (
+                                <span>Escolha uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                )}
+              </div>
+
+               <FormField
+                control={form.control}
+                name="govBrLogin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Login GOV.BR</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Login do portal GOV.BR" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="govBrPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Senha GOV.BR</FormLabel>
+                     <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Não altere se não for necessário"
+                          {...field}
+                        />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff /> : <Eye />}
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="otherData"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Outros Dados do Sócio</FormLabel>
+                     <FormControl>
+                      <Textarea
+                        placeholder="Informações adicionais, contatos, etc."
                         {...field}
                       />
                     </FormControl>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff /> : <Eye />}
-                    </Button>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="otherData"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Outros Dados do Sócio</FormLabel>
-                   <FormControl>
-                    <Textarea
-                      placeholder="Informações adicionais, contatos, etc."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <Separator className="my-4" />
-            
-            <div>
-              <h3 className="text-sm font-medium mb-2">Empresas Associadas</h3>
-              {partner.associatedCompanies && partner.associatedCompanies.length > 0 ? (
-                <ul className="flex flex-wrap gap-2">
-                  {partner.associatedCompanies.map((company, index) => (
-                    <li key={index}>
-                      <Badge variant="secondary">{company}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">Nenhuma empresa associada.</p>
-              )}
-            </div>
-
-            <DialogFooter className="pt-4 bg-background sticky bottom-0 flex-row justify-between w-full">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir Sócio
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. Isso irá excluir permanentemente os dados do sócio <strong>{partner.name}</strong> do sistema.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                      Sim, excluir
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <div className="flex gap-2">
-                <DialogClose asChild>
-                  <Button type="button" variant="ghost">Cancelar</Button>
-                </DialogClose>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar Alterações
-                </Button>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <Separator className="my-4" />
+              
+              <div>
+                <h3 className="text-sm font-medium mb-2">Empresas Associadas</h3>
+                {partner.associatedCompanies && partner.associatedCompanies.length > 0 ? (
+                  <ul className="flex flex-wrap gap-2">
+                    {partner.associatedCompanies.map((company, index) => (
+                      <li key={index}>
+                        <Badge variant="secondary">{company}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma empresa associada.</p>
+                )}
               </div>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+
+              <DialogFooter className="pt-4 bg-background sticky bottom-0 flex-row justify-between w-full">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir Sócio
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente os dados do sócio <strong>{partner.name}</strong> do sistema.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                        Sim, excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <div className="flex gap-2">
+                  <DialogClose asChild>
+                    <Button type="button" variant="ghost">Cancelar</Button>
+                  </DialogClose>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
