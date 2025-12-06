@@ -56,6 +56,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   const handlePartnerRegistration = async (companyData: any) => {
     if (!firestore) return;
   
+    // Ignora MEI (213-5)
     if (companyData.legalNature && companyData.legalNature.includes('213-5')) {
       console.log('Empresa é MEI ou EI, pulando cadastro de sócio.');
       return;
@@ -63,6 +64,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
   
     if (companyData.qsa && Array.isArray(companyData.qsa)) {
       for (const socio of companyData.qsa) {
+        // Pula sócios sem CPF ou com CPF mascarado
         if (!socio.cpf_representante_legal || socio.cpf_representante_legal.startsWith('***')) {
             continue;
         }
@@ -81,7 +83,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
             associatedCompanies.add(companyData.name);
             await setDoc(partnerRef, { associatedCompanies: Array.from(associatedCompanies) }, { merge: true });
           } else {
-            const newPartner: Partner = {
+            const newPartner: Omit<Partner, 'id'> & {id: string} = {
               id: partnerId,
               name: socio.nome_socio,
               cpf: socio.cpf_representante_legal,
@@ -96,11 +98,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
           }
         } catch (error) {
           console.error(`Erro ao processar sócio ${socio.nome_socio}:`, error);
-          toast({
-            title: "Atenção",
-            description: `Não foi possível processar o sócio ${socio.nome_socio}.`,
-            variant: "destructive"
-          });
+          // Continua o processo mesmo se um sócio falhar
         }
       }
     }
@@ -170,6 +168,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       
       await setDoc(companyRef, newCompany);
 
+      // Garante que o processamento dos sócios termine ANTES de continuar
       await handlePartnerRegistration(newCompany);
 
       toast({
