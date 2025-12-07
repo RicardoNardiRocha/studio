@@ -75,7 +75,8 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       const socioCpfCnpj = socioCpfCnpjRaw.replace(/[^\d]/g, '');
       const socioNome = socio.nome_socio;
 
-      if (!socioCpfCnpj || socioCpfCnpj.length < 11 || !socioNome) {
+      // Valida se o CPF/CNPJ tem o tamanho correto (11 para CPF, 14 para CNPJ)
+      if (!socioCpfCnpj || (socioCpfCnpj.length !== 11 && socioCpfCnpj.length !== 14) || !socioNome) {
         console.log("Sócio com CPF/CNPJ inválido ou nome ausente, pulando:", socio);
         continue;
       }
@@ -92,7 +93,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
             await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
           }
         } else {
-          // Só para garantir que o CPF formatado esteja correto
+          // Formata CPF se for um CPF
           let formattedCpf = socioCpfCnpj;
           if(formattedCpf.length === 11){
              formattedCpf = `${formattedCpf.slice(0, 3)}.${formattedCpf.slice(3, 6)}.${formattedCpf.slice(6, 9)}-${formattedCpf.slice(9)}`;
@@ -101,7 +102,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
           const newPartner = {
             id: socioCpfCnpj,
             name: socio.nome_socio,
-            cpf: formattedCpf,
+            cpf: formattedCpf, // Armazena formatado se for CPF, ou o CNPJ limpo
             qualification: socio.qualificacao_socio,
             hasECPF: false,
             ecpfValidity: '',
@@ -186,7 +187,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
 
       toast({
         title: "Empresa Adicionada!",
-        description: `${newCompany.name} foi adicionada com sucesso.`,
+        description: `${newCompany.name} foi adicionada com sucesso. Os sócios foram vinculados.`,
       });
 
       onCompanyAdded();
