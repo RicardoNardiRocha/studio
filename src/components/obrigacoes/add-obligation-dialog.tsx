@@ -87,8 +87,10 @@ export function AddObligationDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      responsavelId: user?.uid,
-      periodo: format(new Date(), 'yyyy-MM')
+      companyId: '',
+      nome: '',
+      periodo: format(new Date(), 'yyyy-MM'),
+      responsavelId: user?.uid || '',
     },
   });
 
@@ -134,7 +136,12 @@ export function AddObligationDialog({
       });
 
       onObligationAdded();
-      form.reset({ responsavelId: user?.uid, periodo: format(new Date(), 'yyyy-MM') });
+      form.reset({
+        companyId: '',
+        nome: '',
+        periodo: format(new Date(), 'yyyy-MM'),
+        responsavelId: user?.uid || '',
+      });
     } catch (error: any) {
       console.error(error);
       toast({ title: 'Erro ao adicionar obrigação', description: error.message || 'Ocorreu um erro inesperado.', variant: 'destructive' });
