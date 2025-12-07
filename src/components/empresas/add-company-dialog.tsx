@@ -65,19 +65,12 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
 
     for (const socio of company.qsa) {
       const socioCpfCnpjRaw = socio.cnpj_cpf_do_socio || '';
-
-      // Pula sócios cujo CPF/CNPJ está mascarado (começa com ***)
-      if (socioCpfCnpjRaw.startsWith('***')) {
-        console.log("Sócio com CPF/CNPJ mascarado, pulando:", socio.nome_socio);
-        continue;
-      }
-      
       const socioCpfCnpj = socioCpfCnpjRaw.replace(/[^\d]/g, '');
       const socioNome = socio.nome_socio;
 
-      // Valida se o CPF/CNPJ tem o tamanho correto (11 para CPF, 14 para CNPJ)
-      if (!socioCpfCnpj || (socioCpfCnpj.length !== 11 && socioCpfCnpj.length !== 14) || !socioNome) {
-        console.log("Sócio com CPF/CNPJ inválido ou nome ausente, pulando:", socio);
+      // Se não houver um identificador ou nome, não é possível criar o sócio.
+      if (!socioCpfCnpj || !socioNome) {
+        console.log("Sócio com CPF/CNPJ ou nome ausente, pulando:", socio);
         continue;
       }
 
@@ -93,16 +86,13 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
             await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
           }
         } else {
-          // Formata CPF se for um CPF
-          let formattedCpf = socioCpfCnpj;
-          if(formattedCpf.length === 11){
-             formattedCpf = `${formattedCpf.slice(0, 3)}.${formattedCpf.slice(3, 6)}.${formattedCpf.slice(6, 9)}-${formattedCpf.slice(9)}`;
-          }
+          // Usa o CPF/CNPJ não formatado como ID, mas salva formatado se for CPF.
+          let formattedCpfCnpj = socioCpfCnpjRaw;
 
           const newPartner = {
-            id: socioCpfCnpj,
+            id: socioCpfCnpj, // ID é sempre o número puro
             name: socio.nome_socio,
-            cpf: formattedCpf, // Armazena formatado se for CPF, ou o CNPJ limpo
+            cpf: formattedCpfCnpj, // Campo 'cpf' mantém a máscara ou formato original da API
             qualification: socio.qualificacao_socio,
             hasECPF: false,
             ecpfValidity: '',
@@ -187,7 +177,7 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
 
       toast({
         title: "Empresa Adicionada!",
-        description: `${newCompany.name} foi adicionada com sucesso. Os sócios foram vinculados.`,
+        description: `${newCompany.name} foi adicionada com sucesso.`,
       });
 
       onCompanyAdded();
