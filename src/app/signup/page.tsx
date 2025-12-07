@@ -42,6 +42,9 @@ export default function SignupPage() {
       // Update the user's profile with the name
       await updateProfile(user, { displayName: name });
       
+      // Determine the role based on the email
+      const userRole = email.toLowerCase() === 'ricardonardirocha@gmail.com' ? 'owner' : 'contador';
+
       // Create user document in Firestore
       const userDocRef = doc(firestore, "users", user.uid);
       await setDoc(userDocRef, {
@@ -49,7 +52,7 @@ export default function SignupPage() {
           displayName: name,
           email: user.email,
           photoURL: user.photoURL || '',
-          roleId: 'owner' // Assign the 'owner' role to the first user signing up
+          roleId: userRole
       });
 
       toast({
