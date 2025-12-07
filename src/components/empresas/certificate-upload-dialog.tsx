@@ -14,11 +14,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 import * as forge from 'node-forge';
 import type { Company } from './company-details-dialog';
+import { uploadCertificate } from '@/lib/storage/upload';
 
 interface CertificateUploadDialogProps {
   company: Company;
@@ -41,6 +42,7 @@ export function CertificateUploadDialog({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const storage = useStorage();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -57,8 +59,8 @@ export function CertificateUploadDialog({
       });
       return;
     }
-    if (!firestore) {
-      toast({ title: "Erro", description: "Serviço de banco de dados não disponível.", variant: "destructive"});
+    if (!firestore || !storage) {
+      toast({ title: "Erro", description: "Serviço de banco de dados ou armazenamento não disponível.", variant: "destructive"});
       return;
     }
 
@@ -113,13 +115,18 @@ export function CertificateUploadDialog({
 
         const validity = certificate.validity.notAfter;
         const validityDateString = validity.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        
+        const fileUrl = await uploadCertificate(storage, `companies/${company.id}`, file);
 
         const companyRef = doc(firestore, 'companies', company.id);
-        setDocumentNonBlocking(companyRef, { certificateA1Validity: validityDateString }, { merge: true });
+        setDocumentNonBlocking(companyRef, { 
+            certificateA1Validity: validityDateString,
+            certificateA1Url: fileUrl,
+        }, { merge: true });
 
         toast({
           title: 'Certificado Processado!',
-          description: `A data de validade (${new Date(validity).toLocaleDateString('pt-BR')}) foi salva para a empresa ${company.name}.`,
+          description: `A data de validade foi salva e o arquivo foi armazenado para a empresa ${company.name}.`,
         });
 
         onCertificateUpdated();
@@ -147,7 +154,7 @@ export function CertificateUploadDialog({
         <DialogHeader>
           <DialogTitle>Adicionar/Atualizar Certificado A1</DialogTitle>
           <DialogDescription>
-            Faça o upload do arquivo .pfx e digite a senha. O sistema irá validar o CNPJ e salvar apenas a data de validade. O arquivo e a senha não serão armazenados.
+            Faça o upload do arquivo .pfx e digite a senha. O sistema validará o CNPJ, salvará o arquivo e a data de validade. A senha não será armazenada.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -178,7 +185,7 @@ export function CertificateUploadDialog({
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              'Ler e Salvar Validade'
+              'Processar e Salvar'
             )}
           </Button>
         </DialogFooter>

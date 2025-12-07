@@ -3,9 +3,48 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    // PERMITIR LEITURA E ESCRITA PARA QUALQUER USUÁRIO LOGADO
-    match /{path=**} {
-      allow read, write: if request.auth != null;
+    // Helper function to check if the user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if the user is a member of the company.
+    // This requires a Firestore read, which is billed.
+    function isCompanyMember(companyId) {
+      // Allow read/write access to company data if the user is an admin or a member of the company.
+      // Note: `get()` is a billable operation.
+      let companyDoc = get(/databases/(default)/documents/companies/$(companyId));
+      return request.auth.uid in companyDoc.data.members;
+    }
+    
+    // Profile pictures: Users can only write to their own folder.
+    // Anyone can read profile pictures.
+    match /profile-pictures/{userId}/{fileName} {
+      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if true;
+    }
+
+    // Company certificates: Only members of the company can read or write documents.
+    match /companies/{companyId}/certificate.pfx {
+      allow read, write: if isSignedIn() && isCompanyMember(companyId);
+    }
+    
+    // Partner certificates: Only authenticated users can write. Let's assume only admins manage this.
+    function isAdmin() {
+      return exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
+    }
+    match /partners/{partnerId}/certificate.pfx {
+      allow read, write: if isSignedIn(); // Simplified for now, could be restricted to admins
+    }
+
+    // Company documents: Only members of the company can read or write documents.
+    match /companies/{companyId}/documents/{fileName} {
+      allow read, write: if isSignedIn() && isCompanyMember(companyId);
+    }
+
+    // Fallback rule: Deny all other read/write operations for security.
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

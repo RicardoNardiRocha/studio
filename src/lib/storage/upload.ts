@@ -23,6 +23,23 @@ export async function uploadFile(storageInstance: FirebaseStorage, folder: strin
 }
 
 /**
+ * Uploads a certificate file to a specified folder in Firebase Storage.
+ * This is a specific function for `.pfx` files.
+ * @param storageInstance - The Firebase Storage instance from `useStorage()`.
+ * @param folder - The folder in the bucket to upload the file to.
+ * @param file - The certificate file to upload.
+ * @returns A promise that resolves with the public download URL of the file.
+ */
+export async function uploadCertificate(storageInstance: FirebaseStorage, folder: string, file: File): Promise<string> {
+  // Always name the file certificate.pfx for consistency
+  const path = `${folder}/certificate.pfx`;
+  const fileRef = ref(storageInstance, path);
+
+  await uploadBytes(fileRef, file);
+  return await getDownloadURL(fileRef);
+}
+
+/**
  * Uploads a company document, saves its metadata to Firestore, and returns the document data.
  * @param company - The company object the document belongs to.
  * @param file - The file to upload.

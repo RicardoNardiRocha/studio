@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { Loader2, Trash2, ShieldCheck, UploadCloud } from 'lucide-react';
+import { Loader2, Trash2, ShieldCheck, UploadCloud, Download } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
@@ -78,6 +78,7 @@ export interface Company {
     qsa?: RawPartnerFromApi[]; // Usamos a interface de dados brutos aqui
     members?: { [key: string]: 'admin' | 'viewer' };
     certificateA1Validity?: string;
+    certificateA1Url?: string;
 }
 
 interface CompanyDetailsDialogProps {
@@ -306,17 +307,27 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
 
                   <div>
                       <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
-                      <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
                           <div className="space-y-1">
                               <Label>Data de Vencimento</Label>
                               <p className="text-sm font-medium text-muted-foreground">
                                   {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
                               </p>
                           </div>
-                          <Button type="button" onClick={() => setIsCertUploadOpen(true)}>
-                              <UploadCloud className="mr-2 h-4 w-4" />
-                              Adicionar/Atualizar
-                          </Button>
+                           <div className="flex items-center gap-2">
+                            {company.certificateA1Url && (
+                                <Button variant="outline" size="sm" asChild>
+                                    <a href={company.certificateA1Url} target="_blank" rel="noopener noreferrer">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Baixar
+                                    </a>
+                                </Button>
+                            )}
+                            <Button type="button" size="sm" onClick={() => setIsCertUploadOpen(true)}>
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Adicionar/Atualizar
+                            </Button>
+                          </div>
                       </div>
                   </div>
               

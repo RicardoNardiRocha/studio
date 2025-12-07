@@ -35,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon, Eye, EyeOff, Trash2, UploadCloud } from 'lucide-react';
+import { Loader2, CalendarIcon, Eye, EyeOff, Trash2, UploadCloud, Download } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
@@ -59,6 +59,7 @@ export interface Partner {
   qualification?: string;
   hasECPF: boolean;
   ecpfValidity?: string;
+  ecpfUrl?: string;
   govBrLogin?: string;
   govBrPassword?: string;
   associatedCompanies?: string[];
@@ -265,62 +266,30 @@ export function PartnerDetailsDialog({
               />
 
               <div className="rounded-lg border p-4 space-y-4">
-                <div className="flex flex-row items-center justify-between">
-                  <div className="space-y-0.5">
-                    <h3 className="font-medium">Certificado Digital (e-CPF)</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {form.getValues('hasECPF')
-                        ? 'e-CPF Ativo'
-                        : 'Nenhum e-CPF configurado.'}
-                    </p>
+                  <div className="flex flex-row items-center justify-between">
+                    <div className="space-y-0.5">
+                      <h3 className="font-medium">Certificado Digital (e-CPF)</h3>
+                       <p className="text-sm text-muted-foreground">
+                        {form.watch('hasECPF') && partner.ecpfValidity
+                          ? `Vence em: ${new Date(partner.ecpfValidity + 'T00:00:00-03:00').toLocaleDateString('pt-BR')}`
+                          : 'Nenhum e-CPF configurado.'}
+                      </p>
+                    </div>
+                     <div className="flex items-center gap-2">
+                      {partner.ecpfUrl && (
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={partner.ecpfUrl} target="_blank" rel="noopener noreferrer">
+                            <Download className="mr-2 h-4 w-4" />
+                            Baixar
+                          </a>
+                        </Button>
+                      )}
+                      <Button type="button" size="sm" onClick={() => setIsCertUploadOpen(true)}>
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        Adicionar/Atualizar
+                      </Button>
+                    </div>
                   </div>
-                  <Button type="button" onClick={() => setIsCertUploadOpen(true)}>
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    Adicionar/Atualizar
-                  </Button>
-                </div>
-
-                {form.watch('hasECPF') && (
-                <FormField
-                  control={form.control}
-                  name="ecpfValidity"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Validade do E-CPF</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={'outline'}
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, 'PPP', { locale: ptBR })
-                              ) : (
-                                <span>Escolha uma data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                )}
               </div>
 
                <FormField
