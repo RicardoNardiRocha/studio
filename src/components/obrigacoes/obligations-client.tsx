@@ -26,7 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { collection, query, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
 import { Badge } from '../ui/badge';
@@ -34,19 +34,30 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
 
+export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada';
+
 export interface TaxObligation {
   id: string;
   companyId: string;
   companyName: string;
-  type: string;
-  status: 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada';
-  dueDate: { seconds: number; nanoseconds: number } | Date;
-  responsibleUserId?: string;
-  responsibleUserName?: string;
+  nome: string;
+  categoria: 'Fiscal' | 'Contábil' | 'DP' | 'Societário';
+  periodicidade: 'Mensal' | 'Trimestral' | 'Anual' | 'Eventual';
+  periodo: string; // "YYYY-MM"
+  dataVencimento: Timestamp | Date;
+  dataEntrega?: Timestamp | Date | null;
+  status: ObligationStatus;
+  responsavelId?: string;
+  responsavelNome?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  historico?: any[];
+  comprovantes?: string[];
 }
 
-const obligationStatuses: TaxObligation['status'][] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
-const obligationTypes = ['Todos', 'DAS', 'DEFIS', 'SPED Fiscal', 'SPED Contribuições', 'ECF', 'RAIS', 'DIRF', 'Outra'];
+
+const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
+const obligationCategories = ['Todos', 'Fiscal', 'Contábil', 'DP', 'Societário'];
 
 
 const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -71,7 +82,7 @@ export function ObligationsClient() {
   const [obligations, setObligations] = useState<TaxObligation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('Todos');
+  const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
   
   const firestore = useFirestore();
@@ -85,7 +96,7 @@ export function ObligationsClient() {
       const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
 
       for (const companyDoc of companiesSnapshot.docs) {
-        const q = query(collection(firestore, `companies/${companyDoc.id}/taxObligations`), orderBy('dueDate', 'asc'));
+        const q = query(collection(firestore, `companies/${companyDoc.id}/taxObligations`), orderBy('dataVencimento', 'asc'));
         const obligationsSnapshot = await getDocs(q);
         obligationsSnapshot.forEach(obligationDoc => {
           allObligations.push({ id: obligationDoc.id, ...obligationDoc.data() } as TaxObligation);
@@ -109,14 +120,15 @@ export function ObligationsClient() {
   const handleAction = () => {
     fetchObligations();
     setIsDetailsDialogOpen(false);
+    setIsAddDialogOpen(false);
   };
   
-  const handleStatusChange = async (obligationId: string, companyId: string, newStatus: TaxObligation['status']) => {
+  const handleStatusChange = async (obligation: TaxObligation, newStatus: ObligationStatus) => {
     if (!firestore) return;
-    const obligationRef = doc(firestore, 'companies', companyId, 'taxObligations', obligationId);
+    const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
     try {
-        await updateDoc(obligationRef, { status: newStatus });
-        setObligations(prev => prev.map(o => o.id === obligationId ? {...o, status: newStatus} : o));
+        await updateDoc(obligationRef, { status: newStatus, updatedAt: new Date() });
+        setObligations(prev => prev.map(o => o.id === obligation.id ? {...o, status: newStatus} : o));
         toast({ title: "Status atualizado com sucesso!" });
     } catch (error) {
         console.error("Failed to update status:", error);
@@ -131,16 +143,16 @@ export function ObligationsClient() {
 
   const filteredObligations = useMemo(() => {
     return obligations.filter(o => {
-        const searchMatch = o.companyName.toLowerCase().includes(searchTerm.toLowerCase());
-        const typeMatch = typeFilter === 'Todos' || o.type === typeFilter;
+        const searchMatch = o.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || o.nome.toLowerCase().includes(searchTerm.toLowerCase());
+        const categoryMatch = categoryFilter === 'Todos' || o.categoria === categoryFilter;
         const statusMatch = statusFilter === 'Todos' || o.status === statusFilter;
-        return searchMatch && typeMatch && statusMatch;
+        return searchMatch && categoryMatch && statusMatch;
     });
-  }, [obligations, searchTerm, typeFilter, statusFilter]);
+  }, [obligations, searchTerm, categoryFilter, statusFilter]);
 
-  const formatDate = (date: any) => {
+  const formatDate = (date: any): string => {
     if (!date) return 'N/A';
-    const d = date instanceof Date ? date : new Date(date.seconds * 1000);
+    const d = date instanceof Date ? date : (date as Timestamp).toDate();
     return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   };
 
@@ -181,20 +193,20 @@ export function ObligationsClient() {
             <div className="relative w-full md:flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome da empresa..."
+                placeholder="Buscar por empresa ou obrigação..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por tipo..." />
+                  <SelectValue placeholder="Filtrar por categoria..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {obligationTypes.map(type => (
-                    <SelectItem key={type} value={type}>{type === 'Todos' ? 'Todos os Tipos' : type}</SelectItem>
+                  {obligationCategories.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat === 'Todos' ? 'Todas as Categorias' : cat}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -220,6 +232,7 @@ export function ObligationsClient() {
                 <TableRow>
                   <TableHead>Empresa</TableHead>
                   <TableHead>Obrigação</TableHead>
+                  <TableHead>Competência</TableHead>
                   <TableHead>Vencimento</TableHead>
                   <TableHead>Responsável</TableHead>
                   <TableHead className="w-[200px]">Status</TableHead>
@@ -232,6 +245,7 @@ export function ObligationsClient() {
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
@@ -242,13 +256,14 @@ export function ObligationsClient() {
                   filteredObligations.map((obligation) => (
                     <TableRow key={obligation.id}>
                       <TableCell className="font-medium">{obligation.companyName}</TableCell>
-                      <TableCell>{obligation.type}</TableCell>
-                      <TableCell>{formatDate(obligation.dueDate)}</TableCell>
-                      <TableCell>{obligation.responsibleUserName || 'Não definido'}</TableCell>
+                      <TableCell>{obligation.nome}</TableCell>
+                      <TableCell>{obligation.periodo}</TableCell>
+                      <TableCell>{formatDate(obligation.dataVencimento)}</TableCell>
+                      <TableCell>{obligation.responsavelNome || 'Não definido'}</TableCell>
                       <TableCell>
                         <Select
                           value={obligation.status}
-                          onValueChange={(newStatus: TaxObligation['status']) => handleStatusChange(obligation.id, obligation.companyId, newStatus)}
+                          onValueChange={(newStatus: ObligationStatus) => handleStatusChange(obligation, newStatus)}
                         >
                           <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
                              <SelectValue asChild>
@@ -276,7 +291,7 @@ export function ObligationsClient() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                       Nenhuma obrigação encontrada.
                     </TableCell>
                   </TableRow>

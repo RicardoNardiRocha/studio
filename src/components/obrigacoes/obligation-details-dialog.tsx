@@ -49,12 +49,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc, collection } from 'firebase/firestore';
+import { doc, collection, serverTimestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { TaxObligation } from './obligations-client';
+import type { TaxObligation, ObligationStatus } from './obligations-client';
+import { Timestamp } from 'firebase/firestore';
+import { Input } from '../ui/input';
 
 interface ObligationDetailsDialogProps {
   obligation: TaxObligation;
@@ -64,26 +66,28 @@ interface ObligationDetailsDialogProps {
   onObligationDeleted: () => void;
 }
 
-const obligationTypes = ['DAS', 'DEFIS', 'SPED Fiscal', 'SPED Contribuições', 'ECF', 'RAIS', 'DIRF', 'Outra'];
-const obligationStatuses: TaxObligation['status'][] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
+const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
 
 const formSchema = z.object({
-  type: z.string({ required_error: 'O tipo da obrigação é obrigatório.' }),
+  nome: z.string().min(1, 'O nome da obrigação é obrigatório.'),
+  categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Societário']),
+  periodicidade: z.enum(['Mensal', 'Trimestral', 'Anual', 'Eventual']),
+  periodo: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
+  dataVencimento: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   status: z.enum(obligationStatuses),
-  dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
-  responsibleUserId: z.string().optional(),
+  responsavelId: z.string().optional(),
 });
 
 
 const toDate = (date: any): Date | undefined => {
     if (!date) return undefined;
     if (date instanceof Date) return date;
-    if (date.seconds) return new Date(date.seconds * 1000);
-    if (typeof date === 'string') return parseISO(date);
+    if (date instanceof Timestamp) return date.toDate();
+    if (typeof date === 'string') return new Date(date);
     return undefined;
 }
 
-type UserProfile = { id: string; name: string };
+type UserProfile = { uid: string; displayName: string };
 
 export function ObligationDetailsDialog({
   obligation,
@@ -106,10 +110,13 @@ export function ObligationDetailsDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      type: obligation.type,
+      nome: obligation.nome,
+      categoria: obligation.categoria,
+      periodicidade: obligation.periodicidade,
+      periodo: obligation.periodo,
+      dataVencimento: toDate(obligation.dataVencimento),
       status: obligation.status,
-      dueDate: toDate(obligation.dueDate),
-      responsibleUserId: obligation.responsibleUserId || user?.uid,
+      responsavelId: obligation.responsavelId || user?.uid,
     },
   });
 
@@ -122,7 +129,7 @@ export function ObligationDetailsDialog({
     deleteDocumentNonBlocking(obligationRef);
     toast({
       title: 'Obrigação Excluída',
-      description: `A obrigação de ${obligation.type} para ${obligation.companyName} foi removida.`,
+      description: `A obrigação de ${obligation.nome} para ${obligation.companyName} foi removida.`,
     });
     onObligationDeleted();
     onOpenChange(false);
@@ -138,14 +145,12 @@ export function ObligationDetailsDialog({
     try {
       const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
       
-      const responsibleUser = users?.find(u => u.id === values.responsibleUserId);
+      const responsibleUser = users?.find(u => u.uid === values.responsavelId);
       
       const updatedData = {
-        type: values.type,
-        status: values.status,
-        dueDate: values.dueDate,
-        responsibleUserId: values.responsibleUserId,
-        responsibleUserName: responsibleUser?.name || obligation.responsibleUserName,
+        ...values,
+        responsavelNome: responsibleUser?.displayName || obligation.responsavelNome,
+        updatedAt: serverTimestamp(),
       };
 
       setDocumentNonBlocking(obligationRef, updatedData, { merge: true });
@@ -169,7 +174,7 @@ export function ObligationDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Detalhes da Obrigação</DialogTitle>
           <DialogDescription>
@@ -177,27 +182,105 @@ export function ObligationDetailsDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
              <FormField
               control={form.control}
-              name="type"
+              name="nome"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tipo de Obrigação</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {obligationTypes.filter(t => t !== 'Todos').map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Nome da Obrigação</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: DAS, SPED, DEFIS" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="categoria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {['Fiscal', 'Contábil', 'DP', 'Societário'].map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="periodicidade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Periodicidade</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {['Mensal', 'Trimestral', 'Anual', 'Eventual'].map(p => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="periodo"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Competência</FormLabel>
+                    <FormControl>
+                        <Input type="month" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dataVencimento"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Vencimento</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                            >
+                              {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
 
             <FormField
               control={form.control}
@@ -219,37 +302,10 @@ export function ObligationDetailsDialog({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data de Vencimento</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                        >
-                          {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             
             <FormField
               control={form.control}
-              name="responsibleUserId"
+              name="responsavelId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
@@ -259,7 +315,7 @@ export function ObligationDetailsDialog({
                     </FormControl>
                     <SelectContent>
                       {users?.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                        <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

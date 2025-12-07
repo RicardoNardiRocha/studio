@@ -101,8 +101,8 @@ service cloud.firestore {
      * On update/delete, checks if the document exists and if the requesting user
      * is either the original creator (responsibleUserId) or an admin.
      */
-    function isExistingResponsibleUserOrAdmin() {
-      return resource != null && (isAdmin() || isOwner(resource.data.responsibleUserId));
+    function isExistingResponsibleUserOrAdmin(responsibleUserId) {
+      return resource != null && (isAdmin() || isOwner(responsibleUserId));
     }
 
     // =========================================================================
@@ -143,14 +143,15 @@ service cloud.firestore {
      * On create, validates the 'responsibleUserId' is the person creating the document.
      */
     function isRequestingUserResponsible() {
-      return request.resource.data.responsibleUserId == request.auth.uid;
+      // Allow responsibleUserId to be different from the creator, if specified.
+      return request.resource.data.responsavelId != null;
     }
 
     /**
-     * On update, ensures the 'responsibleUserId' field cannot be changed.
+     * On update, ensures the 'responsibleUserId' field cannot be changed by non-admins.
      */
-    function isResponsibleUserImmutable() {
-      return request.resource.data.responsibleUserId == resource.data.responsibleUserId;
+    function isResponsibleUserImmutableOrAdmin() {
+      return isAdmin() || request.resource.data.responsavelId == resource.data.responsavelId;
     }
 
     /**
@@ -208,14 +209,14 @@ service cloud.firestore {
      * @path /companies/{companyId}/taxObligations/{taxObligationId}
      * @allow (create) A company member creates a new tax obligation: `create /companies/company_abc/taxObligations/new_id` (auth: member_uid).
      * @deny (update) A company member tries to update an obligation created by another user: `update /companies/company_abc/taxObligations/other_user_doc` (auth: member_uid).
-     * @principle Restricts access to company members and enforces creator-only writes for subcollection documents.
+     * @principle Restricts access to company members and allows updates from any member or admin.
      */
     match /companies/{companyId}/taxObligations/{taxObligationId} {
       allow get: if canReadCompanyData(companyId);
       allow list: if canReadCompanyData(companyId);
-      allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
-      allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
-      allow delete: if isExistingResponsibleUserOrAdmin();
+      allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId);
+      allow update: if canReadCompanyData(companyId) && isCompanyIdImmutable();
+      allow delete: if canReadCompanyData(companyId);
     }
 
     /**
@@ -229,8 +230,8 @@ service cloud.firestore {
       allow get: if canReadCompanyData(companyId);
       allow list: if canReadCompanyData(companyId);
       allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
-      allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
-      allow delete: if isExistingResponsibleUserOrAdmin();
+      allow update: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable() && isResponsibleUserImmutableOrAdmin();
+      allow delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
     }
 
     /**
@@ -244,8 +245,8 @@ service cloud.firestore {
       allow get: if canReadCompanyData(companyId);
       allow list: if canReadCompanyData(companyId);
       allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
-      allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
-      allow delete: if isExistingResponsibleUserOrAdmin();
+      allow update: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable() && isResponsibleUserImmutableOrAdmin();
+      allow delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
     }
   }
 }

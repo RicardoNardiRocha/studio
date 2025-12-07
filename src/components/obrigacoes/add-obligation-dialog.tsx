@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -51,17 +51,16 @@ interface AddObligationDialogProps {
 
 const formSchema = z.object({
   companyId: z.string({ required_error: 'Selecione uma empresa.' }),
-  type: z.string().min(1, 'O tipo da obrigação é obrigatório.'),
-  status: z.string({ required_error: 'Selecione o status inicial.' }),
-  dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
-  responsibleUserId: z.string().optional(),
+  nome: z.string().min(1, 'O nome da obrigação é obrigatório.'),
+  categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Societário'], { required_error: 'Selecione uma categoria.' }),
+  periodicidade: z.enum(['Mensal', 'Trimestral', 'Anual', 'Eventual'], { required_error: 'Selecione a periodicidade.' }),
+  periodo: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
+  dataVencimento: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
+  responsavelId: z.string().optional(),
 });
 
 type Company = { id: string; name: string };
-type UserProfile = { id: string; name: string };
-
-const obligationStatuses = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
-const obligationTypes = ['DAS', 'DEFIS', 'SPED Fiscal', 'SPED Contribuições', 'ECF', 'RAIS', 'DIRF', 'Outra'];
+type UserProfile = { uid: string; displayName: string };
 
 export function AddObligationDialog({
   open,
@@ -88,8 +87,8 @@ export function AddObligationDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      status: 'Pendente',
-      responsibleUserId: user?.uid,
+      responsavelId: user?.uid,
+      periodo: format(new Date(), 'yyyy-MM')
     },
   });
 
@@ -104,20 +103,25 @@ export function AddObligationDialog({
       const company = companies?.find(c => c.id === values.companyId);
       if (!company) throw new Error("Empresa não encontrada.");
       
-      const responsibleUser = users?.find(u => u.id === values.responsibleUserId);
+      const responsibleUser = users?.find(u => u.uid === values.responsavelId);
 
       const obligationCollectionRef = collection(firestore, 'companies', values.companyId, 'taxObligations');
 
       const newObligation = {
         companyId: values.companyId,
         companyName: company.name,
-        type: values.type,
-        status: values.status,
-        dueDate: values.dueDate,
-        responsibleUserId: values.responsibleUserId || user.uid,
-        responsibleUserName: responsibleUser?.name || user.displayName || 'Não definido',
-        createdAt: new Date(),
-        creatorId: user.uid,
+        nome: values.nome,
+        categoria: values.categoria,
+        periodicidade: values.periodicidade,
+        periodo: values.periodo,
+        dataVencimento: values.dataVencimento,
+        status: 'Pendente',
+        responsavelId: values.responsavelId || user.uid,
+        responsavelNome: responsibleUser?.displayName || user.displayName || 'Não definido',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        historico: [],
+        comprovantes: []
       };
       
       const docRef = await addDoc(obligationCollectionRef, newObligation);
@@ -126,12 +130,11 @@ export function AddObligationDialog({
 
       toast({
         title: 'Obrigação Adicionada!',
-        description: `A obrigação de ${values.type} para ${company.name} foi criada.`,
+        description: `A obrigação de ${values.nome} para ${company.name} foi criada.`,
       });
 
       onObligationAdded();
-      onOpenChange(false);
-      form.reset({ status: 'Pendente', responsibleUserId: user?.uid });
+      form.reset({ responsavelId: user?.uid, periodo: format(new Date(), 'yyyy-MM') });
     } catch (error: any) {
       console.error(error);
       toast({ title: 'Erro ao adicionar obrigação', description: error.message || 'Ocorreu um erro inesperado.', variant: 'destructive' });
@@ -142,7 +145,7 @@ export function AddObligationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar Nova Obrigação</DialogTitle>
           <DialogDescription>
@@ -150,7 +153,7 @@ export function AddObligationDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
             <FormField
               control={form.control}
               name="companyId"
@@ -174,55 +177,108 @@ export function AddObligationDialog({
 
             <FormField
               control={form.control}
-              name="type"
+              name="nome"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tipo de Obrigação</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {obligationTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data de Vencimento</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                        >
-                          {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                  <FormLabel>Nome da Obrigação</FormLabel>
+                  <FormControl>
+                      <Input placeholder="Ex: DAS, SPED, DEFIS" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="categoria"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {['Fiscal', 'Contábil', 'DP', 'Societário'].map((cat) => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                <FormField
+                control={form.control}
+                name="periodicidade"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Periodicidade</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {['Mensal', 'Trimestral', 'Anual', 'Eventual'].map((p) => (
+                            <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="periodo"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Período de Competência</FormLabel>
+                    <FormControl>
+                        <Input type="month" placeholder="AAAA-MM" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                <FormField
+                control={form.control}
+                name="dataVencimento"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                    <FormLabel>Data de Vencimento</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <FormControl>
+                            <Button
+                            variant={'outline'}
+                            className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                            >
+                            {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
+            
             <FormField
               control={form.control}
-              name="responsibleUserId"
+              name="responsavelId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
@@ -232,28 +288,7 @@ export function AddObligationDialog({
                     </FormControl>
                     <SelectContent>
                       {users?.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-             <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status Inicial</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {obligationStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                        <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

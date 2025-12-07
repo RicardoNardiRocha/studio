@@ -155,7 +155,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "TaxObligation",
       "type": "object",
-      "description": "Represents a tax obligation for a specific company.",
+      "description": "Represents a tax obligation for a specific company, including its history and related documents.",
       "properties": {
         "id": {
           "type": "string",
@@ -163,39 +163,77 @@
         },
         "companyId": {
           "type": "string",
-          "description": "Reference to Company. Company to which the tax obligation belongs. (Relationship: Company 1:N TaxObligation)"
+          "description": "Reference to Company. Company to which the tax obligation belongs."
         },
-        "type": {
+        "nome": {
           "type": "string",
-          "description": "Type of tax obligation (e.g., DAS, DEFIS, SPED)."
+          "description": "Name of the obligation (e.g., DAS, DEFIS, SPED ECF)."
         },
-        "dueDate": {
+        "categoria": {
           "type": "string",
-          "description": "Due date for the tax obligation.",
-          "format": "date-time"
+          "description": "Category of the obligation.",
+          "enum": ["Fiscal", "Contábil", "DP", "Societário"]
+        },
+        "periodicidade": {
+          "type": "string",
+          "description": "Frequency of the obligation.",
+          "enum": ["Mensal", "Trimestral", "Anual", "Eventual"]
+        },
+        "periodo": {
+          "type": "string",
+          "description": "The competence period of the obligation (e.g., '2024-08')."
+        },
+        "dataVencimento": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Due date for the obligation."
+        },
+        "dataEntrega": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date the obligation was completed/filed."
         },
         "status": {
           "type": "string",
-          "description": "Current status of the tax obligation.",
-          "enum": [
-            "Pendente",
-            "Em Andamento",
-            "Entregue",
-            "Atrasada"
-          ]
+          "description": "Current status of the obligation.",
+          "enum": ["Pendente", "Em Andamento", "Entregue", "Atrasada"]
         },
-        "responsibleUserId": {
+        "responsavelId": {
           "type": "string",
-          "description": "Reference to User. User responsible for this tax obligation. (Relationship: User 1:N TaxObligation)"
+          "description": "Reference to User. User responsible for this obligation."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the obligation was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last update."
+        },
+        "historico": {
+          "type": "array",
+          "description": "List of events related to the obligation (status changes, comments, etc.).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "timestamp": {"type": "string", "format": "date-time"},
+              "userId": {"type": "string"},
+              "action": {"type": "string"}
+            }
+          }
+        },
+        "comprovantes": {
+          "type": "array",
+          "description": "List of URLs for uploaded proof of delivery files in Firebase Storage.",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
         }
       },
-      "required": [
-        "id",
-        "companyId",
-        "type",
-        "dueDate",
-        "status"
-      ]
+      "required": ["id", "companyId", "nome", "categoria", "periodicidade", "periodo", "dataVencimento", "status", "createdAt", "updatedAt"]
     },
     "Document": {
       "$schema": "http://json-schema.org/draft-07/schema#",
