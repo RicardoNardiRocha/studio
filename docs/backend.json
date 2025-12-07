@@ -51,6 +51,11 @@
           "type": "string",
           "description": "Expiration date of the A1 digital certificate.",
           "format": "date"
+        },
+        "certificateA1Url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the A1 certificate file in Firebase Storage."
         }
       },
       "required": [
@@ -68,11 +73,11 @@
       "type": "object",
       "description": "Represents a user of the system, either internal or a client.",
       "properties": {
-        "id": {
+        "uid": {
           "type": "string",
-          "description": "Unique identifier for the User entity."
+          "description": "Unique identifier for the User entity, matches Firebase Auth UID."
         },
-        "name": {
+        "displayName": {
           "type": "string",
           "description": "Name of the user."
         },
@@ -81,17 +86,53 @@
           "description": "Email address of the user.",
           "format": "email"
         },
-        "role": {
+        "roleId": {
           "type": "string",
-          "description": "Role of the user within the system (e.g., Administrator, Accountant, Client)."
+          "description": "Reference to the Role entity that defines the user's permissions."
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's profile picture."
         }
       },
       "required": [
-        "id",
-        "name",
+        "uid",
+        "displayName",
         "email",
-        "role"
+        "roleId"
       ]
+    },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Defines a set of permissions for a user role.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Role."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the role (e.g., 'Administrador', 'Contador')."
+        },
+        "permissions": {
+          "type": "object",
+          "description": "A map of granular permissions.",
+          "properties": {
+            "dashboard": { "type": "object", "properties": { "view": { "type": "boolean" } } },
+            "companies": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "partners": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "obligations": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "processes": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "documents": { "type": "object", "properties": { "view": { "type": "boolean" }, "upload": { "type": "boolean" }, "download": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "users": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
+            "settings": { "type": "object", "properties": { "view": { "type": "boolean" }, "edit": { "type": "boolean" } } }
+          }
+        }
+      },
+      "required": ["id", "name", "permissions"]
     },
     "Partner": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -123,6 +164,11 @@
           "type": "string",
           "format": "date",
           "description": "Expiration date of the E-CPF certificate."
+        },
+        "ecpfUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the E-CPF certificate file in Firebase Storage."
         },
         "govBrLogin": {
           "type": "string",
@@ -165,6 +211,10 @@
           "type": "string",
           "description": "Reference to Company. Company to which the tax obligation belongs."
         },
+        "companyName": {
+          "type": "string",
+          "description": "Denormalized name of the company for quick display."
+        },
         "nome": {
           "type": "string",
           "description": "Name of the obligation (e.g., DAS, DEFIS, SPED ECF)."
@@ -202,6 +252,10 @@
           "type": "string",
           "description": "Reference to User. User responsible for this obligation."
         },
+        "responsavelNome": {
+          "type": "string",
+          "description": "Denormalized name of the responsible user."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
@@ -220,20 +274,27 @@
             "properties": {
               "timestamp": {"type": "string", "format": "date-time"},
               "userId": {"type": "string"},
-              "action": {"type": "string"}
+              "userName": {"type": "string"},
+              "action": {"type": "string"},
+              "details": {"type": "string"}
             }
           }
         },
         "comprovantes": {
           "type": "array",
-          "description": "List of URLs for uploaded proof of delivery files in Firebase Storage.",
+          "description": "List of objects representing uploaded proof of delivery files in Firebase Storage.",
           "items": {
-            "type": "string",
-            "format": "uri"
+            "type": "object",
+            "properties": {
+              "fileName": { "type": "string" },
+              "fileUrl": { "type": "string", "format": "uri"},
+              "uploadedAt": { "type": "string", "format": "date-time" },
+              "uploadedBy": { "type": "string" }
+            }
           }
         }
       },
-      "required": ["id", "companyId", "nome", "categoria", "periodicidade", "periodo", "dataVencimento", "status", "createdAt", "updatedAt"]
+      "required": ["id", "companyId", "companyName", "nome", "categoria", "periodicidade", "periodo", "dataVencimento", "status", "createdAt", "updatedAt"]
     },
     "Document": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -270,6 +331,13 @@
         "responsibleUserId": {
           "type": "string",
           "description": "Reference to User. User responsible for this document. (Relationship: User 1:N Document)"
+        },
+        "fileUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "fileName": {
+          "type": "string"
         }
       },
       "required": [
@@ -277,7 +345,9 @@
         "companyId",
         "name",
         "type",
-        "uploadDate"
+        "uploadDate",
+        "fileUrl",
+        "fileName"
       ]
     },
     "CorporateProcess": {
@@ -294,13 +364,22 @@
           "type": "string",
           "description": "Reference to Company. Company to which the corporate process belongs. (Relationship: Company 1:N CorporateProcess)"
         },
-        "type": {
+        "companyName": {
+            "type": "string",
+            "description": "Denormalized name of the company."
+        },
+        "processType": {
           "type": "string",
           "description": "Type of corporate process (e.g., Opening, Alteration, Closing)."
         },
         "startDate": {
           "type": "string",
           "description": "Start date of the corporate process.",
+          "format": "date-time"
+        },
+        "protocolDate": {
+          "type": "string",
+          "description": "Protocol date of the corporate process.",
           "format": "date-time"
         },
         "status": {
@@ -315,7 +394,8 @@
       "required": [
         "id",
         "companyId",
-        "type",
+        "companyName",
+        "processType",
         "startDate",
         "status"
       ]
@@ -328,34 +408,34 @@
   },
   "firestore": {
     "structure": [
-      {
-        "path": "/roles_admin/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Collection to store UIDs of admin users.  Authorization depends on the existence of the document (Existence over Content).",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The UID of the administrator user."
-            }
-          ]
-        }
-      },
-      {
+       {
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Collection to store user profiles. Accessible only by the user and admins.",
+          "description": "Collection to store user profiles, including their role ID for RBAC.",
           "params": [
             {
               "name": "userId",
               "description": "The UID of the user."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Collection to store roles and their associated granular permissions.",
+          "params": [
+            {
+              "name": "roleId",
+              "description": "The unique identifier for the role."
             }
           ]
         }

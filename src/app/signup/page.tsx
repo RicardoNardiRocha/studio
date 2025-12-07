@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Layers, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
@@ -20,14 +21,15 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) {
+    if (!auth || !firestore) {
       toast({
         title: 'Erro de Autenticação',
-        description: 'O serviço de autenticação não está disponível.',
+        description: 'O serviço de autenticação ou banco de dados não está disponível.',
         variant: 'destructive',
       });
       return;
@@ -35,11 +37,20 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
+      const user = userCredential.user;
+
       // Update the user's profile with the name
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, { displayName: name });
-      }
+      await updateProfile(user, { displayName: name });
+      
+      // Create user document in Firestore
+      const userDocRef = doc(firestore, "users", user.uid);
+      await setDoc(userDocRef, {
+          uid: user.uid,
+          displayName: name,
+          email: user.email,
+          photoURL: user.photoURL || '',
+          roleId: 'owner' // Assign the 'owner' role to the first user signing up
+      });
 
       toast({
         title: 'Cadastro realizado com sucesso!',
