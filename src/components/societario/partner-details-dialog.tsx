@@ -278,7 +278,7 @@ export function PartnerDetailsDialog({
                      <div className="flex items-center gap-2">
                       {partner.ecpfUrl && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={partner.ecpfUrl} target="_blank" rel="noopener noreferrer">
+                          <a href={partner.ecpfUrl} download={`${partner.name}_${partner.cpf}.pfx`} target="_blank" rel="noopener noreferrer">
                             <Download className="mr-2 h-4 w-4" />
                             Baixar
                           </a>

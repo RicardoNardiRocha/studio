@@ -317,7 +317,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                            <div className="flex items-center gap-2">
                             {company.certificateA1Url && (
                                 <Button variant="outline" size="sm" asChild>
-                                    <a href={company.certificateA1Url} target="_blank" rel="noopener noreferrer">
+                                    <a href={company.certificateA1Url} download={`${company.name}_${company.cnpj}.pfx`} target="_blank" rel="noopener noreferrer">
                                         <Download className="mr-2 h-4 w-4" />
                                         Baixar
                                     </a>
