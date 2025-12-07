@@ -7,11 +7,9 @@ import * as z from 'zod';
 import { useAuth, useUser, useStorage, useFirestore } from '@/firebase';
 import {
   updateProfile,
-  updateEmail,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  deleteUser,
   signOut,
 } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -27,21 +25,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { useRouter } from 'next/navigation';
 import { Loader2, Camera } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { UserManagement } from './admin/user-management';
 
 const profileSchema = z.object({
   name: z.string().min(1, 'O nome é obrigatório.'),
@@ -54,7 +42,7 @@ const passwordSchema = z.object({
 });
 
 export function ProfileClient() {
-  const { user, isUserLoading } = useUser();
+  const { user, profile, isUserLoading } = useUser();
   const auth = useAuth();
   const storage = useStorage();
   const firestore = useFirestore();
@@ -62,8 +50,6 @@ export function ProfileClient() {
   const router = useRouter();
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [reauthPassword, setReauthPassword] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isClient, setIsClient] = useState(false);
@@ -95,7 +81,7 @@ export function ProfileClient() {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !user || !auth.currentUser) return;
+    if (!file || !user || !auth?.currentUser || !storage || !firestore) return;
 
     setIsUploading(true);
     toast({
@@ -108,7 +94,6 @@ export function ProfileClient() {
       
       await updateProfile(auth.currentUser, { photoURL: downloadURL });
 
-      // Opcional: Salvar a URL também no documento do usuário no Firestore se necessário
       const userDocRef = doc(firestore, "users", user.uid);
       await updateDoc(userDocRef, { photoURL: downloadURL });
 
@@ -128,15 +113,15 @@ export function ProfileClient() {
     }
   };
 
-
   const handleProfileSubmit = async (data: z.infer<typeof profileSchema>) => {
-    if (!user || !auth || !auth.currentUser) return;
+    if (!user || !auth?.currentUser || !firestore) return;
     setIsSavingProfile(true);
 
     try {
-      // Apenas atualiza o nome. A alteração de e-mail é um fluxo mais complexo.
       if (user.displayName !== data.name) {
         await updateProfile(auth.currentUser, { displayName: data.name });
+        const userDocRef = doc(firestore, 'users', user.uid);
+        await updateDoc(userDocRef, { displayName: data.name });
       }
       
       toast({
@@ -155,7 +140,7 @@ export function ProfileClient() {
   };
 
   const handlePasswordSubmit = async (data: z.infer<typeof passwordSchema>) => {
-    if (!user || !auth || !auth.currentUser) return;
+    if (!user || !auth?.currentUser) return;
     setIsSavingPassword(true);
 
     try {
@@ -213,6 +198,8 @@ export function ProfileClient() {
 
   return (
     <div className="space-y-6">
+       {profile?.roleId === 'owner' && <UserManagement />}
+
        <Card>
         <CardHeader>
           <CardTitle>Foto de Perfil</CardTitle>
@@ -320,6 +307,7 @@ export function ProfileClient() {
             <Button variant="outline" onClick={handleLogout}>Sair da Conta</Button>
         </CardContent>
       </Card>
+
       {user && (
         <div className="mt-4 text-right">
           <span className="text-xs text-muted-foreground select-all">UID: {user.uid}</span>
