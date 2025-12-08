@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -16,8 +17,9 @@ service cloud.firestore {
     }
 
     // Admin global → baseado na existência do documento em roles_admin
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    function isOwnerRole() {
+      // Temporariamente simplificado para prototipagem
+      return request.auth.uid == "wK9BRBsngobSOBFZEYacPLYAHXl2"; // Substituir pelo UID real do dono
     }
 
     // Usuário do financeiro → baseado na existência do documento em roles_finance
@@ -32,7 +34,7 @@ service cloud.firestore {
 
     // Leitura permitida para Admin OU membro da empresa
     function canReadCompanyData(companyId) {
-      return isAdmin() || isCompanyMember(companyId);
+      return isOwnerRole() || isCompanyMember(companyId);
     }
 
     // Criador do documento → no momento da criação
@@ -41,8 +43,8 @@ service cloud.firestore {
     }
 
     // Criador do documento → em updates
-    function isExistingResponsibleUserOrAdmin() {
-      return resource != null && (isAdmin() || resource.data.responsibleUserId == request.auth.uid);
+    function isExistingResponsibleUserOrAdmin(responsibleUserId) {
+      return resource != null && (isOwnerRole() || isOwner(responsibleUserId));
     }
 
     // Garante que o campo companyId não seja alterado em updates
@@ -56,29 +58,30 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------
-    // ROLES ADMIN (apenas leitura — segurança total)
-    // ------------------------------------------------------------
-    match /roles_admin/{userId} {
-      allow get, list: if isAdmin();
-      allow create, update, delete: if false; // nunca via app
-    }
-
-    // ------------------------------------------------------------
     // ROLES FINANCE
     // ------------------------------------------------------------
     match /roles_finance/{userId} {
-      allow read, write: if isAdmin(); 
+      allow read, write: if isOwnerRole(); 
     }
 
     // ------------------------------------------------------------
     // USERS
     // ------------------------------------------------------------
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get: if isOwner(userId) || isOwnerRole();
+      allow list: if isOwnerRole();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) && resource != null;
       allow delete: if isOwner(userId);
+    }
+    
+    // ------------------------------------------------------------
+    // ACTIVITIES (LOG)
+    // ------------------------------------------------------------
+    match /activities/{activityId} {
+      allow read, list: if isSignedIn(); // Todos podem ler o log
+      allow create: if isSignedIn(); // Todos podem criar entradas de log (via app)
+      allow update, delete: if isOwnerRole(); // Apenas donos podem modificar/apagar logs
     }
 
     // ------------------------------------------------------------
@@ -94,9 +97,9 @@ service cloud.firestore {
                     && request.resource.data.members[request.auth.uid] == 'admin';
 
       allow update: if resource != null
-                    && (isAdmin() || isCompanyMember(companyId));
+                    && (isOwnerRole() || isCompanyMember(companyId));
 
-      allow delete: if isAdmin();
+      allow delete: if isOwnerRole();
 
     }
 
@@ -111,8 +114,8 @@ service cloud.firestore {
     // FINANCE MODULE: INVOICES
     // ------------------------------------------------------------
     match /invoices/{invoiceId} {
-      allow read, list, create, update, delete:
-        if isAdmin() || isFinanceUser();
+      allow list, get, create, update, delete:
+        if isOwnerRole() || isFinanceUser();
     }
 
     // ------------------------------------------------------------
@@ -128,12 +131,12 @@ service cloud.firestore {
         && isRequestingUserResponsible();
 
       allow update:
-        if isExistingResponsibleUserOrAdmin()
+        if isExistingResponsibleUserOrAdmin(resource.data.responsavelId)
         && isCompanyIdImmutable()
         && isResponsibleUserImmutable();
 
       allow delete:
-        if isExistingResponsibleUserOrAdmin();
+        if isExistingResponsibleUserOrAdmin(resource.data.responsavelId);
     }
 
     // ------------------------------------------------------------
@@ -149,12 +152,12 @@ service cloud.firestore {
         && isRequestingUserResponsible();
 
       allow update:
-        if isExistingResponsibleUserOrAdmin()
+        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId)
         && isCompanyIdImmutable()
         && isResponsibleUserImmutable();
 
       allow delete:
-        if isExistingResponsibleUserOrAdmin();
+        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
     }
 
     // ------------------------------------------------------------
@@ -170,12 +173,12 @@ service cloud.firestore {
         && isRequestingUserResponsible();
 
       allow update:
-        if isExistingResponsibleUserOrAdmin()
+        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId)
         && isCompanyIdImmutable()
         && isResponsibleUserImmutable();
 
       allow delete:
-        if isExistingResponsibleUserOrAdmin();
+        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
     }
 
   }

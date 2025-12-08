@@ -57,6 +57,7 @@ import { ptBR } from 'date-fns/locale';
 import type { TaxObligation, ObligationStatus } from './obligations-client';
 import { Timestamp } from 'firebase/firestore';
 import { Input } from '../ui/input';
+import { logActivity } from '@/lib/activity-log';
 
 interface ObligationDetailsDialogProps {
   obligation: TaxObligation;
@@ -121,12 +122,13 @@ export function ObligationDetailsDialog({
   });
 
   const handleDelete = () => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
     const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
     deleteDocumentNonBlocking(obligationRef);
+    logActivity(firestore, user, `excluiu a obrigação ${obligation.nome} de ${obligation.companyName}.`);
     toast({
       title: 'Obrigação Excluída',
       description: `A obrigação de ${obligation.nome} para ${obligation.companyName} foi removida.`,
@@ -154,6 +156,7 @@ export function ObligationDetailsDialog({
       };
 
       setDocumentNonBlocking(obligationRef, updatedData, { merge: true });
+      logActivity(firestore, user, `atualizou a obrigação ${values.nome} para ${obligation.companyName}.`);
 
       toast({
         title: 'Obrigação Atualizada!',

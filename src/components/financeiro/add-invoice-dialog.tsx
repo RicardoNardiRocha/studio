@@ -29,7 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Input } from '../ui/input';
 import ReactSelect from 'react-select';
+import { logActivity } from '@/lib/activity-log';
 
 interface AddInvoiceDialogProps {
   open: boolean;
@@ -62,6 +63,7 @@ export function AddInvoiceDialog({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -84,8 +86,8 @@ export function AddInvoiceDialog({
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!firestore) {
-      toast({ title: 'Erro', description: 'Serviço de banco de dados indisponível.', variant: 'destructive' });
+    if (!firestore || !user) {
+      toast({ title: 'Erro', description: 'Serviço de banco de dados ou autenticação indisponível.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
@@ -110,6 +112,7 @@ export function AddInvoiceDialog({
       const docRef = await addDoc(invoiceCollectionRef, newInvoice);
       await updateDoc(doc(invoiceCollectionRef, docRef.id), { id: docRef.id });
 
+      logActivity(firestore, user, `criou uma fatura de R$ ${values.amount.toFixed(2)} para ${company.name}.`);
 
       toast({
         title: 'Fatura Adicionada!',

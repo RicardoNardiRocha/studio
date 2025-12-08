@@ -41,6 +41,7 @@ import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { logActivity } from '@/lib/activity-log';
 
 interface AddProcessDialogProps {
   open: boolean;
@@ -124,6 +125,8 @@ export function AddProcessDialog({
 
       const docRef = await addDoc(processCollectionRef, newProcess);
       await updateDoc(doc(processCollectionRef, docRef.id), { id: docRef.id });
+      
+      logActivity(firestore, user, `iniciou o processo de ${values.processType} para ${company.name}.`);
 
       toast({
         title: 'Processo Adicionado!',

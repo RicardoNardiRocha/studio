@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { logActivity } from '@/lib/activity-log';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -174,6 +175,8 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
       await setDoc(companyRef, newCompany);
       
       await handlePartnerRegistration(newCompany);
+
+      logActivity(firestore, user, `adicionou a empresa ${newCompany.name}.`);
 
       toast({
         title: "Empresa Adicionada!",

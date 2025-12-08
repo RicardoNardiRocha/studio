@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ReactSelect from 'react-select';
+import { logActivity } from '@/lib/activity-log';
 
 interface AddPartnerDialogProps {
   open: boolean;
@@ -67,6 +68,7 @@ export function AddPartnerDialog({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -93,7 +95,7 @@ export function AddPartnerDialog({
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({
         title: 'Erro',
         description: 'O serviço de banco de dados não está disponível.',
@@ -121,6 +123,7 @@ export function AddPartnerDialog({
       };
 
       setDocumentNonBlocking(partnerRef, newPartner, { merge: true });
+      logActivity(firestore, user, `cadastrou o novo sócio ${values.name}.`);
 
       toast({
         title: 'Sócio Adicionado!',

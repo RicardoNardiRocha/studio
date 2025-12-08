@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon, Eye, EyeOff, Trash2, UploadCloud, Download } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
@@ -50,6 +50,7 @@ import { Separator } from '../ui/separator';
 import ReactSelect from 'react-select';
 import { Badge } from '@/components/ui/badge';
 import { EcpfUploadDialog } from './ecpf-upload-dialog';
+import { logActivity } from '@/lib/activity-log';
 
 
 export interface Partner {
@@ -99,6 +100,7 @@ export function PartnerDetailsDialog({
   const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -126,12 +128,13 @@ export function PartnerDetailsDialog({
   });
 
   const handleDelete = () => {
-     if (!firestore) {
+     if (!firestore || !user) {
       toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive"});
       return;
     }
     const partnerRef = doc(firestore, 'partners', partner.id);
     deleteDocumentNonBlocking(partnerRef);
+    logActivity(firestore, user, `excluiu o sócio ${partner.name}.`);
     toast({
       title: "Sócio Excluído",
       description: `${partner.name} foi removido(a) do sistema.`
@@ -145,7 +148,7 @@ export function PartnerDetailsDialog({
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({
         title: 'Erro',
         description: 'O serviço de banco de dados não está disponível.',
@@ -175,6 +178,7 @@ export function PartnerDetailsDialog({
       };
 
       setDocumentNonBlocking(partnerRef, updatedPartner, { merge: true });
+      logActivity(firestore, user, `atualizou os dados do sócio ${values.name}.`);
 
       toast({
         title: 'Sócio Atualizado!',

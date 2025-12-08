@@ -1,6 +1,55 @@
 
 {
   "entities": {
+    "Activity": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Activity",
+      "type": "object",
+      "description": "Represents a single user activity log entry in the system.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "userAvatarUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "relatedEntityType": {
+          "type": "string",
+          "enum": [
+            "Company",
+            "Partner",
+            "TaxObligation",
+            "CorporateProcess",
+            "Invoice",
+            "User"
+          ]
+        },
+        "relatedEntityId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "userId",
+        "userName",
+        "timestamp"
+      ]
+    },
     "Company": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Company",
@@ -618,6 +667,22 @@
             {
               "name": "invoiceId",
               "description": "The unique identifier for the invoice."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/activities/{activityId}",
+        "definition": {
+          "entityName": "Activity",
+          "schema": {
+            "$ref": "#/backend/entities/Activity"
+          },
+          "description": "Collection to store global activity log entries. Accessible by all signed-in users.",
+          "params": [
+            {
+              "name": "activityId",
+              "description": "The unique identifier for the activity log entry."
             }
           ]
         }

@@ -55,6 +55,7 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { CorporateProcess } from './corporate-processes-client';
+import { logActivity } from '@/lib/activity-log';
 
 interface ProcessDetailsDialogProps {
   process: CorporateProcess;
@@ -107,12 +108,13 @@ export function ProcessDetailsDialog({
   });
 
   const handleDelete = () => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
     const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
     deleteDocumentNonBlocking(processRef);
+    logActivity(firestore, user, `excluiu o processo de ${process.processType} de ${process.companyName}.`);
     toast({
       title: 'Processo Excluído',
       description: `O processo de ${process.processType} para ${process.companyName} foi removido.`,
@@ -139,6 +141,7 @@ export function ProcessDetailsDialog({
       };
 
       setDocumentNonBlocking(processRef, updatedData, { merge: true });
+      logActivity(firestore, user, `atualizou o processo de ${values.processType} de ${process.companyName} para o status ${values.status}.`);
 
       toast({
         title: 'Processo Atualizado!',

@@ -48,7 +48,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2, CalendarIcon } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, serverTimestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
@@ -58,6 +58,7 @@ import { ptBR } from 'date-fns/locale';
 import type { Invoice, InvoiceStatus } from './invoices-client';
 import { Timestamp } from 'firebase/firestore';
 import { Input } from '../ui/input';
+import { logActivity } from '@/lib/activity-log';
 
 interface InvoiceDetailsDialogProps {
   invoice: Invoice;
@@ -95,6 +96,7 @@ export function InvoiceDetailsDialog({
 }: InvoiceDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -109,12 +111,13 @@ export function InvoiceDetailsDialog({
   });
 
   const handleDelete = () => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
     const invoiceRef = doc(firestore, 'invoices', invoice.id);
     deleteDocumentNonBlocking(invoiceRef);
+    logActivity(firestore, user, `excluiu a fatura de ${invoice.companyName} (Ref: ${invoice.referencePeriod}).`);
     toast({
       title: 'Fatura Excluída',
       description: `A fatura para ${invoice.companyName} foi removida.`,
@@ -124,8 +127,8 @@ export function InvoiceDetailsDialog({
   };
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    if (!firestore) {
-      toast({ title: 'Erro', description: 'Serviço de banco de dados não disponível.', variant: 'destructive' });
+    if (!firestore || !user) {
+      toast({ title: 'Erro', description: 'Serviço de banco de dados ou autenticação não disponível.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
@@ -139,6 +142,7 @@ export function InvoiceDetailsDialog({
       };
 
       setDocumentNonBlocking(invoiceRef, updatedData, { merge: true });
+      logActivity(firestore, user, `atualizou a fatura de ${invoice.companyName} (Ref: ${invoice.referencePeriod}) para o status ${values.status}.`);
 
       toast({
         title: 'Fatura Atualizada!',
