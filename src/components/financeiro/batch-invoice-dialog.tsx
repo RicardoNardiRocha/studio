@@ -38,6 +38,7 @@ import { format, addMonths, setDate } from 'date-fns';
 import { Input } from '../ui/input';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Progress } from '../ui/progress';
+import { Label } from '../ui/label';
 
 interface BatchInvoiceDialogProps {
   open: boolean;
