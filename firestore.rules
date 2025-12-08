@@ -83,6 +83,14 @@ service cloud.firestore {
     }
 
     /**
+     * Checks if the user has finance module access by checking for a document
+     * in the `roles_finance` collection.
+     */
+    function isFinanceUser() {
+      return exists(/databases/$(database)/documents/roles_finance/$(request.auth.uid));
+    }
+
+    /**
      * Checks if the user has a specific granular permission.
      * Example: hasPermission('companies', 'create')
      */
@@ -164,6 +172,13 @@ service cloud.firestore {
     }
 
     /**
+     * @description Finance role assignments. Only owners can manage who has finance access.
+     */
+    match /roles_finance/{userId} {
+        allow read, write: if isOwnerRole();
+    }
+
+    /**
      * @description Company records. Access is controlled by a 'members' map or owner role.
      */
     match /companies/{companyId} {
@@ -179,6 +194,13 @@ service cloud.firestore {
      */
     match /partners/{partnerId} {
         allow read, write: if isSignedIn();
+    }
+    
+    /**
+     * @description Finance module data. Access is restricted to users in the `roles_finance` collection or owners.
+     */
+    match /invoices/{invoiceId} {
+      allow list, get, create, update, delete: if isFinanceUser() || isOwnerRole();
     }
 
     /**
