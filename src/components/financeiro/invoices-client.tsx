@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { AddInvoiceDialog } from './add-invoice-dialog';
 import { InvoiceDetailsDialog } from './invoice-details-dialog';
+import { isPast, startOfDay } from 'date-fns';
 
 export type InvoiceStatus = 'Pendente' | 'Paga' | 'Atrasada' | 'Cancelada';
 
@@ -73,6 +74,8 @@ export function InvoicesClient() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [competenceFilter, setCompetenceFilter] = useState('');
+  const [dueDateFilter, setDueDateFilter] = useState('');
   
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -95,34 +98,49 @@ export function InvoicesClient() {
     setIsDetailsDialogOpen(true);
   };
   
-  const filteredInvoices = useMemo(() => {
-    if (!invoices) return [];
-    return invoices.filter(i => {
-        const searchMatch = i.companyName.toLowerCase().includes(searchTerm.toLowerCase());
-        const statusMatch = statusFilter === 'Todos' || i.status === statusFilter;
-        return searchMatch && statusMatch;
-    });
-  }, [invoices, searchTerm, statusFilter]);
-
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
     const d = date instanceof Date ? date : (date as Timestamp).toDate();
     return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   };
   
+  const filteredInvoices = useMemo(() => {
+    if (!invoices) return [];
+    
+    const today = startOfDay(new Date());
+
+    return invoices.map(invoice => {
+      const dueDate = invoice.dueDate instanceof Timestamp ? invoice.dueDate.toDate() : invoice.dueDate;
+      const isOverdue = isPast(dueDate) && invoice.status === 'Pendente';
+      const displayStatus: InvoiceStatus = isOverdue ? 'Atrasada' : invoice.status;
+      return { ...invoice, displayStatus };
+    }).filter(i => {
+        const searchMatch = i.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const effectiveStatus = i.displayStatus;
+        const statusMatch = statusFilter === 'Todos' || effectiveStatus === statusFilter;
+
+        const competenceMatch = !competenceFilter || i.referencePeriod === competenceFilter;
+
+        const dueDateMatch = !dueDateFilter || (
+          i.dueDate instanceof Timestamp ? i.dueDate.toDate() : i.dueDate
+        ).toISOString().startsWith(dueDateFilter);
+
+        return searchMatch && statusMatch && competenceMatch && dueDateMatch;
+    });
+  }, [invoices, searchTerm, statusFilter, competenceFilter, dueDateFilter]);
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  // Display error toast if there's an issue fetching data
   if (error) {
     toast({
         title: "Erro de Permissão",
         description: "Você não tem permissão para visualizar o módulo financeiro. Contate o administrador.",
         variant: "destructive",
-        duration: Infinity, // Keep it visible
+        duration: Infinity, 
     });
-    // You can return a specific UI for the error state
     return (
         <Card>
             <CardHeader>
@@ -182,6 +200,20 @@ export function InvoicesClient() {
               />
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">
+              <Input
+                type="month"
+                value={competenceFilter}
+                onChange={(e) => setCompetenceFilter(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-auto md:min-w-[180px]">
+              <Input
+                type="month"
+                value={dueDateFilter}
+                onChange={(e) => setDueDateFilter(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-auto md:min-w-[180px]">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por status..." />
@@ -228,8 +260,8 @@ export function InvoicesClient() {
                       <TableCell>{formatCurrency(invoice.amount)}</TableCell>
                       <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(invoice.status)} className="w-full max-w-fit justify-center font-medium">
-                            {invoice.status}
+                        <Badge variant={getStatusBadgeVariant(invoice.displayStatus)} className="w-full max-w-fit justify-center font-medium">
+                            {invoice.displayStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
