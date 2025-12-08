@@ -50,6 +50,7 @@ export const recentActivities = [
   { company: 'Techware Software', activity: 'DEFIS protocolada com sucesso.', person: 'Ana' },
 ];
 
+// This is no longer used, will be removed in a future step.
 export const atRiskCompanies = [
     { company: 'Mercado Preço Baixo', cnpj: '11.222.333/0001-44', risk: 'Certificado Vencido', status: 'Apto' },
     { company: 'Transportadora Veloz', cnpj: '44.555.666/0001-77', risk: 'DASN-SIMEI Atrasada', status: 'Inapto' },

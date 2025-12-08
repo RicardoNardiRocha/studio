@@ -2,7 +2,6 @@
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { atRiskCompanies } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MoreVertical, User } from 'lucide-react';
@@ -15,6 +14,7 @@ import { ptBR } from 'date-fns/locale';
 import { ObligationsStatusChart } from '@/components/dashboard/obligations-status-chart';
 import { ProcessesByTypeChart } from '@/components/dashboard/processes-by-type-chart';
 import { KpiCards } from '@/components/dashboard/kpi-cards';
+import { AtRiskCompaniesTable } from '@/components/dashboard/at-risk-companies';
 
 interface Activity {
   id: string;
@@ -112,46 +112,7 @@ export default function DashboardPage() {
                 <ProcessesByTypeChart />
             </CardContent>
            </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className='font-headline'>Empresas em Risco</CardTitle>
-              <CardDescription>Empresas que necessitam de atenção imediata.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead className="hidden sm:table-cell">CNPJ</TableHead>
-                    <TableHead>Risco</TableHead>
-                    <TableHead>Situação Cadastral</TableHead>
-                    <TableHead><span className="sr-only">Ações</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {atRiskCompanies.map((company, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{company.company}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{company.cnpj}</TableCell>
-                      <TableCell>
-                        <Badge variant="destructive" className="whitespace-nowrap">{company.risk}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={company.status === 'Apto' ? 'secondary' : 'outline'}>
-                          {company.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button size="icon" variant="ghost">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <AtRiskCompaniesTable />
         </div>
       </main>
     </>
