@@ -70,7 +70,11 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
       }
       try {
         const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numericCnpj}`);
-        if (!response.ok) throw new Error('CNPJ não encontrado ou API falhou');
+        if (!response.ok) {
+            console.error(`Falha ao buscar CNPJ ${cnpj}. Status: ${response.status}`);
+            failureCount++;
+            return;
+        }
         
         const data = await response.json();
         
