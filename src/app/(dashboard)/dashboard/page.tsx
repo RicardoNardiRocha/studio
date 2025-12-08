@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { kpiData, atRiskCompanies } from '@/lib/data';
 import { KpiCard } from '@/components/dashboard/kpi-card';
-import { OverviewChart } from '@/components/dashboard/overview-chart';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MoreVertical, User } from 'lucide-react';
@@ -78,22 +77,13 @@ export default function DashboardPage() {
     <>
       <AppHeader pageTitle="Dashboard" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {kpiData.map((kpi) => (
             <KpiCard key={kpi.title} {...kpi} />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
-          <Card className="col-span-1 lg:col-span-4">
-            <CardHeader>
-              <CardTitle className='font-headline'>Visão Geral</CardTitle>
-              <CardDescription>Faturamento mensal do escritório.</CardDescription>
-            </CardHeader>
-            <CardContent className="pl-2">
-              <OverviewChart />
-            </CardContent>
-          </Card>
-          <Card className="col-span-1 lg:col-span-3">
+        <div className="grid grid-cols-1 gap-4">
+          <Card className="col-span-1">
             <CardHeader>
               <CardTitle className='font-headline'>Atividades Recentes</CardTitle>
               <CardDescription>Últimas ações realizadas no sistema.</CardDescription>

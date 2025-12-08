@@ -18,14 +18,6 @@ export const kpiData = [
     description: 'nos próximos 30 dias',
   },
   {
-    title: 'Faturamento Mensal',
-    value: 'R$ 45.231',
-    icon: 'dollar-sign',
-    change: '+5.2%',
-    changeType: 'increase',
-    description: 'em relação ao mês passado',
-  },
-  {
     title: 'Processos em Exigência',
     value: '2',
     icon: AlertTriangle,
