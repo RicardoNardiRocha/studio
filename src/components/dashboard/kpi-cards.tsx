@@ -18,6 +18,7 @@ export function KpiCards() {
       icon: 'CalendarClock',
       description: 'Status "Pendente" ou "Atrasada"',
       isLoading: isLoadingObligations,
+      href: '/obrigacoes'
     },
     {
       title: 'Certificados Vencendo',
@@ -25,6 +26,7 @@ export function KpiCards() {
       icon: 'FileWarning',
       description: 'nos próximos 30 dias',
       isLoading: isLoadingCertificates,
+      href: '/societario'
     },
     {
       title: 'Processos em Exigência',
@@ -32,6 +34,7 @@ export function KpiCards() {
       icon: 'AlertTriangle',
       description: 'aguardando ação',
       isLoading: isLoadingProcesses,
+      href: '/processos'
     },
   ];
 
@@ -47,6 +50,7 @@ export function KpiCards() {
             value={String(kpi.value)}
             icon={kpi.icon as any}
             description={kpi.description}
+            href={kpi.href}
           />
         )
       )}
