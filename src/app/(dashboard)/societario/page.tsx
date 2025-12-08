@@ -19,9 +19,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, Loader2 } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
 import { PartnerDetailsDialog } from '@/components/societario/partner-details-dialog';
@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { differenceInDays, parseISO, isValid } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
 const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
@@ -77,6 +78,8 @@ export default function SocietarioPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [ecpfFilter, setEcpfFilter] = useState<EcpfStatusFilter>('Todos');
   const [validityFilter, setValidityFilter] = useState<'Todos' | ValidityStatus>('Todos');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const { toast } = useToast();
 
   const firestore = useFirestore();
 
@@ -100,6 +103,75 @@ export default function SocietarioPage() {
       return searchMatch && ecpfMatch && validityMatch;
     });
   }, [partners, searchTerm, ecpfFilter, validityFilter]);
+
+  const handleSyncPartners = async () => {
+    if (!firestore) {
+      toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive" });
+      return;
+    }
+    setIsSyncing(true);
+    toast({ title: "Iniciando sincronização...", description: "Buscando sócios das empresas cadastradas." });
+
+    let partnersCreated = 0;
+    let partnersUpdated = 0;
+
+    try {
+      const companiesQuery = query(collection(firestore, 'companies'));
+      const companiesSnapshot = await getDocs(companiesQuery);
+
+      for (const companyDoc of companiesSnapshot.docs) {
+        const companyData = companyDoc.data();
+        if (companyData.qsa && Array.isArray(companyData.qsa)) {
+          for (const socio of companyData.qsa) {
+            const socioCpfCnpjRaw = socio.cnpj_cpf_do_socio || '';
+            const socioCpfCnpj = socioCpfCnpjRaw.replace(/[^\d]/g, '');
+            const socioNome = socio.nome_socio;
+
+            if (!socioCpfCnpj || !socioNome) continue;
+
+            const partnerRef = doc(firestore, 'partners', socioCpfCnpj);
+            const partnerSnap = await getDoc(partnerRef);
+
+            if (partnerSnap.exists()) {
+              const partnerData = partnerSnap.data();
+              const associatedCompanies = partnerData.associatedCompanies || [];
+              if (!associatedCompanies.includes(companyData.name)) {
+                const updatedCompanies = [...associatedCompanies, companyData.name];
+                await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
+                partnersUpdated++;
+              }
+            } else {
+              const newPartner = {
+                id: socioCpfCnpj,
+                name: socioNome,
+                cpf: socioCpfCnpj.length === 11 ? `${socioCpfCnpj.slice(0,3)}.${socioCpfCnpj.slice(3,6)}.${socioCpfCnpj.slice(6,9)}-${socioCpfCnpj.slice(9)}` : socioCpfCnpj,
+                qualification: socio.qualificacao_socio,
+                hasECPF: false,
+                ecpfValidity: '',
+                govBrLogin: '',
+                govBrPassword: '',
+                associatedCompanies: [companyData.name],
+                otherData: '',
+              };
+              await setDoc(partnerRef, newPartner);
+              partnersCreated++;
+            }
+          }
+        }
+      }
+      toast({
+        title: "Sincronização Concluída!",
+        description: `${partnersCreated} sócios criados, ${partnersUpdated} sócios atualizados.`
+      });
+      forceRefetch();
+
+    } catch (error) {
+      console.error("Erro ao sincronizar sócios: ", error);
+      toast({ title: "Erro na sincronização", description: "Não foi possível completar a sincronização.", variant: "destructive"});
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
 
   const handleAction = () => {
@@ -144,6 +216,14 @@ export default function SocietarioPage() {
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                <Button variant="outline" onClick={handleSyncPartners} disabled={isSyncing}>
+                  {isSyncing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Sincronizar Sócios via QSA
+                </Button>
                 <Button onClick={() => setIsAddDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Adicionar Sócio
