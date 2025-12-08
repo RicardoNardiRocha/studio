@@ -25,6 +25,9 @@ interface BulkAddCompaniesDialogProps {
   onImportCompleted: () => void;
 }
 
+// Função para introduzir um delay
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
 export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }: BulkAddCompaniesDialogProps) {
   const [cnpjs, setCnpjs] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -106,6 +109,8 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
     
     for (let i = 0; i < cnpjList.length; i++) {
         await processCnpj(cnpjList[i]);
+        // Adiciona um delay de 1 segundo para não sobrecarregar a API
+        await delay(1000); 
         setProgress(((i + 1) / cnpjList.length) * 100);
     }
 
