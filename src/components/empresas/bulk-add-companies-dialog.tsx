@@ -16,8 +16,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Progress } from '../ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface BulkAddCompaniesDialogProps {
   open: boolean;
@@ -25,16 +27,75 @@ interface BulkAddCompaniesDialogProps {
   onImportCompleted: () => void;
 }
 
-// Função para introduzir um delay
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+const handlePartnerRegistration = async (firestore: any, company: any) => {
+    if (!company.qsa || company.qsa.length === 0) {
+      return;
+    }
+    if (company.legalNature?.includes('Empresário (Individual)') || company.legalNature?.includes('Microempreendedor Individual')) {
+        return;
+    }
+
+    for (const socio of company.qsa) {
+      const socioCpfCnpjRaw = socio.cnpj_cpf_do_socio || '';
+      const socioCpfCnpj = socioCpfCnpjRaw.replace(/[^\d]/g, '');
+      const socioNome = socio.nome_socio;
+
+      if (!socioCpfCnpj || !socioNome) {
+        continue;
+      }
+
+      try {
+        const partnerRef = doc(firestore, 'partners', socioCpfCnpj);
+        const partnerSnap = await getDoc(partnerRef);
+
+        if (partnerSnap.exists()) {
+          const partnerData = partnerSnap.data();
+          const associatedCompanies = partnerData.associatedCompanies || [];
+          if (!associatedCompanies.includes(company.name)) {
+            const updatedCompanies = [...associatedCompanies, company.name];
+            await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
+          }
+        } else {
+          let formattedCpfCnpj = socioCpfCnpjRaw;
+          const newPartner = {
+            id: socioCpfCnpj,
+            name: socio.nome_socio,
+            cpf: formattedCpfCnpj,
+            qualification: socio.qualificacao_socio,
+            hasECPF: false,
+            ecpfValidity: '',
+            govBrLogin: '',
+            govBrPassword: '',
+            associatedCompanies: [company.name],
+            otherData: '',
+          };
+          await setDoc(partnerRef, newPartner);
+        }
+      } catch (error) {
+        console.error(`Erro ao processar o sócio ${socio.nome_socio} na importação em lote:`, error);
+      }
+    }
+  };
+
 
 export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }: BulkAddCompaniesDialogProps) {
   const [cnpjs, setCnpjs] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [failedImports, setFailedImports] = useState<{ cnpj: string; name: string; reason: string }[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+  
+  const handleClose = () => {
+    if (isLoading) return;
+    setCnpjs('');
+    setProgress(0);
+    setFailedImports([]);
+    onOpenChange(false);
+  };
 
   const handleImport = async () => {
     if (!firestore || !user) {
@@ -58,20 +119,21 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
 
     setIsLoading(true);
     setProgress(0);
+    setFailedImports([]);
 
     let successCount = 0;
-    let failureCount = 0;
+    const localFailedImports: { cnpj: string; name: string; reason: string }[] = [];
 
     const processCnpj = async (cnpj: string) => {
       const numericCnpj = cnpj.replace(/[^\d]/g, '');
       if (numericCnpj.length !== 14) {
-        failureCount++;
+        localFailedImports.push({ cnpj, name: 'CNPJ Inválido', reason: 'Formato incorreto' });
         return;
       }
       try {
         const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numericCnpj}`);
         if (!response.ok) {
-            failureCount++;
+            localFailedImports.push({ cnpj, name: `CNPJ ${cnpj}`, reason: `API retornou status ${response.status}`});
             return;
         }
         
@@ -103,34 +165,40 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
         
         const companyRef = doc(firestore, 'companies', newCompany.id);
         setDocumentNonBlocking(companyRef, newCompany, { merge: true });
+        
+        // Sincronizar sócios
+        await handlePartnerRegistration(firestore, newCompany);
+        
         successCount++;
       } catch (error) {
         console.error(`Falha ao processar CNPJ ${cnpj}:`, error);
-        failureCount++;
+        localFailedImports.push({ cnpj, name: `CNPJ ${cnpj}`, reason: 'Erro inesperado' });
       }
     };
     
     for (let i = 0; i < cnpjList.length; i++) {
         await processCnpj(cnpjList[i]);
-        // Adiciona um delay de 1 segundo para não sobrecarregar a API
-        await delay(1000); 
+        await delay(1500); 
         setProgress(((i + 1) / cnpjList.length) * 100);
     }
+    
+    setFailedImports(localFailedImports);
 
     toast({
       title: 'Importação Concluída',
-      description: `${successCount} empresas importadas com sucesso, ${failureCount} falharam.`,
+      description: `${successCount} empresas importadas com sucesso, ${localFailedImports.length} falharam.`,
     });
 
     setIsLoading(false);
-    onImportCompleted();
-    onOpenChange(false);
-    setCnpjs('');
-    setProgress(0);
+    
+    if (localFailedImports.length === 0) {
+        onImportCompleted();
+        handleClose();
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Importar Empresas em Lote</DialogTitle>
@@ -143,7 +211,9 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
             <Label htmlFor="cnpjs">Lista de CNPJs</Label>
             <Textarea
               id="cnpjs"
-              placeholder="00.000.000/0001-00\n11.111.111/0001-11\n..."
+              placeholder="00.000.000/0001-00
+11.111.111/0001-11
+..."
               value={cnpjs}
               onChange={(e) => setCnpjs(e.target.value)}
               className="h-32"
@@ -159,14 +229,31 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
                 </p>
             </div>
           )}
+          {failedImports.length > 0 && !isLoading && (
+             <Alert variant="destructive">
+              <AlertTitle>Relatório de Falhas na Importação</AlertTitle>
+              <AlertDescription>
+                As seguintes empresas não puderam ser importadas:
+              </AlertDescription>
+              <ScrollArea className="h-24 mt-2 border rounded-md p-2">
+                <ul className="text-sm">
+                  {failedImports.map((fail, index) => (
+                    <li key={index}><strong>{fail.cnpj}:</strong> {fail.reason}</li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            </Alert>
+          )}
         </div>
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancelar
+          <Button type="button" variant="ghost" onClick={handleClose} disabled={isLoading}>
+            {failedImports.length > 0 ? 'Fechar' : 'Cancelar'}
           </Button>
-          <Button onClick={handleImport} disabled={isLoading}>
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Importar Empresas'}
-          </Button>
+          {!failedImports.length && (
+            <Button onClick={handleImport} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Importar Empresas'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

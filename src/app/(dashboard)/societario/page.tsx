@@ -208,9 +208,14 @@ export default function SocietarioPage() {
         <Card>
           <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="font-headline">
-                Cadastro de Sócios e Administradores
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="font-headline">
+                    Cadastro de Sócios e Administradores
+                </CardTitle>
+                {filteredPartners && (
+                    <Badge variant="secondary">{filteredPartners.length}</Badge>
+                )}
+              </div>
               <CardDescription>
                 Gerencie os sócios e administradores de todas as empresas.
               </CardDescription>

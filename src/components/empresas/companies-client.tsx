@@ -100,7 +100,7 @@ export function CompaniesClient() {
     return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
   
-  const { data: companies, isLoading } = useCollection<Company>(companiesQuery);
+  const { data: companies, isLoading, forceRefetch } = useCollection<Company>(companiesQuery);
 
   const filteredCompanies = useMemo(() => {
     if (!companies) return [];
@@ -115,8 +115,7 @@ export function CompaniesClient() {
 
 
   const handleAction = () => {
-    // Fecha o modal de detalhes. Ao reabrir, ele pegará os dados mais recentes
-    // que foram atualizados automaticamente pelo hook useCollection.
+    forceRefetch();
     setIsDetailsDialogOpen(false);
   };
 
@@ -150,7 +149,12 @@ export function CompaniesClient() {
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <CardTitle className="font-headline">Cadastro Mestre de Empresas</CardTitle>
+            <div className="flex items-center gap-2">
+                <CardTitle className="font-headline">Cadastro de Empresas</CardTitle>
+                {filteredCompanies && (
+                  <Badge variant="secondary">{filteredCompanies.length}</Badge>
+                )}
+            </div>
             <CardDescription>
               Visualize e gerencie todas as empresas atendidas pelo escritório.
             </CardDescription>

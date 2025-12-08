@@ -213,8 +213,8 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       onCertificateUpdated={handleCertificateUpdated}
     />
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-0">
             <div className="flex justify-between items-start">
               <div>
                 <DialogTitle className='font-headline text-2xl'>{company.name}</DialogTitle>
@@ -224,152 +224,154 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
             </div>
           </DialogHeader>
           
-          <div className="flex-grow overflow-y-auto pr-2">
-            <Tabs defaultValue="details" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="details">Detalhes da Empresa</TabsTrigger>
-                  <TabsTrigger value="documents">Documentos</TabsTrigger>
-              </TabsList>
-              <TabsContent value="details" className="py-4 space-y-6">
-                  <Form {...form}>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
-                      <div>
-                          <Label className='text-muted-foreground'>CNPJ</Label>
-                          <p className="font-medium">{company.cnpj}</p>
-                      </div>
-                      <div>
-                          <Label className='text-muted-foreground'>Data de Abertura</Label>
-                          <p className="font-medium">{company.startDate}</p>
-                      </div>
-                      <FormField
-                          control={form.control}
-                          name="taxRegime"
-                          render={({ field }) => (
-                              <FormItem>
-                              <FormLabel>Regime Tributário</FormLabel>
-                              <Select 
-                                  onValueChange={field.onChange} 
-                                  defaultValue={field.value}
-                                  disabled={company.taxRegime === 'Simples Nacional'}
-                              >
-                                  <FormControl>
-                                  <SelectTrigger>
-                                      <SelectValue placeholder="Selecione o regime" />
-                                  </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                  <SelectItem value="Simples Nacional" disabled>Simples Nacional</SelectItem>
-                                  <SelectItem value="Lucro Presumido">Lucro Presumido</SelectItem>
-                                  <SelectItem value="Lucro Real">Lucro Real</SelectItem>
-                                  <SelectItem value="Lucro Presumido / Real">Lucro Presumido / Real</SelectItem>
-                                  </SelectContent>
-                              </Select>
-                              <FormMessage />
-                              </FormItem>
-                          )}
-                          />
-                      <div>
-                          <Label className='text-muted-foreground'>Porte</Label>
-                          <p className="font-medium">{company.porte || 'Não informado'}</p>
-                      </div>
-                      <div>
-                          <Label className='text-muted-foreground'>Natureza Jurídica</Label>
-                          <p className="font-medium">{company.legalNature || 'Não informado'}</p>
-                      </div>
-                      <div>
-                          <Label className='text-muted-foreground'>Capital Social</Label>
-                          <p className="font-medium">{company.capital?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}</p>
-                      </div>
-                      <div className='col-span-2'>
-                          <Label className='text-muted-foreground'>Atividade Principal (CNAE)</Label>
-                          <p className="font-medium">{company.cnae || 'Não informado'}</p>
-                      </div>
-                    </div>
-                  </Form>
-
-                  <Separator/>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className='space-y-2'>
-                        <h3 className="font-semibold font-headline">Endereço</h3>
-                        <p className="text-sm text-muted-foreground">{company.address || 'Não informado'}</p>
-                    </div>
-                    <div className='space-y-2'>
-                        <h3 className="font-semibold font-headline">Contato</h3>
-                        <p className="text-sm text-muted-foreground">
-                        Telefone: {company.phone || 'Não informado'} <br/>
-                        Email: {company.email || 'Não informado'}
-                        </p>
-                    </div>
-                  </div>
-                  
-                  <Separator />
-
-                  <div>
-                      <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
-                      <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
-                          <div className="space-y-1">
-                              <Label>Data de Vencimento</Label>
-                              <p className="text-sm font-medium text-muted-foreground">
-                                  {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
-                              </p>
-                          </div>
-                           <div className="flex items-center gap-2">
-                            {company.certificateA1Url && (
-                                <Button variant="outline" size="sm" asChild>
-                                    <a href={company.certificateA1Url} download={`${company.name}_${company.cnpj}.pfx`} target="_blank" rel="noopener noreferrer">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Baixar
-                                    </a>
-                                </Button>
+           <Tabs defaultValue="details" className="w-full flex-grow overflow-hidden flex flex-col">
+              <div className='px-6'>
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="details">Detalhes da Empresa</TabsTrigger>
+                    <TabsTrigger value="documents">Documentos</TabsTrigger>
+                </TabsList>
+              </div>
+              <div className="flex-grow overflow-y-auto px-6">
+                <TabsContent value="details" className="py-4 space-y-6">
+                    <Form {...form}>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+                        <div>
+                            <Label className='text-muted-foreground'>CNPJ</Label>
+                            <p className="font-medium">{company.cnpj}</p>
+                        </div>
+                        <div>
+                            <Label className='text-muted-foreground'>Data de Abertura</Label>
+                            <p className="font-medium">{company.startDate}</p>
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="taxRegime"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Regime Tributário</FormLabel>
+                                <Select 
+                                    onValueChange={field.onChange} 
+                                    defaultValue={field.value}
+                                    disabled={company.taxRegime === 'Simples Nacional'}
+                                >
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione o regime" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    <SelectItem value="Simples Nacional" disabled>Simples Nacional</SelectItem>
+                                    <SelectItem value="Lucro Presumido">Lucro Presumido</SelectItem>
+                                    <SelectItem value="Lucro Real">Lucro Real</SelectItem>
+                                    <SelectItem value="Lucro Presumido / Real">Lucro Presumido / Real</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
                             )}
-                            <Button type="button" size="sm" onClick={() => setIsCertUploadOpen(true)}>
-                                <UploadCloud className="mr-2 h-4 w-4" />
-                                Adicionar/Atualizar
-                            </Button>
-                          </div>
+                            />
+                        <div>
+                            <Label className='text-muted-foreground'>Porte</Label>
+                            <p className="font-medium">{company.porte || 'Não informado'}</p>
+                        </div>
+                        <div>
+                            <Label className='text-muted-foreground'>Natureza Jurídica</Label>
+                            <p className="font-medium">{company.legalNature || 'Não informado'}</p>
+                        </div>
+                        <div>
+                            <Label className='text-muted-foreground'>Capital Social</Label>
+                            <p className="font-medium">{company.capital?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'Não informado'}</p>
+                        </div>
+                        <div className='col-span-2'>
+                            <Label className='text-muted-foreground'>Atividade Principal (CNAE)</Label>
+                            <p className="font-medium">{company.cnae || 'Não informado'}</p>
+                        </div>
                       </div>
-                  </div>
-              
-                  <div>
-                    <h3 className='font-semibold font-headline mb-2'>Quadro de Sócios e Administradores (QSA)</h3>
-                    <div className="border rounded-md">
-                        <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Qualificação</TableHead>
-                            <TableHead>Data de Entrada</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {normalizedQsa.length > 0 ? (
-                            normalizedQsa.map((socio, index) => (
-                                <TableRow key={index}>
-                                <TableCell className="font-medium">{socio.name}</TableCell>
-                                <TableCell>{socio.qualification}</TableCell>
-                                <TableCell>{socio.entryDate}</TableCell>
-                                </TableRow>
-                            ))
-                            ) : (
-                            <TableRow>
-                                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                                Nenhum sócio ou administrador encontrado.
-                                </TableCell>
-                            </TableRow>
-                            )}
-                        </TableBody>
-                        </Table>
+                    </Form>
+
+                    <Separator/>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className='space-y-2'>
+                          <h3 className="font-semibold font-headline">Endereço</h3>
+                          <p className="text-sm text-muted-foreground">{company.address || 'Não informado'}</p>
+                      </div>
+                      <div className='space-y-2'>
+                          <h3 className="font-semibold font-headline">Contato</h3>
+                          <p className="text-sm text-muted-foreground">
+                          Telefone: {company.phone || 'Não informado'} <br/>
+                          Email: {company.email || 'Não informado'}
+                          </p>
+                      </div>
                     </div>
-                  </div>
-              </TabsContent>
-              <TabsContent value="documents">
-                  <CompanyDocumentsTab company={company} />
-              </TabsContent>
+                    
+                    <Separator />
+
+                    <div>
+                        <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
+                        <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
+                            <div className="space-y-1">
+                                <Label>Data de Vencimento</Label>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
+                                </p>
+                            </div>
+                             <div className="flex items-center gap-2">
+                              {company.certificateA1Url && (
+                                  <Button variant="outline" size="sm" asChild>
+                                      <a href={company.certificateA1Url} download={`${company.name}_${company.cnpj}.pfx`} target="_blank" rel="noopener noreferrer">
+                                          <Download className="mr-2 h-4 w-4" />
+                                          Baixar
+                                      </a>
+                                  </Button>
+                              )}
+                              <Button type="button" size="sm" onClick={() => setIsCertUploadOpen(true)}>
+                                  <UploadCloud className="mr-2 h-4 w-4" />
+                                  Adicionar/Atualizar
+                              </Button>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <div>
+                      <h3 className='font-semibold font-headline mb-2'>Quadro de Sócios e Administradores (QSA)</h3>
+                      <div className="border rounded-md">
+                          <Table>
+                          <TableHeader>
+                              <TableRow>
+                              <TableHead>Nome</TableHead>
+                              <TableHead>Qualificação</TableHead>
+                              <TableHead>Data de Entrada</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {normalizedQsa.length > 0 ? (
+                              normalizedQsa.map((socio, index) => (
+                                  <TableRow key={index}>
+                                  <TableCell className="font-medium">{socio.name}</TableCell>
+                                  <TableCell>{socio.qualification}</TableCell>
+                                  <TableCell>{socio.entryDate}</TableCell>
+                                  </TableRow>
+                              ))
+                              ) : (
+                              <TableRow>
+                                  <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                  Nenhum sócio ou administrador encontrado.
+                                  </TableCell>
+                              </TableRow>
+                              )}
+                          </TableBody>
+                          </Table>
+                      </div>
+                    </div>
+                </TabsContent>
+                <TabsContent value="documents">
+                    <CompanyDocumentsTab company={company} />
+                </TabsContent>
+              </div>
             </Tabs>
-          </div>
 
-          <DialogFooter className="pt-4 flex-row justify-between w-full border-t">
+          <DialogFooter className="p-6 pt-4 flex-row justify-between w-full border-t">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">
