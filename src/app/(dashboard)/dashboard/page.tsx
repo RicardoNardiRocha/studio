@@ -13,6 +13,8 @@ import { collection, query, orderBy, limit, Timestamp } from 'firebase/firestore
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ObligationsStatusChart } from '@/components/dashboard/obligations-status-chart';
+import { ProcessesByTypeChart } from '@/components/dashboard/processes-by-type-chart';
 
 interface Activity {
   id: string;
@@ -82,8 +84,8 @@ export default function DashboardPage() {
             <KpiCard key={kpi.title} {...kpi} />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-4">
-          <Card className="col-span-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Card className="col-span-1 lg:col-span-1">
             <CardHeader>
               <CardTitle className='font-headline'>Atividades Recentes</CardTitle>
               <CardDescription>Últimas ações realizadas no sistema.</CardDescription>
@@ -92,47 +94,67 @@ export default function DashboardPage() {
               <RecentActivities />
             </CardContent>
           </Card>
+          <Card className="col-span-1 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="font-headline">Obrigações por Status</CardTitle>
+              <CardDescription>Distribuição das obrigações por seu estado atual.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ObligationsStatusChart />
+            </CardContent>
+          </Card>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle className='font-headline'>Empresas em Risco</CardTitle>
-            <CardDescription>Empresas que necessitam de atenção imediata.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead className="hidden sm:table-cell">CNPJ</TableHead>
-                  <TableHead>Risco</TableHead>
-                  <TableHead>Situação Cadastral</TableHead>
-                  <TableHead><span className="sr-only">Ações</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {atRiskCompanies.map((company, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{company.company}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{company.cnpj}</TableCell>
-                    <TableCell>
-                      <Badge variant="destructive" className="whitespace-nowrap">{company.risk}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={company.status === 'Apto' ? 'secondary' : 'outline'}>
-                        {company.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button size="icon" variant="ghost">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <Card>
+            <CardHeader>
+                <CardTitle className='font-headline'>Processos Societários por Tipo</CardTitle>
+                <CardDescription>Volume de processos em andamento por tipo.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ProcessesByTypeChart />
+            </CardContent>
+           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className='font-headline'>Empresas em Risco</CardTitle>
+              <CardDescription>Empresas que necessitam de atenção imediata.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead className="hidden sm:table-cell">CNPJ</TableHead>
+                    <TableHead>Risco</TableHead>
+                    <TableHead>Situação Cadastral</TableHead>
+                    <TableHead><span className="sr-only">Ações</span></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {atRiskCompanies.map((company, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{company.company}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{company.cnpj}</TableCell>
+                      <TableCell>
+                        <Badge variant="destructive" className="whitespace-nowrap">{company.risk}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={company.status === 'Apto' ? 'secondary' : 'outline'}>
+                          {company.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </>
   );
