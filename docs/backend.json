@@ -400,6 +400,67 @@
         "startDate",
         "status"
       ]
+    },
+    "Invoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Invoice",
+      "type": "object",
+      "description": "Represents a monthly fee or invoice for a company.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Invoice."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "ID of the company this invoice belongs to."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Denormalized name of the company for display."
+        },
+        "referencePeriod": {
+          "type": "string",
+          "description": "The reference period for the invoice (e.g., '2024-08').",
+          "pattern": "^\\d{4}-\\d{2}$"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The due date for the payment."
+        },
+        "paymentDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the invoice was paid."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the invoice.",
+          "enum": ["Pendente", "Paga", "Atrasada", "Cancelada"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "companyId",
+        "companyName",
+        "referencePeriod",
+        "amount",
+        "dueDate",
+        "status"
+      ]
     }
   },
   "auth": {
@@ -541,6 +602,22 @@
             {
               "name": "corporateProcessId",
               "description": "The unique identifier for the corporate process."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/invoices/{invoiceId}",
+        "definition": {
+          "entityName": "Invoice",
+          "schema": {
+            "$ref": "#/backend/entities/Invoice"
+          },
+          "description": "Collection to store all financial invoices for all companies. Access is restricted to users with the finance role.",
+          "params": [
+            {
+              "name": "invoiceId",
+              "description": "The unique identifier for the invoice."
             }
           ]
         }

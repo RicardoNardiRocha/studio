@@ -165,8 +165,8 @@ service cloud.firestore {
     /**
      * @description Finance module data. Access is restricted to users in the `roles_finance` collection.
      */
-    match /finance/{docId} {
-      allow read, write: if isFinanceUser();
+    match /invoices/{invoiceId} {
+      allow read, write: if isFinanceUser() || isOwnerRole();
     }
 
     /**
