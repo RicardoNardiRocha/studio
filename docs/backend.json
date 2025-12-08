@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Company": {
@@ -436,6 +437,18 @@
             {
               "name": "roleId",
               "description": "The unique identifier for the role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_finance/{userId}",
+        "definition": {
+          "description": "Collection for granting finance module access. The existence of a document with the user's UID grants access. Only owners can manage this collection.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The UID of the user to grant finance access to."
             }
           ]
         }

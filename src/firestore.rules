@@ -1,36 +1,4 @@
 
-/**
- * This ruleset enforces a hybrid security model for an accounting ERP system.
- * It combines global administrator roles, a user-ownership model for personal data,
- * and a collaborative access model for company-specific data.
- *
- * Core Philosophy:
- * The default posture is deny-all. Access is granted explicitly based on a user's
- * identity and their relationship to the data they are trying to access. Global
- * administrators have broad read access for oversight and specific write access
- * for managing core entities like companies and user roles.
- *
- * Data Structure:
- * - /users/{userId}: Private user profile data, accessible only by the owner and admins.
- * - /roles/{roleId}: Defines permissions for different user roles.
- * - /companies/{companyId}: Top-level documents for each client company. These
- *   contain a denormalized `members` map to control access.
- * - /companies/{companyId}/{subcollection}: Nested data like documents, tax obligations,
- *   and corporate processes inherit their access rights from the parent company's
- *   `members` map.
- *
- * Key Security Decisions:
- * - Admin Rights: Admin privileges are determined by the 'roleId' in the user's
- *   profile document (`/users/{userId}`). This check requires a `get()` call but is
- *   central to the RBAC system. The 'owner' role grants full access.
- * - Company Access: All access to a company's data and its subcollections is
- *   controlled by a `members` map denormalized directly onto the company document.
- *   This avoids slow and costly `get()` calls across different collections in rules.
- * - User Data Privacy: Users can only access their own document within the `/users`
- *   collection. Listing all users is prohibited for non-admins.
- * - Creator-Based Write Rules: Within a company's subcollections, any member can
- *   create new documents, but only the original creator (or an admin) can modify or delete them.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -79,17 +47,13 @@ service cloud.firestore {
       let userProfile = getUserProfile();
       return userProfile.data.roleId == 'owner';
     }
-    
+
     /**
-     * Checks if the user has access to the finance module.
-     * Only specific UIDs listed here are allowed.
+     * Checks if the user has finance module access by checking for a document
+     * in the `roles_finance` collection.
      */
     function isFinanceUser() {
-      // IMPORTANTE: Substitua 'YOUR_UID_HERE' pelo UID real do usuário financeiro.
-      // Você pode encontrar o UID na tela de Perfil do usuário.
-      // Adicione mais UIDs à lista conforme necessário.
-      let financeUids = ['YOUR_UID_HERE']; 
-      return request.auth.uid in financeUids;
+      return exists(/databases/$(database)/documents/roles_finance/$(request.auth.uid));
     }
 
     /**
@@ -172,6 +136,13 @@ service cloud.firestore {
     match /roles/{roleId} {
         allow read, write: if isOwnerRole();
     }
+    
+    /**
+     * @description Finance role assignments. Only owners can manage who has finance access.
+     */
+    match /roles_finance/{userId} {
+        allow read, write: if isOwnerRole();
+    }
 
     /**
      * @description Company records. Access is controlled by a 'members' map or owner role.
@@ -192,7 +163,7 @@ service cloud.firestore {
     }
     
     /**
-     * @description Finance module data. Access is restricted to specific UIDs.
+     * @description Finance module data. Access is restricted to users in the `roles_finance` collection.
      */
     match /finance/{docId} {
       allow read, write: if isFinanceUser();
@@ -202,11 +173,7 @@ service cloud.firestore {
      * @description Tax obligations for a company. Inherits access from the parent company.
      */
     match /companies/{companyId}/taxObligations/{taxObligationId} {
-      allow get: if canReadCompanyData(companyId);
-      allow list: if canReadCompanyData(companyId);
-      allow create: if canReadCompanyData(companyId);
-      allow update: if canReadCompanyData(companyId);
-      allow delete: if canReadCompanyData(companyId);
+      allow get, list, create, update, delete: if canReadCompanyData(companyId);
     }
 
     /**
