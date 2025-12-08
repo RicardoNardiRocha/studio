@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,13 +22,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -43,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Input } from '../ui/input';
+import ReactSelect from 'react-select';
 
 interface AddInvoiceDialogProps {
   open: boolean;
@@ -58,6 +52,7 @@ const formSchema = z.object({
 });
 
 type Company = { id: string; name: string };
+type CompanyOption = { value: string; label: string; };
 
 export function AddInvoiceDialog({
   open,
@@ -73,6 +68,11 @@ export function AddInvoiceDialog({
     return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
   const { data: companies } = useCollection<Company>(companiesCollection);
+
+  const companyOptions = useMemo<CompanyOption[]>(() => {
+    if (!companies) return [];
+    return companies.map(c => ({ value: c.id, label: c.name }));
+  }, [companies]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -149,16 +149,21 @@ export function AddInvoiceDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Empresa</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {companies?.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                   <FormControl>
+                    <ReactSelect
+                      options={companyOptions}
+                      placeholder="Pesquise ou selecione a empresa"
+                      noOptionsMessage={() => 'Nenhuma empresa encontrada'}
+                      onChange={(option: CompanyOption | null) => field.onChange(option?.value || '')}
+                      value={companyOptions.find(c => c.value === field.value)}
+                      styles={{
+                        control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+                        menu: (base) => ({ ...base, zIndex: 100 }),
+                        input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+                        singleValue: (base) => ({...base, color: 'hsl(var(--foreground))'}),
+                      }}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

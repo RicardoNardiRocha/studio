@@ -1,239 +1,182 @@
-
-/**
- * This ruleset enforces a hybrid security model for an accounting ERP system.
- * It combines global administrator roles, a user-ownership model for personal data,
- * and a collaborative access model for company-specific data.
- *
- * Core Philosophy:
- * The default posture is deny-all. Access is granted explicitly based on a user's
- * identity and their relationship to the data they are trying to access. Global
- * administrators have broad read access for oversight and specific write access
- * for managing core entities like companies and user roles.
- *
- * Data Structure:
- * - /users/{userId}: Private user profile data, accessible only by the owner and admins.
- * - /roles_admin/{userId}: A collection used to grant global admin privileges.
- *   The existence of a document with the user's UID grants admin rights.
- * - /companies/{companyId}: Top-level documents for each client company. These
- *   contain a denormalized `members` map to control access.
- * - /companies/{companyId}/{subcollection}: Nested data like documents, tax obligations,
- *   and corporate processes inherit their access rights from the parent company's
- *   `members` map.
- *
- * Key Security Decisions:
- * - Admin Rights: Admin privileges are granted by the existence of a document in
- *   the `/roles_admin` collection, enabling fast, non-billable `exists()` checks.
- *   This collection should only be managed via the Firebase Console or a trusted server-side process.
- * - Company Access: All access to a company's data and its subcollections is
- *   controlled by a `members` map denormalized directly onto the company document.
- *   This avoids slow and costly `get()` calls across different collections in rules.
- * - User Data Privacy: Users can only access their own document within the `/users`
- *   collection. Listing all users is prohibited for non-admins.
- * - Creator-Based Write Rules: Within a company's subcollections, any member can
- *   create new documents (e.g., upload a file), but only the original creator
- *   (or an admin) can modify or delete them.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================================================================
+    // ------------------------------------------------------------
     // Helper Functions
-    // =========================================================================
+    // ------------------------------------------------------------
 
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the requesting user's UID matches the given userId.
-     * Used for document ownership checks.
-     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    /**
-     * Retrieves the user's profile document.
-     */
-    function getUserProfile() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-    
-    /**
-     * Retrieves the role document associated with the current user.
-     */
-    function getUserRole() {
-        let userProfile = getUserProfile();
-        if (userProfile.data.roleId != null) {
-            return get(/databases/$(database)/documents/roles/$(userProfile.data.roleId));
-        }
-        return null;
+    // Admin global → baseado na existência do documento em roles_admin
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    /**
-     * Checks if the user has the 'owner' role.
-     */
-    function isOwnerRole() {
-      let userProfile = getUserProfile();
-      return userProfile.data.roleId == 'owner';
-    }
-
-    /**
-     * Checks if the user has finance module access by checking for a document
-     * in the `roles_finance` collection.
-     */
+    // Usuário do financeiro → baseado na existência do documento em roles_finance
     function isFinanceUser() {
       return exists(/databases/$(database)/documents/roles_finance/$(request.auth.uid));
     }
 
-    /**
-     * Checks if the user has a specific granular permission.
-     * Example: hasPermission('companies', 'create')
-     */
-    function hasPermission(resource, operation) {
-        let userRole = getUserRole();
-        return userRole != null && userRole.data.permissions[resource][operation] == true;
-    }
-
-    /**
-     * Checks if a user is a member of a specific company by verifying their UID
-     * exists as a key in the company's 'members' map.
-     */
+    // Verifica se o usuário é membro da empresa
     function isCompanyMember(companyId) {
       return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
     }
 
-    /**
-     * Combines owner role and company member checks for granting read access.
-     */
+    // Leitura permitida para Admin OU membro da empresa
     function canReadCompanyData(companyId) {
-      return isOwnerRole() || isCompanyMember(companyId);
-    }
-    
-    /**
-     * On update/delete, checks if the document exists and if the requesting user
-     * is either the original creator (responsibleUserId) or an admin.
-     */
-    function isExistingResponsibleUserOrAdmin(responsibleUserId) {
-      return resource != null && (isOwnerRole() || isOwner(responsibleUserId));
+      return isAdmin() || isCompanyMember(companyId);
     }
 
-    // =========================================================================
-    // Data Validation Helper Functions (Prototyping Mode)
-    // =========================================================================
-    function isConsistentDocId(docId) {
-      return request.resource.data.id == docId;
-    }
-
-    function isDocIdImmutable() {
-      return request.resource.data.id == resource.data.id;
-    }
-
-    function hasConsistentCompanyId(companyId) {
-      return request.resource.data.companyId == companyId;
-    }
-
-    function isCompanyIdImmutable() {
-      return request.resource.data.companyId == resource.data.companyId;
-    }
-
+    // Criador do documento → no momento da criação
     function isRequestingUserResponsible() {
       return request.resource.data.responsibleUserId == request.auth.uid;
     }
 
-    function isResponsibleUserImmutableOrAdmin() {
-      return isOwnerRole() || request.resource.data.responsavelId == resource.data.responsavelId;
+    // Criador do documento → em updates
+    function isExistingResponsibleUserOrAdmin() {
+      return resource != null && (isAdmin() || resource.data.responsibleUserId == request.auth.uid);
     }
 
-    // =========================================================================
-    // Rule Definitions
-    // =========================================================================
-
-    /**
-     * @description User profile data. A user can manage their own profile. Owners can read any profile.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isOwnerRole();
-      allow list: if isOwnerRole();
-      allow create: if isOwner(userId); // Allow user to create their own profile doc
-      allow update: if isOwner(userId);
-      allow delete: if isOwnerRole();
-    }
-    
-    /**
-     * @description Roles and permissions definitions. Only owners can manage roles.
-     */
-    match /roles/{roleId} {
-        allow read, write: if isOwnerRole();
+    // Garante que o campo companyId não seja alterado em updates
+    function isCompanyIdImmutable() {
+      return request.resource.data.companyId == resource.data.companyId;
     }
 
-    /**
-     * @description Finance role assignments. Only owners can manage who has finance access.
-     */
+    // Garante que o campo responsibleUserId não seja alterado em updates
+    function isResponsibleUserImmutable() {
+      return request.resource.data.responsibleUserId == resource.data.responsibleUserId;
+    }
+
+    // ------------------------------------------------------------
+    // ROLES ADMIN (apenas leitura — segurança total)
+    // ------------------------------------------------------------
+    match /roles_admin/{userId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if false; // nunca via app
+    }
+
+    // ------------------------------------------------------------
+    // ROLES FINANCE
+    // ------------------------------------------------------------
     match /roles_finance/{userId} {
-        allow read, write: if isOwnerRole();
+      allow read, write: if isAdmin(); 
     }
 
-    /**
-     * @description Company records. Access is controlled by a 'members' map or owner role.
-     */
+    // ------------------------------------------------------------
+    // USERS
+    // ------------------------------------------------------------
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && resource != null;
+      allow delete: if isOwner(userId);
+    }
+
+    // ------------------------------------------------------------
+    // COMPANIES
+    // ------------------------------------------------------------
     match /companies/{companyId} {
+
       allow get: if canReadCompanyData(companyId);
       allow list: if isSignedIn();
-      allow create: if isSignedIn(); // Simplified for now
-      allow update: if isOwnerRole() || isCompanyMember(companyId);
-      allow delete: if isOwnerRole();
+
+      // Criar empresa → precisa ter members.{uid} = 'admin'
+      allow create: if isSignedIn()
+                    && request.resource.data.members[request.auth.uid] == 'admin';
+
+      allow update: if resource != null
+                    && (isAdmin() || isCompanyMember(companyId));
+
+      allow delete: if isAdmin();
+
     }
-    
-    /**
-     * @description Partner records. Any authenticated user can manage for now.
-     */
+
+    // ------------------------------------------------------------
+    // PARTNERS (cadastro de sócios)
+    // ------------------------------------------------------------
     match /partners/{partnerId} {
-        allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
-    
-    /**
-     * @description Finance module data. Access is restricted to users in the `roles_finance` collection or owners.
-     */
+
+    // ------------------------------------------------------------
+    // FINANCE MODULE: INVOICES
+    // ------------------------------------------------------------
     match /invoices/{invoiceId} {
-      allow list, get, create, update, delete: if isFinanceUser() || isOwnerRole();
+      allow read, list, create, update, delete:
+        if isAdmin() || isFinanceUser();
     }
 
-    /**
-     * @description Tax obligations for a company. Inherits access from the parent company.
-     */
-    match /companies/{companyId}/taxObligations/{taxObligationId} {
-      allow get: if canReadCompanyData(companyId);
-      allow list: if canReadCompanyData(companyId);
-      allow create: if canReadCompanyData(companyId);
-      allow update: if canReadCompanyData(companyId);
-      allow delete: if canReadCompanyData(companyId);
+    // ------------------------------------------------------------
+    // TAX OBLIGATIONS (companies/{id}/taxObligations)
+    // ------------------------------------------------------------
+    match /companies/{companyId}/taxObligations/{taxId} {
+
+      allow get, list: if canReadCompanyData(companyId);
+
+      allow create:
+        if canReadCompanyData(companyId)
+        && request.resource.data.companyId == companyId
+        && isRequestingUserResponsible();
+
+      allow update:
+        if isExistingResponsibleUserOrAdmin()
+        && isCompanyIdImmutable()
+        && isResponsibleUserImmutable();
+
+      allow delete:
+        if isExistingResponsibleUserOrAdmin();
     }
 
-    /**
-     * @description Documents for a company. Inherits access from the parent company.
-     */
-    match /companies/{companyId}/documents/{documentId} {
-      allow get: if canReadCompanyData(companyId);
-      allow list: if canReadCompanyData(companyId);
-      allow create: if canReadCompanyData(companyId) && isRequestingUserResponsible();
-      allow update: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable();
-      allow delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
+    // ------------------------------------------------------------
+    // DOCUMENTS (companies/{id}/documents)
+    // ------------------------------------------------------------
+    match /companies/{companyId}/documents/{docId} {
+
+      allow get, list: if canReadCompanyData(companyId);
+
+      allow create:
+        if canReadCompanyData(companyId)
+        && request.resource.data.companyId == companyId
+        && isRequestingUserResponsible();
+
+      allow update:
+        if isExistingResponsibleUserOrAdmin()
+        && isCompanyIdImmutable()
+        && isResponsibleUserImmutable();
+
+      allow delete:
+        if isExistingResponsibleUserOrAdmin();
     }
 
-    /**
-     * @description Corporate processes for a company. Inherits access from the parent company.
-     */
-    match /companies/{companyId}/corporateProcesses/{corporateProcessId} {
-      allow get: if canReadCompanyData(companyId);
-      allow list: if canReadCompanyData(companyId);
-      allow create: if canReadCompanyData(companyId) && isRequestingUserResponsible();
-      allow update: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable();
-      allow delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
+    // ------------------------------------------------------------
+    // CORPORATE PROCESSES (companies/{id}/corporateProcesses)
+    // ------------------------------------------------------------
+    match /companies/{companyId}/corporateProcesses/{procId} {
+      
+      allow get, list: if canReadCompanyData(companyId);
+
+      allow create:
+        if canReadCompanyData(companyId)
+        && request.resource.data.companyId == companyId
+        && isRequestingUserResponsible();
+
+      allow update:
+        if isExistingResponsibleUserOrAdmin()
+        && isCompanyIdImmutable()
+        && isResponsibleUserImmutable();
+
+      allow delete:
+        if isExistingResponsibleUserOrAdmin();
     }
+
   }
 }
