@@ -34,7 +34,7 @@ import {
   doc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { format, addMonths, setDate } from 'date-fns';
+import { format, lastDayOfMonth } from 'date-fns';
 import { Input } from '../ui/input';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Progress } from '../ui/progress';
@@ -87,7 +87,8 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
     const { referencePeriod, amount } = values;
 
     const [year, month] = referencePeriod.split('-').map(Number);
-    const dueDate = setDate(addMonths(new Date(year, month - 1, 1), 1), 10);
+    const competenceDate = new Date(year, month - 1, 1);
+    const dueDate = lastDayOfMonth(competenceDate);
 
     const invoicesRef = collection(firestore, 'invoices');
     const companiesToBill = [...companies];
