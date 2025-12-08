@@ -71,7 +71,6 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
       try {
         const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numericCnpj}`);
         if (!response.ok) {
-            console.error(`Falha ao buscar CNPJ ${cnpj}. Status: ${response.status}`);
             failureCount++;
             return;
         }
