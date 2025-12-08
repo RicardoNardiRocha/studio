@@ -19,6 +19,7 @@ import {
   FileCog,
   Workflow,
   User,
+  Landmark,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -34,6 +35,7 @@ const menuItems = [
   { href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
   { href: '/fiscal', label: 'Fiscal', icon: FileCog },
   { href: '/documentos', label: 'Documentos', icon: FolderOpen },
+  { href: '/financeiro', label: 'Financeiro', icon: Landmark },
 ];
 
 const secondaryMenuItems = [

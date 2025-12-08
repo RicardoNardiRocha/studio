@@ -1,3 +1,4 @@
+
 /**
  * This ruleset enforces a hybrid security model for an accounting ERP system.
  * It combines global administrator roles, a user-ownership model for personal data,
@@ -77,6 +78,18 @@ service cloud.firestore {
     function isOwnerRole() {
       let userProfile = getUserProfile();
       return userProfile.data.roleId == 'owner';
+    }
+    
+    /**
+     * Checks if the user has access to the finance module.
+     * Only specific UIDs listed here are allowed.
+     */
+    function isFinanceUser() {
+      // IMPORTANTE: Substitua 'YOUR_UID_HERE' pelo UID real do usuário financeiro.
+      // Você pode encontrar o UID na tela de Perfil do usuário.
+      // Adicione mais UIDs à lista conforme necessário.
+      let financeUids = ['YOUR_UID_HERE']; 
+      return request.auth.uid in financeUids;
     }
 
     /**
@@ -176,6 +189,13 @@ service cloud.firestore {
      */
     match /partners/{partnerId} {
         allow read, write: if isSignedIn();
+    }
+    
+    /**
+     * @description Finance module data. Access is restricted to specific UIDs.
+     */
+    match /finance/{docId} {
+      allow read, write: if isFinanceUser();
     }
 
     /**
