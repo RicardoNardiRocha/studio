@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -25,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Search, FilePlus2 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
@@ -34,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { AddInvoiceDialog } from './add-invoice-dialog';
 import { InvoiceDetailsDialog } from './invoice-details-dialog';
+import { BatchInvoiceDialog } from './batch-invoice-dialog';
 import { isPast, startOfDay } from 'date-fns';
 
 export type InvoiceStatus = 'Pendente' | 'Paga' | 'Atrasada' | 'Cancelada';
@@ -70,6 +70,7 @@ const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destr
 
 export function InvoicesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,6 +92,7 @@ export function InvoicesClient() {
     forceRefetch();
     setIsDetailsDialogOpen(false);
     setIsAddDialogOpen(false);
+    setIsBatchDialogOpen(false);
   };
 
   const handleOpenDetails = (invoice: Invoice) => {
@@ -163,6 +165,11 @@ export function InvoicesClient() {
         onOpenChange={setIsAddDialogOpen}
         onInvoiceAdded={handleAction}
       />
+       <BatchInvoiceDialog
+        open={isBatchDialogOpen}
+        onOpenChange={setIsBatchDialogOpen}
+        onComplete={handleAction}
+      />
       {selectedInvoice && (
         <InvoiceDetailsDialog
           key={selectedInvoice.id}
@@ -183,10 +190,16 @@ export function InvoicesClient() {
               Controle os pagamentos de mensalidades de todos os clientes.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nova Fatura
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-4 md:mt-0">
+             <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
+                <FilePlus2 className="mr-2 h-4 w-4" />
+                Gerar Mensalidades
+             </Button>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nova Fatura
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
