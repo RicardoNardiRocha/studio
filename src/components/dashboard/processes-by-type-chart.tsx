@@ -15,7 +15,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { useFirestore } from '@/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '../ui/skeleton';
 
@@ -56,18 +56,18 @@ export function ProcessesByTypeChart() {
         Alteração: 0,
         Encerramento: 0,
       };
+      const activeStatuses = ['Aguardando Documentação', 'Em Análise', 'Em Exigência'];
 
       try {
         const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
         for (const companyDoc of companiesSnapshot.docs) {
           const processesQuery = query(
-            collection(firestore, `companies/${companyDoc.id}/corporateProcesses`),
-             where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Exigência'])
+            collection(firestore, `companies/${companyDoc.id}/corporateProcesses`)
           );
           const processesSnapshot = await getDocs(processesQuery);
           processesSnapshot.forEach((doc) => {
             const process = doc.data() as CorporateProcess;
-            if (processCounts[process.processType] !== undefined) {
+            if (activeStatuses.includes(process.status) && processCounts[process.processType] !== undefined) {
               processCounts[process.processType]++;
             }
           });
