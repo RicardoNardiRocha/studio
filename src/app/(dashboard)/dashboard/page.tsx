@@ -2,8 +2,7 @@
 import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { kpiData, atRiskCompanies } from '@/lib/data';
-import { KpiCard } from '@/components/dashboard/kpi-card';
+import { atRiskCompanies } from '@/lib/data';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MoreVertical, User } from 'lucide-react';
@@ -15,6 +14,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ObligationsStatusChart } from '@/components/dashboard/obligations-status-chart';
 import { ProcessesByTypeChart } from '@/components/dashboard/processes-by-type-chart';
+import { KpiCards } from '@/components/dashboard/kpi-cards';
 
 interface Activity {
   id: string;
@@ -80,9 +80,7 @@ export default function DashboardPage() {
       <AppHeader pageTitle="Dashboard" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {kpiData.map((kpi) => (
-            <KpiCard key={kpi.title} {...kpi} />
-          ))}
+           <KpiCards />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="col-span-1 lg:col-span-1">
