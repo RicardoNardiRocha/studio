@@ -79,6 +79,8 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
+const companyStatuses = ['Todos', 'ATIVA', 'INAPTA', 'BAIXADA'];
+
 
 export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -88,6 +90,7 @@ export function CompaniesClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [taxRegimeFilter, setTaxRegimeFilter] = useState('Todos');
   const [certificateStatusFilter, setCertificateStatusFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState('Todos');
 
 
   const firestore = useFirestore();
@@ -105,9 +108,10 @@ export function CompaniesClient() {
       const nameMatch = company.name.toLowerCase().includes(searchTerm.toLowerCase());
       const taxRegimeMatch = taxRegimeFilter === 'Todos' || company.taxRegime === taxRegimeFilter;
       const certStatusMatch = certificateStatusFilter === 'Todos' || getCertificateStatusInfo(company.certificateA1Validity).status === certificateStatusFilter;
-      return nameMatch && taxRegimeMatch && certStatusMatch;
+      const statusMatch = statusFilter === 'Todos' || company.status.toUpperCase() === statusFilter;
+      return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
     });
-  }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter]);
+  }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter]);
 
 
   const handleAction = () => {
@@ -193,6 +197,18 @@ export function CompaniesClient() {
                 <SelectContent>
                   {certificateStatuses.map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+             <div className="w-full md:w-auto md:min-w-[200px]">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por situação..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {companyStatuses.map(status => (
+                    <SelectItem key={status} value={status}>{status === 'Todos' ? 'Todas as Situações' : status.charAt(0) + status.slice(1).toLowerCase()}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
