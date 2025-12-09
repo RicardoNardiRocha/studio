@@ -126,7 +126,7 @@ export function ObligationDetailsDialog({
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
-    const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
+    const obligationRef = doc(firestore, 'taxObligations', obligation.id);
     deleteDocumentNonBlocking(obligationRef);
     logActivity(firestore, user, `excluiu a obrigação ${obligation.nome} de ${obligation.companyName}.`);
     toast({
@@ -145,7 +145,7 @@ export function ObligationDetailsDialog({
     setIsLoading(true);
 
     try {
-      const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
+      const obligationRef = doc(firestore, 'taxObligations', obligation.id);
       
       const responsibleUser = users?.find(u => u.uid === values.responsavelId);
       

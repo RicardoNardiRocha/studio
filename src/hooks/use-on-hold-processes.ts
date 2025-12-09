@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs,getCountFromServer } from 'firebase/firestore';
 
 export function useOnHoldProcesses() {
   const [count, setCount] = useState(0);
@@ -14,20 +14,13 @@ export function useOnHoldProcesses() {
       if (!firestore) return;
 
       setIsLoading(true);
-      let onHoldCount = 0;
       try {
-        const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-        
-        for (const companyDoc of companiesSnapshot.docs) {
-          const processesQuery = query(
-            collection(firestore, `companies/${companyDoc.id}/corporateProcesses`),
-            where('status', '==', 'Em Exigência')
-          );
-          const processesSnapshot = await getDocs(processesQuery);
-          onHoldCount += processesSnapshot.size;
-        }
-
-        setCount(onHoldCount);
+        const processesQuery = query(
+          collection(firestore, 'corporateProcesses'),
+          where('status', '==', 'Em Exigência')
+        );
+        const snapshot = await getCountFromServer(processesQuery);
+        setCount(snapshot.data().count);
       } catch (error) {
         console.error('Error fetching on-hold processes:', error);
       } finally {

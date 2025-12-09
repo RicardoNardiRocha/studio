@@ -106,12 +106,7 @@ export function AddProcessDialog({
       const company = companies?.find(c => c.id === values.companyId);
       if (!company) throw new Error("Empresa não encontrada.");
 
-      const processCollectionRef = collection(
-        firestore,
-        'companies',
-        values.companyId,
-        'corporateProcesses'
-      );
+      const processCollectionRef = collection(firestore, 'corporateProcesses');
 
       const newProcess = {
         companyId: values.companyId,

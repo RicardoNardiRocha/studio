@@ -170,27 +170,24 @@ service cloud.firestore {
     }
 
     /**
-     * @description Tax obligations for a company. Inherits access from the parent company.
+     * @description Tax obligations for a company. User must be a member of the company.
      */
-    match /companies/{companyId}/taxObligations/{taxObligationId} {
-      allow get, list, create, update, delete: if canReadCompanyData(companyId);
+    match /taxObligations/{taxObligationId} {
+      allow read, list, create, update, delete: if isSignedIn() && canReadCompanyData(request.resource.data.companyId);
     }
+    
+    /**
+     * @description Corporate processes for a company. User must be a member of the company.
+     */
+    match /corporateProcesses/{corporateProcessId} {
+      allow read, list, create, update, delete: if isSignedIn() && canReadCompanyData(request.resource.data.companyId);
+    }
+
 
     /**
      * @description Documents for a company. Inherits access from the parent company.
      */
     match /companies/{companyId}/documents/{documentId} {
-      allow get: if canReadCompanyData(companyId);
-      allow list: if canReadCompanyData(companyId);
-      allow create: if canReadCompanyData(companyId) && isRequestingUserResponsible();
-      allow update: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable();
-      allow delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
-    }
-
-    /**
-     * @description Corporate processes for a company. Inherits access from the parent company.
-     */
-    match /companies/{companyId}/corporateProcesses/{corporateProcessId} {
       allow get: if canReadCompanyData(companyId);
       allow list: if canReadCompanyData(companyId);
       allow create: if canReadCompanyData(companyId) && isRequestingUserResponsible();

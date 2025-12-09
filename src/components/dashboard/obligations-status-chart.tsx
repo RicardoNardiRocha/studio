@@ -17,9 +17,9 @@ import {
   ChartTooltipContent,
   ChartConfig,
 } from '@/components/ui/chart';
-import { useFirestore } from '@/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
-import { useEffect, useState, useMemo } from 'react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { useMemo } from 'react';
 import { Skeleton } from '../ui/skeleton';
 
 interface TaxObligation {
@@ -34,57 +34,41 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function ObligationsStatusChart() {
-  const [data, setData] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const firestore = useFirestore();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!firestore) return;
-      setIsLoading(true);
-      const statusCounts: Record<string, number> = {
-        Pendente: 0,
-        'Em Andamento': 0,
-        Entregue: 0,
-        Atrasada: 0,
-      };
-
-      try {
-        const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-        for (const companyDoc of companiesSnapshot.docs) {
-          const obligationsQuery = query(collection(firestore, `companies/${companyDoc.id}/taxObligations`));
-          const obligationsSnapshot = await getDocs(obligationsQuery);
-          obligationsSnapshot.forEach((doc) => {
-            const obligation = doc.data() as TaxObligation;
-            if (statusCounts[obligation.status] !== undefined) {
-              statusCounts[obligation.status]++;
-            }
-          });
-        }
-
-        const chartData = Object.keys(statusCounts)
-          .map((status) => ({
-            status,
-            count: statusCounts[status],
-            fill: `var(--color-${status.replace(/\s/g, '')})`,
-          }))
-          .filter((item) => item.count > 0);
-
-        setData(chartData);
-      } catch (error) {
-        console.error('Error fetching obligation data for chart:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+  const obligationsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'taxObligations'));
   }, [firestore]);
 
-  const totalObligations = useMemo(() => {
-    return data.reduce((acc, curr) => acc + curr.count, 0);
-  }, [data]);
-  
+  const { data: obligations, isLoading } = useCollection<TaxObligation>(obligationsQuery);
+
+  const chartData = useMemo(() => {
+    if (!obligations) return [];
+
+    const statusCounts: Record<string, number> = {
+      Pendente: 0,
+      'Em Andamento': 0,
+      Entregue: 0,
+      Atrasada: 0,
+    };
+
+    for (const obligation of obligations) {
+      if (statusCounts[obligation.status] !== undefined) {
+        statusCounts[obligation.status]++;
+      }
+    }
+
+    return Object.keys(statusCounts)
+      .map((status) => ({
+        status,
+        count: statusCounts[status],
+        fill: `var(--color-${status.replace(/\s/g, '')})`,
+      }))
+      .filter((item) => item.count > 0);
+  }, [obligations]);
+
+
   if (isLoading) {
     return <Skeleton className="h-[350px] w-full" />;
   }
@@ -94,7 +78,7 @@ export function ObligationsStatusChart() {
       <PieChart accessibilityLayer>
         <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
         <Pie
-          data={data}
+          data={chartData}
           dataKey="count"
           nameKey="status"
           innerRadius={60}
@@ -122,12 +106,12 @@ export function ObligationsStatusChart() {
                 textAnchor={x > cx ? 'start' : 'end'}
                 dominantBaseline="central"
               >
-                {data[index].status} ({value})
+                {chartData[index].status} ({value})
               </text>
             )
           }}
         >
-           {data.map((entry) => (
+           {chartData.map((entry) => (
              <Cell key={`cell-${entry.status}`} fill={entry.fill} />
           ))}
         </Pie>

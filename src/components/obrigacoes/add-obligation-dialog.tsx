@@ -107,7 +107,7 @@ export function AddObligationDialog({
       
       const responsibleUser = users?.find(u => u.uid === values.responsavelId);
 
-      const obligationCollectionRef = collection(firestore, 'companies', values.companyId, 'taxObligations');
+      const obligationCollectionRef = collection(firestore, 'taxObligations');
 
       const newObligation = {
         companyId: values.companyId,

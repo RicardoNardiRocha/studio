@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -25,8 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
-import { useFirestore } from '@/firebase';
-import { collection, query, getDocs, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
 import { Badge } from '../ui/badge';
@@ -79,8 +79,6 @@ export function ObligationsClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedObligation, setSelectedObligation] = useState<TaxObligation | null>(null);
-  const [obligations, setObligations] = useState<TaxObligation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -88,47 +86,25 @@ export function ObligationsClient() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const fetchObligations = async () => {
-    if (!firestore) return;
-    setIsLoading(true);
-    const allObligations: TaxObligation[] = [];
-    try {
-      const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-
-      for (const companyDoc of companiesSnapshot.docs) {
-        const q = query(collection(firestore, `companies/${companyDoc.id}/taxObligations`), orderBy('dataVencimento', 'asc'));
-        const obligationsSnapshot = await getDocs(q);
-        obligationsSnapshot.forEach(obligationDoc => {
-          allObligations.push({ id: obligationDoc.id, ...obligationDoc.data() } as TaxObligation);
-        });
-      }
-
-      setObligations(allObligations);
-    } catch(e) {
-        console.error("Error fetching obligations: ", e);
-        toast({ title: "Erro ao buscar obrigações", description: "Não foi possível carregar os dados. Verifique suas permissões.", variant: "destructive"});
-    } finally {
-        setIsLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchObligations();
+  const obligationsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'taxObligations'), orderBy('dataVencimento', 'asc'));
   }, [firestore]);
 
+  const { data: obligations, isLoading, forceRefetch } = useCollection<TaxObligation>(obligationsQuery);
 
   const handleAction = () => {
-    fetchObligations();
+    forceRefetch();
     setIsDetailsDialogOpen(false);
     setIsAddDialogOpen(false);
   };
   
   const handleStatusChange = async (obligation: TaxObligation, newStatus: ObligationStatus) => {
     if (!firestore) return;
-    const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
+    const obligationRef = doc(firestore, 'taxObligations', obligation.id);
     try {
         await updateDoc(obligationRef, { status: newStatus, updatedAt: new Date() });
-        setObligations(prev => prev.map(o => o.id === obligation.id ? {...o, status: newStatus} : o));
+        forceRefetch(); // Força o useCollection a buscar os dados novamente
         toast({ title: "Status atualizado com sucesso!" });
     } catch (error) {
         console.error("Failed to update status:", error);
@@ -142,6 +118,7 @@ export function ObligationsClient() {
   };
 
   const filteredObligations = useMemo(() => {
+    if (!obligations) return [];
     return obligations.filter(o => {
         const searchMatch = o.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || o.nome.toLowerCase().includes(searchTerm.toLowerCase());
         const categoryMatch = categoryFilter === 'Todos' || o.categoria === categoryFilter;

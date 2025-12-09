@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -25,8 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal } from 'lucide-react';
-import { useFirestore } from '@/firebase';
-import { collection, query, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, updateDoc, doc, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
 import { Badge } from '../ui/badge';
@@ -70,8 +70,6 @@ export function CorporateProcessesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedProcess, setSelectedProcess] = useState<CorporateProcess | null>(null);
-  const [processes, setProcesses] = useState<CorporateProcess[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -79,52 +77,24 @@ export function CorporateProcessesClient() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const fetchProcesses = async () => {
-    if (!firestore) return;
-    setIsLoading(true);
-    const allProcesses: CorporateProcess[] = [];
-    try {
-        const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-
-        for (const companyDoc of companiesSnapshot.docs) {
-            const q = query(collection(firestore, `companies/${companyDoc.id}/corporateProcesses`), orderBy('startDate', 'desc'));
-            const processesSnapshot = await getDocs(q);
-            processesSnapshot.forEach(processDoc => {
-                allProcesses.push({ id: processDoc.id, ...processDoc.data() } as CorporateProcess);
-            });
-        }
-        
-        // Ordena a lista consolidada uma única vez
-        setProcesses(allProcesses.sort((a, b) => {
-            const dateA = a.startDate instanceof Date ? a.startDate : new Date(a.startDate.seconds * 1000);
-            const dateB = b.startDate instanceof Date ? b.startDate : new Date(b.startDate.seconds * 1000);
-            return dateB.getTime() - dateA.getTime();
-        }));
-
-    } catch(e) {
-        console.error("Error fetching processes: ", e);
-        toast({ title: "Erro ao buscar processos", description: "Não foi possível carregar os dados. Verifique suas permissões.", variant: "destructive"});
-    } finally {
-        setIsLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchProcesses();
+  const processesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
   }, [firestore]);
 
+  const { data: processes, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
 
   const handleProcessAction = () => {
-    fetchProcesses();
+    forceRefetch();
     setIsDetailsDialogOpen(false);
   };
   
-  const handleStatusChange = async (processId: string, companyId: string, newStatus: CorporateProcess['status']) => {
+  const handleStatusChange = async (processId: string, newStatus: CorporateProcess['status']) => {
     if (!firestore) return;
-    const processRef = doc(firestore, 'companies', companyId, 'corporateProcesses', processId);
+    const processRef = doc(firestore, 'corporateProcesses', processId);
     try {
         await updateDoc(processRef, { status: newStatus });
-        setProcesses(prev => prev.map(p => p.id === processId ? {...p, status: newStatus} : p));
+        forceRefetch();
         toast({ title: "Status atualizado com sucesso!" });
     } catch (error) {
         console.error("Failed to update status:", error);
@@ -138,6 +108,7 @@ export function CorporateProcessesClient() {
   };
 
   const filteredProcesses = useMemo(() => {
+    if (!processes) return [];
     return processes.filter(p => {
         const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase());
         const typeMatch = typeFilter === 'Todos' || p.processType === typeFilter;
@@ -157,7 +128,7 @@ export function CorporateProcessesClient() {
       <AddProcessDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onProcessAdded={handleProcessAction}
+        onProcessAdded={forceRefetch}
       />
       {selectedProcess && (
         <ProcessDetailsDialog
@@ -255,7 +226,7 @@ export function CorporateProcessesClient() {
                       <TableCell>
                         <Select
                           value={process.status}
-                          onValueChange={(newStatus: CorporateProcess['status']) => handleStatusChange(process.id, process.companyId, newStatus)}
+                          onValueChange={(newStatus: CorporateProcess['status']) => handleStatusChange(process.id, newStatus)}
                         >
                           <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
                             <SelectValue asChild>

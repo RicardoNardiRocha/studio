@@ -112,7 +112,7 @@ export function ProcessDetailsDialog({
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
-    const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
+    const processRef = doc(firestore, 'corporateProcesses', process.id);
     deleteDocumentNonBlocking(processRef);
     logActivity(firestore, user, `excluiu o processo de ${process.processType} de ${process.companyName}.`);
     toast({
@@ -131,7 +131,7 @@ export function ProcessDetailsDialog({
     setIsLoading(true);
 
     try {
-      const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
+      const processRef = doc(firestore, 'corporateProcesses', process.id);
       
       const updatedData = {
         processType: values.processType,
