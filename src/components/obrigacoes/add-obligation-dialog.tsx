@@ -34,14 +34,16 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { Loader2, CalendarIcon, Upload } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useStorage } from '@/firebase';
+import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface AddObligationDialogProps {
   open: boolean;
@@ -52,11 +54,13 @@ interface AddObligationDialogProps {
 const formSchema = z.object({
   companyId: z.string({ required_error: 'Selecione uma empresa.' }),
   nome: z.string().min(1, 'O nome da obrigação é obrigatório.'),
-  categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Societário'], { required_error: 'Selecione uma categoria.' }),
-  periodicidade: z.enum(['Mensal', 'Trimestral', 'Anual', 'Eventual'], { required_error: 'Selecione a periodicidade.' }),
+  categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Outros'], { required_error: 'Selecione uma categoria.' }),
+  periodicidade: z.enum(['Mensal', 'Anual', 'Eventual'], { required_error: 'Selecione a periodicidade.' }),
   periodo: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
   dataVencimento: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   responsavelId: z.string().optional(),
+  description: z.string().optional(),
+  attachment: z.instanceof(File).optional().nullable(),
 });
 
 type Company = { id: string; name: string };
@@ -70,6 +74,7 @@ export function AddObligationDialog({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { user } = useUser();
 
   const companiesCollection = useMemoFirebase(() => {
@@ -91,12 +96,14 @@ export function AddObligationDialog({
       nome: '',
       periodo: format(new Date(), 'yyyy-MM'),
       responsavelId: user?.uid || '',
+      description: '',
+      attachment: null,
     },
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!firestore || !user) {
-      toast({ title: 'Erro', description: 'Serviço de banco de dados ou autenticação indisponível.', variant: 'destructive' });
+    if (!firestore || !user || !storage) {
+      toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
@@ -106,10 +113,13 @@ export function AddObligationDialog({
       if (!company) throw new Error("Empresa não encontrada.");
       
       const responsibleUser = users?.find(u => u.uid === values.responsavelId);
+      const batch = writeBatch(firestore);
 
       const obligationCollectionRef = collection(firestore, 'taxObligations');
-
+      const obligationDocRef = doc(obligationCollectionRef);
+      
       const newObligation = {
+        id: obligationDocRef.id,
         companyId: values.companyId,
         companyName: company.name,
         nome: values.nome,
@@ -120,15 +130,41 @@ export function AddObligationDialog({
         status: 'Pendente',
         responsavelId: values.responsavelId || user.uid,
         responsavelNome: responsibleUser?.displayName || user.displayName || 'Não definido',
+        description: values.description || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        historico: [],
-        comprovantes: []
       };
-      
-      const docRef = await addDoc(obligationCollectionRef, newObligation);
-      await updateDoc(doc(obligationCollectionRef, docRef.id), { id: docRef.id });
+      batch.set(obligationDocRef, newObligation);
 
+      const historyCollectionRef = collection(firestore, `taxObligations/${obligationDocRef.id}/history`);
+      const historyDocRef = doc(historyCollectionRef);
+      batch.set(historyDocRef, {
+        id: historyDocRef.id,
+        timestamp: serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName || 'Usuário',
+        action: `Obrigação criada com status "Pendente".`,
+      });
+
+      if (values.attachment) {
+        const file = values.attachment;
+        const filePath = `obligations/${obligationDocRef.id}/${file.name}`;
+        const fileRef = ref(storage, filePath);
+        await uploadBytes(fileRef, file);
+        const fileUrl = await getDownloadURL(fileRef);
+
+        const attachmentCollectionRef = collection(firestore, `taxObligations/${obligationDocRef.id}/attachments`);
+        const attachmentDocRef = doc(attachmentCollectionRef);
+        batch.set(attachmentDocRef, {
+          id: attachmentDocRef.id,
+          name: file.name,
+          url: fileUrl,
+          uploadedAt: serverTimestamp(),
+          uploadedBy: user.displayName || 'Usuário',
+        });
+      }
+      
+      await batch.commit();
 
       toast({
         title: 'Obrigação Adicionada!',
@@ -141,7 +177,10 @@ export function AddObligationDialog({
         nome: '',
         periodo: format(new Date(), 'yyyy-MM'),
         responsavelId: user?.uid || '',
+        description: '',
+        attachment: null,
       });
+      onOpenChange(false);
     } catch (error: any) {
       console.error(error);
       toast({ title: 'Erro ao adicionar obrigação', description: error.message || 'Ocorreu um erro inesperado.', variant: 'destructive' });
@@ -208,7 +247,7 @@ export function AddObligationDialog({
                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {['Fiscal', 'Contábil', 'DP', 'Societário'].map((cat) => (
+                        {['Fiscal', 'Contábil', 'DP', 'Outros'].map((cat) => (
                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                         </SelectContent>
@@ -229,7 +268,7 @@ export function AddObligationDialog({
                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {['Mensal', 'Trimestral', 'Anual', 'Eventual'].map((p) => (
+                        {['Mensal', 'Anual', 'Eventual'].map((p) => (
                             <SelectItem key={p} value={p}>{p}</SelectItem>
                         ))}
                         </SelectContent>
@@ -303,6 +342,35 @@ export function AddObligationDialog({
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição / Observações</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Detalhes sobre a obrigação, links úteis, etc." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+             <FormField
+                control={form.control}
+                name="attachment"
+                render={({ field: { onChange, value, ...rest } }) => (
+                    <FormItem>
+                    <FormLabel>Anexo de Referência (Opcional)</FormLabel>
+                    <FormControl>
+                        <Input type="file" onChange={e => onChange(e.target.files ? e.target.files[0] : null)} {...rest} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+
 
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>

@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Activity": {
@@ -269,15 +268,19 @@
           "type": "string",
           "description": "Name of the obligation (e.g., DAS, DEFIS, SPED ECF)."
         },
+        "description": {
+          "type": "string",
+          "description": "Internal notes or observations about the obligation."
+        },
         "categoria": {
           "type": "string",
           "description": "Category of the obligation.",
-          "enum": ["Fiscal", "Contábil", "DP", "Societário"]
+          "enum": ["Fiscal", "Contábil", "DP", "Outros"]
         },
         "periodicidade": {
           "type": "string",
           "description": "Frequency of the obligation.",
-          "enum": ["Mensal", "Trimestral", "Anual", "Eventual"]
+          "enum": ["Mensal", "Anual", "Eventual"]
         },
         "periodo": {
           "type": "string",
@@ -296,7 +299,7 @@
         "status": {
           "type": "string",
           "description": "Current status of the obligation.",
-          "enum": ["Pendente", "Em Andamento", "Entregue", "Atrasada"]
+          "enum": ["Pendente", "Em Andamento", "Aguardando Cliente", "Aguardando Órgão", "Entregue", "Concluída", "Atrasada"]
         },
         "responsavelId": {
           "type": "string",
@@ -315,33 +318,6 @@
           "type": "string",
           "format": "date-time",
           "description": "Timestamp of the last update."
-        },
-        "historico": {
-          "type": "array",
-          "description": "List of events related to the obligation (status changes, comments, etc.).",
-          "items": {
-            "type": "object",
-            "properties": {
-              "timestamp": {"type": "string", "format": "date-time"},
-              "userId": {"type": "string"},
-              "userName": {"type": "string"},
-              "action": {"type": "string"},
-              "details": {"type": "string"}
-            }
-          }
-        },
-        "comprovantes": {
-          "type": "array",
-          "description": "List of objects representing uploaded proof of delivery files in Firebase Storage.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "fileName": { "type": "string" },
-              "fileUrl": { "type": "string", "format": "uri"},
-              "uploadedAt": { "type": "string", "format": "date-time" },
-              "uploadedBy": { "type": "string" }
-            }
-          }
         }
       },
       "required": ["id", "companyId", "companyName", "nome", "categoria", "periodicidade", "periodo", "dataVencimento", "status", "createdAt", "updatedAt"]
@@ -593,22 +569,38 @@
         }
       },
       {
-        "path": "/companies/{companyId}/taxObligations/{taxObligationId}",
+        "path": "/taxObligations/{taxObligationId}",
         "definition": {
           "entityName": "TaxObligation",
           "schema": {
             "$ref": "#/backend/entities/TaxObligation"
           },
-          "description": "Subcollection to store tax obligations for a specific company. Access control based on the 'members' map denormalized from the parent company document.",
+          "description": "Main collection to store all tax obligations for all companies. Allows for efficient global queries.",
           "params": [
-            {
-              "name": "companyId",
-              "description": "The unique identifier for the company."
-            },
             {
               "name": "taxObligationId",
               "description": "The unique identifier for the tax obligation."
             }
+          ]
+        }
+      },
+      {
+        "path": "/taxObligations/{taxObligationId}/history/{historyId}",
+        "definition": {
+          "description": "Subcollection to store the history of changes for a specific tax obligation.",
+          "params": [
+            { "name": "taxObligationId", "description": "The ID of the parent tax obligation."},
+            { "name": "historyId", "description": "The unique ID for the history entry."}
+          ]
+        }
+      },
+      {
+        "path": "/taxObligations/{taxObligationId}/attachments/{attachmentId}",
+        "definition": {
+          "description": "Subcollection to store attachments for a specific tax obligation.",
+          "params": [
+            { "name": "taxObligationId", "description": "The ID of the parent tax obligation."},
+            { "name": "attachmentId", "description": "The unique ID for the attachment."}
           ]
         }
       },
@@ -633,18 +625,14 @@
         }
       },
       {
-        "path": "/companies/{companyId}/corporateProcesses/{corporateProcessId}",
+        "path": "/corporateProcesses/{corporateProcessId}",
         "definition": {
           "entityName": "CorporateProcess",
           "schema": {
             "$ref": "#/backend/entities/CorporateProcess"
           },
-          "description": "Subcollection to store corporate processes for a specific company. Access control based on the 'members' map denormalized from the parent company document.",
+          "description": "Main collection to store all corporate processes for all companies. Allows for efficient global queries.",
           "params": [
-            {
-              "name": "companyId",
-              "description": "The unique identifier for the company."
-            },
             {
               "name": "corporateProcessId",
               "description": "The unique identifier for the corporate process."
