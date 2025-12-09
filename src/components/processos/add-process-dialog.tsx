@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -47,17 +47,22 @@ interface AddProcessDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProcessAdded: () => void;
+  users: { uid: string; displayName: string }[];
 }
 
-const processTypes = ['Abertura', 'Alteração', 'Encerramento', 'Outro'];
-const processStatuses: Array<'Aguardando Documentação' | 'Em Análise' | 'Em Exigência' | 'Concluído' | 'Cancelado'> = ['Aguardando Documentação', 'Em Análise', 'Em Exigência', 'Concluído', 'Cancelado'];
+const processTypes = ['Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
+const processStatuses: Array<'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Concluído' | 'Cancelado'> = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Concluído', 'Cancelado'];
+const processPriorities: Array<'Baixa' | 'Média' | 'Alta'> = ['Baixa', 'Média', 'Alta'];
+
 
 const formSchema = z.object({
   companyId: z.string({ required_error: 'Selecione uma empresa.' }),
   processType: z.string({ required_error: 'Selecione o tipo de processo.' }),
   status: z.enum(processStatuses),
+  priority: z.enum(processPriorities),
   startDate: z.date({ required_error: 'A data de início é obrigatória.' }),
-  protocolDate: z.date().optional(),
+  protocolDate: z.date().optional().nullable(),
+  responsibleUserId: z.string({ required_error: 'Selecione um responsável' }),
 });
 
 
@@ -70,6 +75,7 @@ export function AddProcessDialog({
   open,
   onOpenChange,
   onProcessAdded,
+  users
 }: AddProcessDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -87,7 +93,9 @@ export function AddProcessDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       status: 'Aguardando Documentação',
+      priority: 'Média',
       startDate: new Date(),
+      responsibleUserId: user?.uid || '',
     },
   });
 
@@ -106,20 +114,41 @@ export function AddProcessDialog({
       const company = companies?.find(c => c.id === values.companyId);
       if (!company) throw new Error("Empresa não encontrada.");
 
+      const responsibleUser = users.find(u => u.uid === values.responsibleUserId);
+
+      const batch = writeBatch(firestore);
       const processCollectionRef = collection(firestore, 'corporateProcesses');
+      const processDocRef = doc(processCollectionRef);
 
       const newProcess = {
+        id: processDocRef.id,
         companyId: values.companyId,
         companyName: company.name, 
         processType: values.processType,
         status: values.status,
+        priority: values.priority,
         startDate: values.startDate,
         protocolDate: values.protocolDate || null,
-        responsibleUserId: user.uid,
+        responsibleUserId: values.responsibleUserId,
+        responsibleUserName: responsibleUser?.displayName || '',
+        createdAt: serverTimestamp(),
+        history: [],
+        attachments: [],
       };
+      
+      batch.set(processDocRef, newProcess);
+      
+      const historyCollectionRef = collection(firestore, `corporateProcesses/${processDocRef.id}/history`);
+      const historyDocRef = doc(historyCollectionRef);
+      batch.set(historyDocRef, {
+        id: historyDocRef.id,
+        timestamp: serverTimestamp(),
+        userId: user.uid,
+        userName: user.displayName,
+        action: `Processo criado com status "${values.status}" e prioridade "${values.priority}".`,
+      });
 
-      const docRef = await addDoc(processCollectionRef, newProcess);
-      await updateDoc(doc(processCollectionRef, docRef.id), { id: docRef.id });
+      await batch.commit();
       
       logActivity(firestore, user, `iniciou o processo de ${values.processType} para ${company.name}.`);
 
@@ -132,10 +161,12 @@ export function AddProcessDialog({
       onOpenChange(false);
       form.reset({
         status: 'Aguardando Documentação',
+        priority: 'Média',
         startDate: new Date(),
         companyId: undefined,
         processType: undefined,
-        protocolDate: undefined
+        protocolDate: undefined,
+        responsibleUserId: user?.uid || '',
       });
     } catch (error: any) {
       console.error(error);
@@ -159,179 +190,84 @@ export function AddProcessDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
             <FormField
               control={form.control}
               name="companyId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Empresa</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a empresa" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {companies?.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger></FormControl><SelectContent>{companies?.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent></Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="processType"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Processo</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {processTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl><SelectContent>{processTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="startDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data de Início</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP', { locale: ptBR })
-                          ) : (
-                            <span>Escolha uma data</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                 <FormField
+                    control={form.control}
+                    name="responsibleUserId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Responsável</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{users.map((u) => (<SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>))}</SelectContent></Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Prioridade</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{processPriorities.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
 
-            <FormField
-              control={form.control}
-              name="protocolDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data do Protocolo (Opcional)</FormLabel>
-                   <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP', { locale: ptBR })
-                          ) : (
-                            <span>Escolha uma data</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col"><FormLabel>Data de Início</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: ptBR })) : (<span>Escolha uma data</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="protocolDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col"><FormLabel>Data do Protocolo (Opcional)</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: ptBR })) : (<span>Escolha uma data</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>
+                  )}
+                />
+            </div>
              <FormField
               control={form.control}
               name="status"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status Inicial</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o status inicial" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {processStatuses.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status inicial" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Salvar Processo
-              </Button>
-            </DialogFooter>
+            <DialogFooter className="pt-4"><Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={isLoading}>{isLoading && (<Loader2 className="mr-2 h-4 w-4 animate-spin" />)}Salvar Processo</Button></DialogFooter>
           </form>
         </Form>
       </DialogContent>

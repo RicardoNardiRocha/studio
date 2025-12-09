@@ -24,47 +24,60 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, MoreHorizontal } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ProcessDetailsDialog } from './process-details-dialog';
+import { KpiCard } from '../dashboard/kpi-card';
+import { differenceInDays, isPast } from 'date-fns';
 
+export type ProcessPriority = 'Baixa' | 'Média' | 'Alta';
+export type ProcessStatus = 'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Concluído' | 'Cancelado';
 
 export interface CorporateProcess {
   id: string;
   companyId: string;
   companyName: string;
   processType: string;
-  status: 'Em Análise' | 'Em Exigência' | 'Concluído' | 'Cancelado' | 'Aguardando Documentação';
-  startDate: { seconds: number; nanoseconds: number } | Date;
-  protocolDate?: { seconds: number; nanoseconds: number } | Date | null;
+  status: ProcessStatus;
+  startDate: Timestamp | Date;
+  protocolDate?: Timestamp | Date | null;
   responsibleUserId: string;
+  responsibleUserName?: string;
+  priority: ProcessPriority;
+  dueDate?: Timestamp | Date | null;
+  history?: any[];
+  attachments?: any[];
+  notes?: string;
 }
 
-const processStatuses: CorporateProcess['status'][] = ['Aguardando Documentação', 'Em Análise', 'Em Exigência', 'Concluído', 'Cancelado'];
-const processTypes = ['Todos', 'Abertura', 'Alteração', 'Encerramento', 'Outro'];
+const processStatuses: ProcessStatus[] = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Concluído', 'Cancelado'];
+const processTypes = ['Todos', 'Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
+const processPriorities: Array<'Todos' | ProcessPriority> = ['Todos', 'Baixa', 'Média', 'Alta'];
 
 
 const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
   switch (status) {
-    case 'Concluído':
-      return 'default';
-    case 'Em Exigência':
-      return 'destructive';
-    case 'Cancelado':
-      return 'outline';
-    case 'Em Análise':
-    case 'Aguardando Documentação':
-    default:
-      return 'secondary';
+    case 'Concluído': return 'default';
+    case 'Em Análise': case 'Em Preenchimento': case 'Em Andamento Externo': return 'secondary';
+    case 'Cancelado': return 'outline';
+    case 'Aguardando Documentação': case 'Aguardando Cliente': case 'Aguardando Órgão': default: return 'destructive';
   }
 };
 
+const getPriorityIcon = (priority: ProcessPriority) => {
+  switch (priority) {
+    case 'Alta': return <ArrowUp className="h-4 w-4 text-destructive" />;
+    case 'Média': return <ArrowRight className="h-4 w-4 text-yellow-500" />;
+    case 'Baixa': return <ArrowDown className="h-4 w-4 text-green-500" />;
+    default: return null;
+  }
+}
 
 export function CorporateProcessesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -73,6 +86,9 @@ export function CorporateProcessesClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [responsibleFilter, setResponsibleFilter] = useState('Todos');
+  const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
+  const [showOnlyDelayed, setShowOnlyDelayed] = useState(false);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -83,13 +99,15 @@ export function CorporateProcessesClient() {
   }, [firestore]);
 
   const { data: processes, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
+  const { data: users } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const handleProcessAction = () => {
     forceRefetch();
     setIsDetailsDialogOpen(false);
+    setIsAddDialogOpen(false);
   };
   
-  const handleStatusChange = async (processId: string, newStatus: CorporateProcess['status']) => {
+  const handleStatusChange = async (processId: string, newStatus: ProcessStatus) => {
     if (!firestore) return;
     const processRef = doc(firestore, 'corporateProcesses', processId);
     try {
@@ -109,26 +127,50 @@ export function CorporateProcessesClient() {
 
   const filteredProcesses = useMemo(() => {
     if (!processes) return [];
+    const today = new Date();
     return processes.filter(p => {
-        const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+        const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            p.processType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (p.responsibleUserName && p.responsibleUserName.toLowerCase().includes(searchTerm.toLowerCase()));
         const typeMatch = typeFilter === 'Todos' || p.processType === typeFilter;
         const statusMatch = statusFilter === 'Todos' || p.status === statusFilter;
-        return searchMatch && typeMatch && statusMatch;
+        const responsibleMatch = responsibleFilter === 'Todos' || p.responsibleUserId === responsibleFilter;
+        const priorityMatch = priorityFilter === 'Todos' || p.priority === priorityFilter;
+        
+        const isDelayed = p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30;
+        const delayedMatch = !showOnlyDelayed || isDelayed;
+        
+        return searchMatch && typeMatch && statusMatch && responsibleMatch && priorityMatch && delayedMatch;
     });
-  }, [processes, searchTerm, typeFilter, statusFilter]);
+  }, [processes, searchTerm, typeFilter, statusFilter, responsibleFilter, priorityFilter, showOnlyDelayed]);
 
-  const formatDate = (date: any) => {
+  const formatDate = (date: any): string => {
     if (!date) return 'N/A';
     const d = date instanceof Date ? date : new Date(date.seconds * 1000);
     return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   };
+  
+  const kpiValues = useMemo(() => {
+    if (!processes) return { inProgress: 0, completed: 0, delayed: 0, total: 0 };
+    const today = new Date();
+    const inProgress = processes.filter(p => !['Concluído', 'Cancelado'].includes(p.status)).length;
+    const completed = processes.filter(p => p.status === 'Concluído').length;
+    const delayed = processes.filter(p => p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30).length;
+    return {
+        total: processes.length,
+        inProgress,
+        completed,
+        delayed
+    }
+  }, [processes]);
 
   return (
     <>
       <AddProcessDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onProcessAdded={forceRefetch}
+        onProcessAdded={handleProcessAction}
+        users={users || []}
       />
       {selectedProcess && (
         <ProcessDetailsDialog
@@ -138,8 +180,17 @@ export function CorporateProcessesClient() {
           onOpenChange={setIsDetailsDialogOpen}
           onProcessUpdated={handleProcessAction}
           onProcessDeleted={handleProcessAction}
+          users={users || []}
         />
       )}
+      
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+            <KpiCard title="Total de Processos" value={String(kpiValues.total)} icon="Workflow" description="" href="/processos" />
+            <KpiCard title="Em Andamento" value={String(kpiValues.inProgress)} icon="Loader2" description="" href="/processos" />
+            <KpiCard title="Concluídos" value={String(kpiValues.completed)} icon="CheckCircle2" description="No total" href="/processos" />
+            <KpiCard title="Atrasados" value={String(kpiValues.delayed)} icon="AlertTriangle" description="> 30 dias abertos" href="/processos" />
+        </div>
+
       <Card>
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
@@ -156,50 +207,56 @@ export function CorporateProcessesClient() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-            <div className="relative w-full md:flex-1">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="relative flex-grow min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome da empresa..."
+                placeholder="Buscar por empresa, tipo, responsável..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="w-full md:w-auto md:min-w-[180px]">
+            <div className="flex-grow min-w-[180px]">
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por tipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {processTypes.map(type => (
-                    <SelectItem key={type} value={type}>{type === 'Todos' ? 'Todos os Tipos' : type}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectTrigger><SelectValue placeholder="Filtrar por tipo..." /></SelectTrigger>
+                <SelectContent>{processTypes.map(type => (<SelectItem key={type} value={type}>{type === 'Todos' ? 'Todos os Tipos' : type}</SelectItem>))}</SelectContent>
               </Select>
             </div>
-            <div className="w-full md:w-auto md:min-w-[180px]">
+             <div className="flex-grow min-w-[180px]">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por status..." />
-                </SelectTrigger>
-                <SelectContent>
-                   <SelectItem value="Todos">Todos os Status</SelectItem>
-                  {processStatuses.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectTrigger><SelectValue placeholder="Filtrar por status..." /></SelectTrigger>
+                <SelectContent><SelectItem value="Todos">Todos os Status</SelectItem>{processStatuses.map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
               </Select>
+            </div>
+            <div className="flex-grow min-w-[180px]">
+                <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
+                    <SelectTrigger><SelectValue placeholder="Filtrar por responsável..." /></SelectTrigger>
+                    <SelectContent><SelectItem value="Todos">Todos os Responsáveis</SelectItem>{users?.map(u => (<SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>))}</SelectContent>
+                </Select>
+            </div>
+             <div className="flex-grow min-w-[180px]">
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                    <SelectTrigger><SelectValue placeholder="Filtrar por prioridade..." /></SelectTrigger>
+                    <SelectContent><SelectItem value="Todos">Todas as Prioridades</SelectItem>{processPriorities.filter(p => p !== 'Todos').map(p => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent>
+                </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+                <Button variant={showOnlyDelayed ? 'destructive' : 'outline'} onClick={() => setShowOnlyDelayed(!showOnlyDelayed)}>
+                    <AlertTriangle className="mr-2 h-4 w-4"/>
+                    Apenas Atrasados
+                </Button>
             </div>
           </div>
           <div className="border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className='w-12'></TableHead>
                   <TableHead>Empresa</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Data de Início</TableHead>
-                  <TableHead>Data de Protocolo</TableHead>
+                  <TableHead>Responsável</TableHead>
+                  <TableHead>Datas</TableHead>
                   <TableHead className="w-[200px]">Status</TableHead>
                   <TableHead><span className="sr-only">Ações</span></TableHead>
                 </TableRow>
@@ -208,54 +265,60 @@ export function CorporateProcessesClient() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
+                      <TableCell><Skeleton className="h-5 w-5" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
                 ) : filteredProcesses.length > 0 ? (
-                  filteredProcesses.map((process) => (
-                    <TableRow key={process.id}>
-                      <TableCell className="font-medium">{process.companyName}</TableCell>
-                      <TableCell>{process.processType}</TableCell>
-                      <TableCell>{formatDate(process.startDate)}</TableCell>
-                      <TableCell>{formatDate(process.protocolDate)}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={process.status}
-                          onValueChange={(newStatus: CorporateProcess['status']) => handleStatusChange(process.id, newStatus)}
-                        >
-                          <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
-                            <SelectValue asChild>
-                                <Badge variant={getStatusBadgeVariant(process.status)} className="w-full justify-center font-medium">
-                                {process.status}
-                                </Badge>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {processStatuses.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                <Badge variant={getStatusBadgeVariant(status)} className="border-none shadow-none font-medium">{status}</Badge>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="icon" onClick={() => handleOpenDetails(process)}>
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Ver Detalhes</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredProcesses.map((process) => {
+                     const isDelayed = process.status !== 'Concluído' && process.status !== 'Cancelado' && differenceInDays(new Date(), (process.startDate as Timestamp).toDate()) > 30;
+                     return (
+                        <TableRow key={process.id} className={isDelayed ? 'bg-destructive/10' : ''}>
+                          <TableCell>{getPriorityIcon(process.priority)}</TableCell>
+                          <TableCell className="font-medium">{process.companyName}</TableCell>
+                          <TableCell>{process.processType}</TableCell>
+                          <TableCell>{process.responsibleUserName || 'N/D'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            Início: {formatDate(process.startDate)}<br/>
+                            Protocolo: {formatDate(process.protocolDate)}
+                          </TableCell>
+                          <TableCell>
+                            <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process.id, newStatus)}>
+                              <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
+                                <SelectValue asChild>
+                                    <Badge variant={getStatusBadgeVariant(process.status)} className="w-full justify-center font-medium">
+                                    {process.status}
+                                    </Badge>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {processStatuses.map((status) => (
+                                  <SelectItem key={status} value={status}>
+                                    <Badge variant={getStatusBadgeVariant(status)} className="border-none shadow-none font-medium">{status}</Badge>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isDelayed && <AlertTriangle className="h-4 w-4 text-destructive inline-block mr-2" title="Processo atrasado"/>}
+                            <Button variant="outline" size="icon" onClick={() => handleOpenDetails(process)}>
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Ver Detalhes</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                     )
+                    })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      Nenhum processo societário encontrado.
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      Nenhum processo encontrado com os filtros aplicados.
                     </TableCell>
                   </TableRow>
                 )}
