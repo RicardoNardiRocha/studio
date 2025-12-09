@@ -3,15 +3,30 @@
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePendingObligations } from '@/hooks/use-pending-obligations';
-import { useExpiringCertificates } from '@/hooks/use-expiring-certificates';
-import { useOnHoldProcesses } from '@/hooks/use-on-hold-processes';
+import { useActiveCompanies } from '@/hooks/use-active-companies';
+import { useInProgressProcesses } from '@/hooks/use-in-progress-processes';
+import { useFinancialsSummary } from '@/hooks/use-financials-summary';
+import { format } from 'date-fns';
+
+const formatCurrency = (value: number) => {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export function KpiCards() {
+  const { count: activeCompanies, isLoading: isLoadingCompanies } = useActiveCompanies();
   const { count: pendingObligations, isLoading: isLoadingObligations } = usePendingObligations();
-  const { count: expiringCertificates, isLoading: isLoadingCertificates } = useExpiringCertificates();
-  const { count: onHoldProcesses, isLoading: isLoadingProcesses } = useOnHoldProcesses();
+  const { count: inProgressProcesses, isLoading: isLoadingProcesses } = useInProgressProcesses();
+  const { receivedAmount, isLoading: isLoadingFinancials } = useFinancialsSummary();
 
   const kpis = [
+     {
+      title: 'Empresas Ativas',
+      value: activeCompanies,
+      icon: 'Building',
+      description: 'Clientes com status "Ativa"',
+      isLoading: isLoadingCompanies,
+      href: '/empresas'
+    },
     {
       title: 'Obrigações Pendentes',
       value: pendingObligations,
@@ -21,20 +36,20 @@ export function KpiCards() {
       href: '/obrigacoes'
     },
     {
-      title: 'Certificados Vencendo',
-      value: expiringCertificates,
-      icon: 'FileWarning',
-      description: 'nos próximos 30 dias',
-      isLoading: isLoadingCertificates,
-      href: '/societario'
-    },
-    {
-      title: 'Processos em Exigência',
-      value: onHoldProcesses,
-      icon: 'AlertTriangle',
-      description: 'aguardando ação',
+      title: 'Processos em Andamento',
+      value: inProgressProcesses,
+      icon: 'Workflow',
+      description: 'Processos societários ativos',
       isLoading: isLoadingProcesses,
       href: '/processos'
+    },
+     {
+      title: 'Recebimentos do Mês',
+      value: formatCurrency(receivedAmount),
+      icon: 'Landmark',
+      description: `Faturas pagas em ${format(new Date(), 'MMMM')}`,
+      isLoading: isLoadingFinancials,
+      href: '/financeiro'
     },
   ];
 
