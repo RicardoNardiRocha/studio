@@ -47,8 +47,6 @@ export interface CorporateProcess {
   status: ProcessStatus;
   startDate: Timestamp | Date;
   protocolDate?: Timestamp | Date | null;
-  responsibleUserId: string;
-  responsibleUserName?: string;
   priority: ProcessPriority;
   dueDate?: Timestamp | Date | null;
   history?: any[];
@@ -86,9 +84,8 @@ export function CorporateProcessesClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
-  const [responsibleFilter, setResponsibleFilter] = useState('Todos');
   const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
-  const [showOnlyDelayed, setShowOnlyDelayed] = useState(false);
+  const [showOnlyHighPriority, setShowOnlyHighPriority] = useState(false);
 
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -130,19 +127,16 @@ export function CorporateProcessesClient() {
     const today = new Date();
     return processes.filter(p => {
         const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            p.processType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (p.responsibleUserName && p.responsibleUserName.toLowerCase().includes(searchTerm.toLowerCase()));
+                            p.processType.toLowerCase().includes(searchTerm.toLowerCase());
         const typeMatch = typeFilter === 'Todos' || p.processType === typeFilter;
         const statusMatch = statusFilter === 'Todos' || p.status === statusFilter;
-        const responsibleMatch = responsibleFilter === 'Todos' || p.responsibleUserId === responsibleFilter;
         const priorityMatch = priorityFilter === 'Todos' || p.priority === priorityFilter;
         
-        const isDelayed = p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30;
-        const delayedMatch = !showOnlyDelayed || isDelayed;
+        const highPriorityMatch = !showOnlyHighPriority || p.priority === 'Alta';
         
-        return searchMatch && typeMatch && statusMatch && responsibleMatch && priorityMatch && delayedMatch;
+        return searchMatch && typeMatch && statusMatch && priorityMatch && highPriorityMatch;
     });
-  }, [processes, searchTerm, typeFilter, statusFilter, responsibleFilter, priorityFilter, showOnlyDelayed]);
+  }, [processes, searchTerm, typeFilter, statusFilter, priorityFilter, showOnlyHighPriority]);
 
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
@@ -170,7 +164,6 @@ export function CorporateProcessesClient() {
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onProcessAdded={handleProcessAction}
-        users={users || []}
       />
       {selectedProcess && (
         <ProcessDetailsDialog
@@ -180,7 +173,6 @@ export function CorporateProcessesClient() {
           onOpenChange={setIsDetailsDialogOpen}
           onProcessUpdated={handleProcessAction}
           onProcessDeleted={handleProcessAction}
-          users={users || []}
         />
       )}
       
@@ -211,7 +203,7 @@ export function CorporateProcessesClient() {
             <div className="relative flex-grow min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por empresa, tipo, responsável..."
+                placeholder="Buscar por empresa ou tipo..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -229,12 +221,6 @@ export function CorporateProcessesClient() {
                 <SelectContent><SelectItem value="Todos">Todos os Status</SelectItem>{processStatuses.map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
               </Select>
             </div>
-            <div className="flex-grow min-w-[180px]">
-                <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-                    <SelectTrigger><SelectValue placeholder="Filtrar por responsável..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="Todos">Todos os Responsáveis</SelectItem>{users?.map(u => (<SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>))}</SelectContent>
-                </Select>
-            </div>
              <div className="flex-grow min-w-[180px]">
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                     <SelectTrigger><SelectValue placeholder="Filtrar por prioridade..." /></SelectTrigger>
@@ -242,9 +228,9 @@ export function CorporateProcessesClient() {
                 </Select>
             </div>
             <div className="flex items-center space-x-2">
-                <Button variant={showOnlyDelayed ? 'destructive' : 'outline'} onClick={() => setShowOnlyDelayed(!showOnlyDelayed)}>
+                <Button variant={showOnlyHighPriority ? 'destructive' : 'outline'} onClick={() => setShowOnlyHighPriority(!showOnlyHighPriority)}>
                     <AlertTriangle className="mr-2 h-4 w-4"/>
-                    Apenas Atrasados
+                    Apenas Alta Prioridade
                 </Button>
             </div>
           </div>
@@ -255,7 +241,6 @@ export function CorporateProcessesClient() {
                   <TableHead className='w-12'></TableHead>
                   <TableHead>Empresa</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Responsável</TableHead>
                   <TableHead>Datas</TableHead>
                   <TableHead className="w-[200px]">Status</TableHead>
                   <TableHead><span className="sr-only">Ações</span></TableHead>
@@ -267,7 +252,6 @@ export function CorporateProcessesClient() {
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-5" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
@@ -282,7 +266,6 @@ export function CorporateProcessesClient() {
                           <TableCell>{getPriorityIcon(process.priority)}</TableCell>
                           <TableCell className="font-medium">{process.companyName}</TableCell>
                           <TableCell>{process.processType}</TableCell>
-                          <TableCell>{process.responsibleUserName || 'N/D'}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             Início: {formatDate(process.startDate)}<br/>
                             Protocolo: {formatDate(process.protocolDate)}
@@ -317,7 +300,7 @@ export function CorporateProcessesClient() {
                     })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       Nenhum processo encontrado com os filtros aplicados.
                     </TableCell>
                   </TableRow>

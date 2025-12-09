@@ -44,7 +44,6 @@ interface ProcessDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   onProcessUpdated: () => void;
   onProcessDeleted: () => void;
-  users: { uid: string; displayName: string }[];
 }
 
 const processTypes = ['Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
@@ -58,7 +57,6 @@ const formSchema = z.object({
   priority: z.enum(processPriorities),
   startDate: z.date({ required_error: 'A data de início é obrigatória.' }),
   protocolDate: z.date().nullable().optional(),
-  responsibleUserId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -73,7 +71,7 @@ const toDate = (date: any): Date | undefined => {
 
 
 export function ProcessDetailsDialog({
-  process, open, onOpenChange, onProcessUpdated, onProcessDeleted, users
+  process, open, onOpenChange, onProcessUpdated, onProcessDeleted
 }: ProcessDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -97,7 +95,6 @@ export function ProcessDetailsDialog({
       priority: process.priority,
       startDate: toDate(process.startDate),
       protocolDate: toDate(process.protocolDate),
-      responsibleUserId: process.responsibleUserId,
       notes: process.notes,
     },
   });
@@ -181,16 +178,12 @@ export function ProcessDetailsDialog({
       const batch = writeBatch(firestore);
       const processRef = doc(firestore, 'corporateProcesses', process.id);
       
-      const responsibleUser = users.find(u => u.uid === values.responsibleUserId);
-      
       const updatedData = {
         processType: values.processType,
         status: values.status,
         priority: values.priority,
         startDate: values.startDate,
         protocolDate: values.protocolDate,
-        responsibleUserId: values.responsibleUserId,
-        responsibleUserName: responsibleUser?.displayName || '',
         notes: values.notes,
       };
 
@@ -254,7 +247,6 @@ export function ProcessDetailsDialog({
                          <FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                           <FormField control={form.control} name="responsibleUserId" render={({ field }) => (<FormItem><FormLabel>Responsável</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{users.map((u) => (<SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                            <FormField control={form.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Prioridade</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{processPriorities.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                         </div>
                          <div className="grid grid-cols-2 gap-4">

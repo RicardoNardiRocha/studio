@@ -47,7 +47,6 @@ interface AddProcessDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProcessAdded: () => void;
-  users: { uid: string; displayName: string }[];
 }
 
 const processTypes = ['Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
@@ -62,7 +61,6 @@ const formSchema = z.object({
   priority: z.enum(processPriorities),
   startDate: z.date({ required_error: 'A data de início é obrigatória.' }),
   protocolDate: z.date().optional().nullable(),
-  responsibleUserId: z.string({ required_error: 'Selecione um responsável' }),
 });
 
 
@@ -75,7 +73,6 @@ export function AddProcessDialog({
   open,
   onOpenChange,
   onProcessAdded,
-  users
 }: AddProcessDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -95,7 +92,6 @@ export function AddProcessDialog({
       status: 'Aguardando Documentação',
       priority: 'Média',
       startDate: new Date(),
-      responsibleUserId: user?.uid || '',
     },
   });
 
@@ -114,8 +110,6 @@ export function AddProcessDialog({
       const company = companies?.find(c => c.id === values.companyId);
       if (!company) throw new Error("Empresa não encontrada.");
 
-      const responsibleUser = users.find(u => u.uid === values.responsibleUserId);
-
       const batch = writeBatch(firestore);
       const processCollectionRef = collection(firestore, 'corporateProcesses');
       const processDocRef = doc(processCollectionRef);
@@ -129,8 +123,6 @@ export function AddProcessDialog({
         priority: values.priority,
         startDate: values.startDate,
         protocolDate: values.protocolDate || null,
-        responsibleUserId: values.responsibleUserId,
-        responsibleUserName: responsibleUser?.displayName || '',
         createdAt: serverTimestamp(),
         history: [],
         attachments: [],
@@ -166,7 +158,6 @@ export function AddProcessDialog({
         companyId: undefined,
         processType: undefined,
         protocolDate: undefined,
-        responsibleUserId: user?.uid || '',
       });
     } catch (error: any) {
       console.error(error);
@@ -215,17 +206,6 @@ export function AddProcessDialog({
             />
 
             <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                    control={form.control}
-                    name="responsibleUserId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Responsável</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{users.map((u) => (<SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>))}</SelectContent></Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
                 <FormField
                     control={form.control}
                     name="priority"
@@ -233,6 +213,17 @@ export function AddProcessDialog({
                         <FormItem>
                         <FormLabel>Prioridade</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{processPriorities.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Status Inicial</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status inicial" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -255,18 +246,7 @@ export function AddProcessDialog({
                   )}
                 />
             </div>
-             <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status Inicial</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status inicial" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+           
             <DialogFooter className="pt-4"><Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={isLoading}>{isLoading && (<Loader2 className="mr-2 h-4 w-4 animate-spin" />)}Salvar Processo</Button></DialogFooter>
           </form>
         </Form>

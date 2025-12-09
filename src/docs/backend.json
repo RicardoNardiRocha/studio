@@ -434,11 +434,8 @@
         },
         "status": {
           "type": "string",
-          "description": "Current status of the corporate process (e.g., In Analysis, In Requirement, Concluded, Canceled)."
-        },
-        "responsibleUserId": {
-          "type": "string",
-          "description": "Reference to User. User responsible for this corporate process. (Relationship: User 1:N CorporateProcess)"
+          "description": "Current status of the corporate process.",
+           "enum": ["Aguardando Documentação", "Em Análise", "Em Preenchimento", "Protocolado", "Em Andamento Externo", "Aguardando Cliente", "Aguardando Órgão", "Concluído", "Cancelado"]
         }
       },
       "required": [
@@ -596,14 +593,18 @@
         }
       },
       {
-        "path": "/taxObligations/{taxObligationId}",
+        "path": "/companies/{companyId}/taxObligations/{taxObligationId}",
         "definition": {
           "entityName": "TaxObligation",
           "schema": {
             "$ref": "#/backend/entities/TaxObligation"
           },
-          "description": "Root collection to store tax obligations for all companies.",
+          "description": "Subcollection to store tax obligations for a specific company. Access control based on the 'members' map denormalized from the parent company document.",
           "params": [
+            {
+              "name": "companyId",
+              "description": "The unique identifier for the company."
+            },
             {
               "name": "taxObligationId",
               "description": "The unique identifier for the tax obligation."
@@ -632,14 +633,18 @@
         }
       },
       {
-        "path": "/corporateProcesses/{corporateProcessId}",
+        "path": "/companies/{companyId}/corporateProcesses/{corporateProcessId}",
         "definition": {
           "entityName": "CorporateProcess",
           "schema": {
             "$ref": "#/backend/entities/CorporateProcess"
           },
-          "description": "Root collection to store corporate processes for all companies.",
+          "description": "Subcollection to store corporate processes for a specific company. Access control based on the 'members' map denormalized from the parent company document.",
           "params": [
+            {
+              "name": "companyId",
+              "description": "The unique identifier for the company."
+            },
             {
               "name": "corporateProcessId",
               "description": "The unique identifier for the corporate process."
