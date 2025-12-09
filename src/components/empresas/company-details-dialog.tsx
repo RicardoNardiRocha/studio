@@ -30,7 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
 import { Loader2, Trash2, ShieldCheck, UploadCloud, Download } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -40,6 +40,7 @@ import { Input } from '../ui/input';
 import { CertificateUploadDialog } from './certificate-upload-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompanyDocumentsTab } from './company-documents-tab';
+import { logActivity } from '@/lib/activity-log';
 
 // Interface para os dados brutos da API
 interface RawPartnerFromApi {
@@ -135,6 +136,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const [isLoading, setIsLoading] = useState(false);
   const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -147,16 +149,21 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const normalizedQsa = normalizeQsaData(company.qsa);
 
   const handleDelete = () => {
-    if (!firestore) {
+    if (!firestore || !user) {
       toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive"});
       return;
     }
+
     const companyRef = doc(firestore, 'companies', company.id);
     deleteDocumentNonBlocking(companyRef);
+    
+    logActivity(firestore, user, `excluiu a empresa ${company.name}.`);
+
     toast({
       title: "Empresa Excluída",
       description: `${company.name} foi removida do sistema.`
     });
+    
     onCompanyDeleted();
     onOpenChange(false);
   };
@@ -225,7 +232,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
           </DialogHeader>
           
            <Tabs defaultValue="details" className="w-full flex-grow overflow-hidden flex flex-col">
-              <div className='px-6'>
+              <div className='px-6 border-b'>
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="details">Detalhes da Empresa</TabsTrigger>
                     <TabsTrigger value="documents">Documentos</TabsTrigger>
