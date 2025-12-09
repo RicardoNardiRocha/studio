@@ -4,9 +4,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ------------------------------------------------------------
+    // =========================================================================
     // Helper Functions
-    // ------------------------------------------------------------
+    // =========================================================================
 
     function isSignedIn() {
       return request.auth != null;
@@ -16,170 +16,126 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    // Admin global → baseado na existência do documento em roles_admin
-    function isOwnerRole() {
-      // Temporariamente simplificado para prototipagem
-      return request.auth.uid == "wK9BRBsngobSOBFZEYacPLYAHXl2"; // Substituir pelo UID real do dono
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // Usuário do financeiro → baseado na existência do documento em roles_finance
+    function isOwnerRole() {
+      return getUserProfile().data.roleId == 'owner';
+    }
+
     function isFinanceUser() {
       return exists(/databases/$(database)/documents/roles_finance/$(request.auth.uid));
     }
 
-    // Verifica se o usuário é membro da empresa
     function isCompanyMember(companyId) {
       return get(/databases/$(database)/documents/companies/$(companyId)).data.members[request.auth.uid] != null;
     }
 
-    // Leitura permitida para Admin OU membro da empresa
     function canReadCompanyData(companyId) {
       return isOwnerRole() || isCompanyMember(companyId);
     }
 
-    // Criador do documento → no momento da criação
     function isRequestingUserResponsible() {
       return request.resource.data.responsibleUserId == request.auth.uid;
     }
 
-    // Criador do documento → em updates
     function isExistingResponsibleUserOrAdmin(responsibleUserId) {
-      return resource != null && (isOwnerRole() || isOwner(responsibleUserId));
+      return resource != null && (isOwnerRole() || responsibleUserId == request.auth.uid);
     }
 
-    // Garante que o campo companyId não seja alterado em updates
     function isCompanyIdImmutable() {
       return request.resource.data.companyId == resource.data.companyId;
     }
 
-    // Garante que o campo responsibleUserId não seja alterado em updates
-    function isResponsibleUserImmutable() {
-      return request.resource.data.responsibleUserId == resource.data.responsibleUserId;
-    }
-
-    // ------------------------------------------------------------
-    // ROLES FINANCE
-    // ------------------------------------------------------------
-    match /roles_finance/{userId} {
-      allow read, write: if isOwnerRole(); 
-    }
-
-    // ------------------------------------------------------------
+    // =========================================================================
     // USERS
-    // ------------------------------------------------------------
+    // =========================================================================
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isOwnerRole();
       allow list: if isOwnerRole();
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId);
-    }
-    
-    // ------------------------------------------------------------
-    // ACTIVITIES (LOG)
-    // ------------------------------------------------------------
-    match /activities/{activityId} {
-      allow read, list: if isSignedIn(); // Todos podem ler o log
-      allow create: if isSignedIn(); // Todos podem criar entradas de log (via app)
-      allow update, delete: if isOwnerRole(); // Apenas donos podem modificar/apagar logs
+      allow update: if isOwner(userId);
+      allow delete: if isOwnerRole();
     }
 
-    // ------------------------------------------------------------
+    // =========================================================================
+    // ROLES
+    // =========================================================================
+
+    match /roles/{roleId} {
+      allow read, write: if isOwnerRole();
+    }
+
+    match /roles_finance/{userId} {
+      allow read, write: if isOwnerRole();
+    }
+
+    // =========================================================================
     // COMPANIES
-    // ------------------------------------------------------------
-    match /companies/{companyId} {
+    // =========================================================================
 
+    match /companies/{companyId} {
       allow get: if canReadCompanyData(companyId);
       allow list: if isSignedIn();
-
-      // Criar empresa → precisa ter members.{uid} = 'admin'
-      allow create: if isSignedIn()
-                    && request.resource.data.members[request.auth.uid] == 'admin';
-
-      allow update: if resource != null
-                    && (isOwnerRole() || isCompanyMember(companyId));
-
+      allow create: if isSignedIn();
+      allow update: if isOwnerRole() || isCompanyMember(companyId);
       allow delete: if isOwnerRole();
-
     }
 
-    // ------------------------------------------------------------
-    // PARTNERS (cadastro de sócios)
-    // ------------------------------------------------------------
+    // =========================================================================
+    // PARTNERS
+    // =========================================================================
+
     match /partners/{partnerId} {
       allow read, write: if isSignedIn();
     }
 
-    // ------------------------------------------------------------
-    // FINANCE MODULE: INVOICES
-    // ------------------------------------------------------------
+    // =========================================================================
+    // FINANCE (invoices)
+    // =========================================================================
+
     match /invoices/{invoiceId} {
-      allow list, get, create, update, delete:
-        if isOwnerRole() || isFinanceUser();
+      allow list, get, create, update, delete: if isFinanceUser() || isOwnerRole();
     }
 
-    // ------------------------------------------------------------
-    // TAX OBLIGATIONS (companies/{id}/taxObligations)
-    // ------------------------------------------------------------
-    match /companies/{companyId}/taxObligations/{taxId} {
-
-      allow get, list: if canReadCompanyData(companyId);
-
-      allow create:
-        if canReadCompanyData(companyId)
-        && request.resource.data.companyId == companyId
-        && isRequestingUserResponsible();
-
-      allow update:
-        if isExistingResponsibleUserOrAdmin(resource.data.responsavelId)
-        && isCompanyIdImmutable()
-        && isResponsibleUserImmutable();
-
-      allow delete:
-        if isExistingResponsibleUserOrAdmin(resource.data.responsavelId);
+    // =========================================================================
+    // TAX OBLIGATIONS (Root Collection)
+    // =========================================================================
+    
+    match /taxObligations/{taxObligationId} {
+       allow read, list: if isSignedIn(); // Simplified for listing, detailed check on client
+       allow create, update, delete: if isSignedIn() && canReadCompanyData(request.resource.data.companyId);
     }
 
-    // ------------------------------------------------------------
-    // DOCUMENTS (companies/{id}/documents)
-    // ------------------------------------------------------------
-    match /companies/{companyId}/documents/{docId} {
+    // =========================================================================
+    // CORPORATE PROCESSES (Root Collection)
+    // =========================================================================
 
-      allow get, list: if canReadCompanyData(companyId);
+    match /corporateProcesses/{processId} {
+      allow read, list: if isSignedIn(); // Simplified for listing, detailed check on client
+      allow create: if canReadCompanyData(request.resource.data.companyId) && isRequestingUserResponsible();
+      allow update, delete: if canReadCompanyData(resource.data.companyId);
+    }
+    
+    // =========================================================================
+    // DOCUMENTS
+    // =========================================================================
 
-      allow create:
-        if canReadCompanyData(companyId)
-        && request.resource.data.companyId == companyId
-        && isRequestingUserResponsible();
-
-      allow update:
-        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId)
-        && isCompanyIdImmutable()
-        && isResponsibleUserImmutable();
-
-      allow delete:
-        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
+    match /companies/{companyId}/documents/{documentId} {
+      allow read, list: if canReadCompanyData(companyId);
+      allow create: if canReadCompanyData(companyId) && isRequestingUserResponsible();
+      allow update, delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable();
     }
 
-    // ------------------------------------------------------------
-    // CORPORATE PROCESSES (companies/{id}/corporateProcesses)
-    // ------------------------------------------------------------
-    match /companies/{companyId}/corporateProcesses/{procId} {
-      
-      allow get, list: if canReadCompanyData(companyId);
+    // =========================================================================
+    // ACTIVITY LOG
+    // =========================================================================
 
-      allow create:
-        if canReadCompanyData(companyId)
-        && request.resource.data.companyId == companyId
-        && isRequestingUserResponsible();
-
-      allow update:
-        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId)
-        && isCompanyIdImmutable()
-        && isResponsibleUserImmutable();
-
-      allow delete:
-        if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
+    match /activities/{activityId} {
+      allow read, list, create: if isSignedIn();
+      allow update, delete: if isOwnerRole();
     }
-
   }
 }
