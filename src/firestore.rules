@@ -183,7 +183,6 @@ service cloud.firestore {
       allow read, list, create, update, delete: if isSignedIn() && canReadCompanyData(request.resource.data.companyId);
     }
 
-
     /**
      * @description Documents for a company. Inherits access from the parent company.
      */
@@ -193,6 +192,14 @@ service cloud.firestore {
       allow create: if canReadCompanyData(companyId) && isRequestingUserResponsible();
       allow update: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId) && isCompanyIdImmutable();
       allow delete: if isExistingResponsibleUserOrAdmin(resource.data.responsibleUserId);
+    }
+    
+    /**
+     * @description Activity log. All signed-in users can read and create. Only owners can modify.
+     */
+    match /activities/{activityId} {
+      allow read, list, create: if isSignedIn();
+      allow update, delete: if isOwnerRole();
     }
   }
 }
