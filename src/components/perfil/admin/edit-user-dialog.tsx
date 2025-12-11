@@ -95,7 +95,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
       return;
     }
 
-    if (currentUser.uid === userToEdit.uid) {
+    if (currentUser.uid === userToEdit.userId) {
        toast({ title: 'Ação não permitida', description: 'Você não pode alterar suas próprias permissões.', variant: 'destructive' });
        return;
     }
@@ -113,7 +113,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
 
     setIsLoading(true);
     try {
-      const userRef = doc(firestore, 'users', userToEdit.uid);
+      const userRef = doc(firestore, 'users', userToEdit.userId);
       const dataToUpdate: Partial<UserProfile> = {
         roleId: values.roleId,
         isAdmin: values.roleId === 'admin' || values.roleId === 'owner' || values.isAdmin,

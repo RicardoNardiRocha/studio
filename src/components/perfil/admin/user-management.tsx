@@ -49,11 +49,11 @@ export function UserManagement() {
   }
   
   const canEdit = (userToEdit: UserProfile) => {
-    if (!adminProfile) return false;
+    if (!adminProfile || !adminUser) return false;
     // Cannot edit self
-    if(adminUser?.uid === userToEdit.uid) return false;
-    // Owners can edit anyone except other owners (for safety, can be changed)
-    if(adminProfile.roleId === 'owner' && userToEdit.roleId !== 'owner') return true;
+    if(adminUser.uid === userToEdit.userId) return false;
+    // Owners can edit anyone 
+    if(adminProfile.roleId === 'owner') return true;
     // Admins can edit anyone who is not an owner or another admin
     if(adminProfile.roleId === 'admin' && userToEdit.roleId !== 'owner' && userToEdit.roleId !== 'admin') return true;
     
@@ -108,7 +108,7 @@ export function UserManagement() {
                   ))
                 ) : users && users.length > 0 ? (
                   users.map((user) => (
-                    <TableRow key={user.uid}>
+                    <TableRow key={user.userId}>
                       <TableCell className="font-medium">{user.displayName}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
