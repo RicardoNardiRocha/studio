@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, Loader2 } from 'lucide-react';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
@@ -83,7 +83,7 @@ export default function SocietarioPage() {
 
   const firestore = useFirestore();
 
-  const partnersCollection = useMemo(() => {
+  const partnersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'partners'), orderBy('name', 'asc'));
   }, [firestore]);
