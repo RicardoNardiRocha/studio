@@ -1,10 +1,11 @@
 'use client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { collection, limit, orderBy, query, Timestamp } from 'firebase/firestore';
+import { useMemo } from 'react';
 import { User } from 'lucide-react';
 
 interface Activity {
@@ -19,7 +20,7 @@ interface Activity {
 export function RecentActivities() {
   const firestore = useFirestore();
 
-  const activitiesQuery = useMemoFirebase(() => {
+  const activitiesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'activities'), orderBy('timestamp', 'desc'), limit(5));
   }, [firestore]);

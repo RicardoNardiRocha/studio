@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
@@ -90,13 +90,13 @@ export function CorporateProcessesClient() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const processesQuery = useMemoFirebase(() => {
+  const processesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
   }, [firestore]);
 
   const { data: processes, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
-  const { data: users } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
+  const { data: users } = useCollection(useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const handleProcessAction = () => {
     forceRefetch();
@@ -222,7 +222,7 @@ export function CorporateProcessesClient() {
               </Select>
             </div>
              <div className="flex-grow min-w-[180px]">
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <Select value={priorityFilter} onValueChange={(value: 'Todos' | ProcessPriority) => setPriorityFilter(value)}>
                     <SelectTrigger><SelectValue placeholder="Filtrar por prioridade..." /></SelectTrigger>
                     <SelectContent><SelectItem value="Todos">Todas as Prioridades</SelectItem>{processPriorities.filter(p => p !== 'Todos').map(p => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent>
                 </Select>

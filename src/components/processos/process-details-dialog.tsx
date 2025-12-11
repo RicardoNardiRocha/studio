@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2, CalendarIcon, Upload, Download, FileText } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, addDoc, deleteDoc, updateDoc, writeBatch, serverTimestamp, query, orderBy, Timestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
@@ -81,10 +81,10 @@ export function ProcessDetailsDialog({
   const { toast } = useToast();
   const { user } = useUser();
 
-  const attachmentsQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id]);
+  const attachmentsQuery = useMemo(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id]);
   const { data: attachments, isLoading: isLoadingAttachments } = useCollection(attachmentsQuery);
 
-  const historyQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/history`), orderBy('timestamp', 'desc')), [firestore, process.id]);
+  const historyQuery = useMemo(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/history`), orderBy('timestamp', 'desc')), [firestore, process.id]);
   const { data: history, isLoading: isLoadingHistory } = useCollection(historyQuery);
 
   const form = useForm<z.infer<typeof formSchema>>({

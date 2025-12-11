@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -47,7 +47,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useCollection } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
@@ -102,7 +102,7 @@ export function ObligationDetailsDialog({
   const { toast } = useToast();
   const { user } = useUser();
 
-  const usersCollection = useMemoFirebase(() => {
+  const usersCollection = useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'users');
   }, [firestore]);

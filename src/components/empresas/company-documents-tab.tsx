@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlusCircle, Search, Download, Trash2, Loader2 } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase, useStorage, useUser } from '@/firebase';
+import { useCollection, useFirestore, useStorage, useUser } from '@/firebase';
 import { collection, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { uploadCompanyDocument } from '@/lib/storage/upload';
@@ -58,7 +58,7 @@ export function CompanyDocumentsTab({ company }: CompanyDocumentsTabProps) {
   const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const documentsQuery = useMemoFirebase(() => {
+  const documentsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'companies', company.id, 'documents'), orderBy('uploadDate', 'desc'));
   }, [firestore, company.id]);

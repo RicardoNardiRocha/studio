@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
@@ -95,7 +95,7 @@ export function CompaniesClient() {
 
   const firestore = useFirestore();
 
-  const companiesQuery = useMemoFirebase(() => {
+  const companiesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);

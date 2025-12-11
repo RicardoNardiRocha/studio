@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
@@ -86,7 +86,7 @@ export function ObligationsClient() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const obligationsQuery = useMemoFirebase(() => {
+  const obligationsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'taxObligations'), orderBy('dataVencimento', 'asc'));
   }, [firestore]);

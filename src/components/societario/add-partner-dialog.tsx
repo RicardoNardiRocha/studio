@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, collection, query, orderBy } from 'firebase/firestore';
 import { Switch } from '../ui/switch';
@@ -70,7 +70,7 @@ export function AddPartnerDialog({
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const companiesCollection = useMemoFirebase(() => {
+  const companiesCollection = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
