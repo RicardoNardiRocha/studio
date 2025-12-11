@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search, FilePlus2 } from 'lucide-react';
-import { useFirestore, useCollection, useUser } from '@/firebase';
+import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
@@ -82,7 +82,7 @@ export function InvoicesClient() {
   const { profile } = useUser();
   const { toast } = useToast();
 
-  const invoicesQuery = useMemo(() => {
+  const invoicesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
   }, [firestore]);
