@@ -17,7 +17,7 @@ export function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const firestore = useFirestore();
-  const { user: adminUser } = useUser();
+  const { user: adminUser, profile: adminProfile } = useUser();
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -46,6 +46,18 @@ export function UserManagement() {
   
   const handleUserUpdated = () => {
     forceRefetch();
+  }
+  
+  const canEdit = (userToEdit: UserProfile) => {
+    if (!adminProfile) return false;
+    // Cannot edit self
+    if(adminUser?.uid === userToEdit.uid) return false;
+    // Owners can edit anyone except other owners (for safety, can be changed)
+    if(adminProfile.roleId === 'owner' && userToEdit.roleId !== 'owner') return true;
+    // Admins can edit anyone who is not an owner or another admin
+    if(adminProfile.roleId === 'admin' && userToEdit.roleId !== 'owner' && userToEdit.roleId !== 'admin') return true;
+    
+    return false;
   }
 
   return (
@@ -96,7 +108,7 @@ export function UserManagement() {
                   ))
                 ) : users && users.length > 0 ? (
                   users.map((user) => (
-                    <TableRow key={user.userId}>
+                    <TableRow key={user.uid}>
                       <TableCell className="font-medium">{user.displayName}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
@@ -109,7 +121,7 @@ export function UserManagement() {
                         <Badge variant={user.canFinance ? 'default' : 'outline'}>{user.canFinance ? 'Sim' : 'Não'}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(user)} disabled={adminUser?.uid === user.userId}>
+                        <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(user)} disabled={!canEdit(user)}>
                           <UserCog className="h-4 w-4" />
                           <span className="sr-only">Gerenciar Permissões</span>
                         </Button>

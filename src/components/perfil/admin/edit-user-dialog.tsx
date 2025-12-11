@@ -87,7 +87,6 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
   
   const watchedRole = form.watch('roleId');
   const isCompanyAssignmentDisabled = watchedRole === 'owner' || watchedRole === 'admin';
-  const isOwnerEditingSelf = currentUser?.uid === userToEdit.userId && currentUserProfile?.roleId === 'owner';
 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -96,7 +95,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
       return;
     }
 
-    if (currentUser.uid === userToEdit.userId) {
+    if (currentUser.uid === userToEdit.uid) {
        toast({ title: 'Ação não permitida', description: 'Você não pode alterar suas próprias permissões.', variant: 'destructive' });
        return;
     }
@@ -114,10 +113,10 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
 
     setIsLoading(true);
     try {
-      const userRef = doc(firestore, 'users', userToEdit.userId);
+      const userRef = doc(firestore, 'users', userToEdit.uid);
       const dataToUpdate: Partial<UserProfile> = {
         roleId: values.roleId,
-        isAdmin: values.isAdmin,
+        isAdmin: values.roleId === 'admin' || values.roleId === 'owner' || values.isAdmin,
         canFinance: values.canFinance,
         companyIds: isCompanyAssignmentDisabled ? [] : values.companyIds || [],
       };
@@ -152,7 +151,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Função Principal</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isOwnerEditingSelf}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a função do usuário" />
@@ -181,7 +180,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                         <FormLabel>Acesso de Administrador?</FormLabel>
                         <FormDescription>Permite ver e gerenciar todos os dados operacionais e usuários.</FormDescription>
                       </div>
-                      <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isOwnerEditingSelf} /></FormControl>
+                      <FormControl><Switch checked={field.value} onCheckedChange={field.onChange}  /></FormControl>
                     </FormItem>
                   )}
                 />
@@ -194,7 +193,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                         <FormLabel>Acesso ao Financeiro?</FormLabel>
                         <FormDescription>Permite ver e gerenciar o módulo de faturamento.</FormDescription>
                       </div>
-                      <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isOwnerEditingSelf} /></FormControl>
+                      <FormControl><Switch checked={field.value} onCheckedChange={field.onChange}  /></FormControl>
                     </FormItem>
                   )}
                 />
@@ -234,7 +233,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading || isOwnerEditingSelf}>
+              <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar Permissões
               </Button>
