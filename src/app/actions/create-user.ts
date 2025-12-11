@@ -1,97 +1,218 @@
-'use server';
+'use client';
 
-import * as admin from 'firebase-admin';
-import { z } from 'zod';
-import { Timestamp } from 'firebase-admin/firestore';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import { useFirestore, useUser } from '@/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-const formSchema = z.object({
-  displayName: z.string().min(3),
-  email: z.string().email(),
-  roleId: z.enum(['owner', 'admin', 'contador', 'usuario']),
-});
-
-type CreateUserInput = z.infer<typeof formSchema>;
-
-function initializeFirebaseAdmin() {
-  if (admin.apps.length > 0) {
-    return admin.app();
-  }
-
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (!serviceAccount) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
-  }
-
-  try {
-    return admin.initializeApp({
-      credential: admin.credential.cert(JSON.parse(serviceAccount)),
-    });
-  } catch (error: any) {
-    console.error("Error initializing Firebase Admin:", error);
-    throw new Error("Could not initialize Firebase Admin SDK. Check service account credentials.");
-  }
+interface AddUserDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUserAdded: () => void;
 }
 
-export async function createUser(data: CreateUserInput) {
-  try {
-    const app = initializeFirebaseAdmin();
-    const auth = admin.auth(app);
-    const firestore = admin.firestore(app);
+const formSchema = z.object({
+  displayName: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres.'),
+  email: z.string().email('O e-mail é inválido.'),
+  // O UID será obtido de outra forma, então não precisa estar no schema de validação do formulário.
+  uid: z.string().min(1, 'UID é obrigatório'),
+  roleId: z.enum(['admin', 'contador', 'usuario'], { required_error: 'Selecione um papel para o usuário.' }),
+});
 
-    const validatedData = formSchema.parse(data);
+export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialogProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const { profile } = useUser();
+  const firestore = useFirestore();
 
-    let userRecord;
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      displayName: '',
+      email: '',
+      uid: '',
+      roleId: 'usuario',
+    },
+  });
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!firestore) {
+      toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive" });
+      return;
+    }
+    if (profile?.roleId !== 'owner' && values.roleId === 'admin') {
+      toast({
+        title: 'Permissão Negada',
+        description: 'Apenas o Owner pode criar outros administradores.',
+        variant: 'destructive',
+      });
+      return;
+    }
+      
+    setIsLoading(true);
     try {
-      userRecord = await auth.getUserByEmail(validatedData.email);
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        throw new Error(`O usuário com e-mail "${validatedData.email}" não existe na autenticação. Crie a conta de login no painel do Firebase primeiro.`);
+      const userDocRef = doc(firestore, 'users', values.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        throw new Error(`Um perfil de usuário para o UID ${values.uid} já existe no sistema.`);
       }
-      throw error; 
-    }
 
-    const userDocRef = firestore.collection('users').doc(userRecord.uid);
-    const userDocSnap = await userDocRef.get();
-    if (userDocSnap.exists) {
-      throw new Error(`Um perfil de usuário para ${validatedData.email} já existe no sistema.`);
-    }
-
-    const newUserProfile = {
-        userId: userRecord.uid,
-        displayName: validatedData.displayName,
-        email: validatedData.email,
-        roleId: validatedData.roleId,
+      const newUserProfile = {
+        userId: values.uid,
+        displayName: values.displayName,
+        email: values.email,
+        roleId: values.roleId,
         companyIds: [],
-        isAdmin: validatedData.roleId === 'admin' || validatedData.roleId === 'owner',
-        canFinance: validatedData.roleId === 'admin' || validatedData.roleId === 'owner', // Default finance access for admin/owner
-        photoURL: userRecord.photoURL || '',
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-    };
+        isAdmin: values.roleId === 'admin' || values.roleId === 'owner',
+        canFinance: values.roleId === 'admin' || values.roleId === 'owner',
+        photoURL: '', // Pode ser preenchido pelo usuário depois
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
 
-    await userDocRef.set(newUserProfile);
-    
-    // If the main display name in Auth is different, update it
-    if(userRecord.displayName !== validatedData.displayName) {
-        await auth.updateUser(userRecord.uid, { displayName: validatedData.displayName });
+      await setDoc(userDocRef, newUserProfile);
+
+      toast({
+        title: 'Perfil de Usuário Criado!',
+        description: `O perfil para ${values.email} foi criado com sucesso.`,
+      });
+      onUserAdded();
+      form.reset();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error('Create user profile error:', error);
+      toast({
+        title: 'Erro ao Criar Perfil',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
+  };
+  
+  const availableRoles = [
+      { id: 'admin', name: 'Administrador' },
+      { id: 'contador', name: 'Contador' },
+      { id: 'usuario', name: 'Usuário (Apenas Leitura)' },
+  ];
 
-    return {
-      uid: userRecord.uid,
-      message: 'User profile created successfully',
-    };
-  } catch (error: any) {
-    console.error('Error creating user profile:', error);
-    
-    let errorMessage = 'An unknown error occurred.';
-    if (error instanceof z.ZodError) {
-      errorMessage = `Validation error: ${error.errors.map(e => e.message).join(', ')}`;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
-    return {
-      error: errorMessage,
-    };
-  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Adicionar Novo Usuário</DialogTitle>
+          <DialogDescription>
+            Crie um perfil para um usuário. Você precisará do UID do Firebase Authentication dele.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="displayName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome Completo</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nome do usuário" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>E-mail</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="usuario@seu-dominio.com" {...field} />
+                  </FormControl>
+                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="uid"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>UID do Usuário</FormLabel>
+                  <FormControl>
+                    <Input placeholder="UID do Firebase Authentication" {...field} />
+                  </FormControl>
+                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="roleId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Papel (Role)</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um papel" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id} disabled={profile?.roleId !== 'owner' && role.id === 'admin'}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Criar Perfil de Usuário
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
 }

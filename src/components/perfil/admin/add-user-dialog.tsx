@@ -31,8 +31,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useUser } from '@/firebase';
-import { createUser } from '@/app/actions/create-user';
+import { useFirestore, useUser } from '@/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface AddUserDialogProps {
   open: boolean;
@@ -43,6 +43,8 @@ interface AddUserDialogProps {
 const formSchema = z.object({
   displayName: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres.'),
   email: z.string().email('O e-mail é inválido.'),
+  // O UID será obtido de outra forma, então não precisa estar no schema de validação do formulário.
+  uid: z.string().min(1, 'UID é obrigatório'),
   roleId: z.enum(['admin', 'contador', 'usuario'], { required_error: 'Selecione um papel para o usuário.' }),
 });
 
@@ -50,32 +52,56 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { profile } = useUser();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       displayName: '',
       email: '',
+      uid: '',
       roleId: 'usuario',
     },
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!firestore) {
+      toast({ title: "Erro", description: "O serviço de banco de dados não está disponível.", variant: "destructive" });
+      return;
+    }
     if (profile?.roleId !== 'owner' && values.roleId === 'admin') {
-         toast({
-            title: 'Permissão Negada',
-            description: 'Apenas o Owner pode criar outros administradores.',
-            variant: 'destructive',
-        });
-        return;
+      toast({
+        title: 'Permissão Negada',
+        description: 'Apenas o Owner pode criar outros administradores.',
+        variant: 'destructive',
+      });
+      return;
     }
       
     setIsLoading(true);
     try {
-      const result = await createUser(values);
-      if (result.error) {
-        throw new Error(result.error);
+      const userDocRef = doc(firestore, 'users', values.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        throw new Error(`Um perfil de usuário para o UID ${values.uid} já existe no sistema.`);
       }
+
+      const newUserProfile = {
+        userId: values.uid,
+        displayName: values.displayName,
+        email: values.email,
+        roleId: values.roleId,
+        companyIds: [],
+        isAdmin: values.roleId === 'admin' || values.roleId === 'owner',
+        canFinance: values.roleId === 'admin' || values.roleId === 'owner',
+        photoURL: '', // Pode ser preenchido pelo usuário depois
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(userDocRef, newUserProfile);
+
       toast({
         title: 'Perfil de Usuário Criado!',
         description: `O perfil para ${values.email} foi criado com sucesso.`,
@@ -107,7 +133,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
         <DialogHeader>
           <DialogTitle>Adicionar Novo Usuário</DialogTitle>
           <DialogDescription>
-            Crie um perfil para um usuário já existente na autenticação e atribua um papel.
+            Crie um perfil para um usuário. Você precisará do UID do Firebase Authentication dele.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -133,6 +159,19 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
                   <FormLabel>E-mail</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="usuario@seu-dominio.com" {...field} />
+                  </FormControl>
+                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="uid"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>UID do Usuário</FormLabel>
+                  <FormControl>
+                    <Input placeholder="UID do Firebase Authentication" {...field} />
                   </FormControl>
                    <FormMessage />
                 </FormItem>
