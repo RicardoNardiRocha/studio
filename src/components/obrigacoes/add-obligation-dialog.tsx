@@ -35,7 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon, Upload } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useStorage } from '@/firebase';
+import { useFirestore, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
@@ -77,13 +77,13 @@ export function AddObligationDialog({
   const storage = useStorage();
   const { user } = useUser();
 
-  const companiesCollection = useMemo(() => {
+  const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
   const { data: companies } = useCollection<Company>(companiesCollection);
 
-  const usersCollection = useMemo(() => {
+  const usersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'users');
   }, [firestore]);
