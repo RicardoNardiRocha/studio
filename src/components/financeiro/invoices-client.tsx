@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -83,9 +84,9 @@ export function InvoicesClient() {
   const { toast } = useToast();
 
   const invoicesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !profile?.canFinance) return null;
     return query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
-  }, [firestore]);
+  }, [firestore, profile?.canFinance]);
 
   const { data: invoices, isLoading, error, forceRefetch } = useCollection<Invoice>(invoicesQuery);
 
@@ -138,19 +139,7 @@ export function InvoicesClient() {
   }
 
   if (!profile?.canFinance) {
-     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline text-destructive">Acesso Negado</CardTitle>
-                <CardDescription>
-                    Seu perfil não tem permissão para acessar o Módulo Financeiro.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-muted-foreground">Por favor, entre em contato com o administrador do sistema para solicitar acesso.</p>
-            </CardContent>
-        </Card>
-    )
+     return null;
   }
 
   return (

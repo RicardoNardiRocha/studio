@@ -7,12 +7,14 @@ import { ReactNode, useEffect } from 'react';
 import { useUser, useAuth } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 function AuthGuard({ children }: { children: ReactNode }) {
   const { user, profile, isUserLoading, userError } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Se o carregamento terminou e não há usuário, redireciona para login.
@@ -27,7 +29,20 @@ function AuthGuard({ children }: { children: ReactNode }) {
     if (user && profile && pathname === '/login') {
       router.replace('/dashboard');
     }
-  }, [user, profile, isUserLoading, pathname, router]);
+
+    // Verifica permissões de rota
+    if (user && profile) {
+      if (pathname.startsWith('/financeiro') && !profile.canFinance) {
+        toast({
+          title: 'Acesso Negado',
+          description: "Você não tem permissão para acessar este módulo.",
+          variant: 'destructive',
+        });
+        router.replace('/dashboard');
+      }
+    }
+
+  }, [user, profile, isUserLoading, pathname, router, toast]);
 
   // Enquanto carrega o usuário ou o perfil, mostra a tela de loading.
   if (isUserLoading) {
@@ -62,6 +77,15 @@ function AuthGuard({ children }: { children: ReactNode }) {
 
   // Se tudo estiver OK (usuário e perfil carregados), mostra a aplicação.
   if (user && profile) {
+    // Adicionado um check extra para não renderizar a página proibida durante o redirect
+    if (pathname.startsWith('/financeiro') && !profile.canFinance) {
+        return (
+             <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             </div>
+        )
+    }
+
     return (
       <SidebarProvider>
         <AppSidebar />

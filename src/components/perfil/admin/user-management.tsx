@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -7,21 +8,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile } from '@/firebase/provider';
-import { MoreHorizontal, Users, Shield, UserCog, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Users, Shield, UserCog, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { logActivity } from '@/lib/activity-log';
+import { useUser } from '@/firebase';
 
 export function UserManagement() {
   const firestore = useFirestore();
+  const { toast } = useToast();
+  const { user: adminUser } = useUser();
+  const [updatingUsers, setUpdatingUsers] = useState<string[]>([]);
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'users'), orderBy('displayName', 'asc'));
   }, [firestore]);
 
-  const { data: users, isLoading, error } = useCollection<UserProfile>(usersQuery);
+  const { data: users, isLoading, error, forceRefetch } = useCollection<UserProfile>(usersQuery);
 
-  const getRoleVariant = (roleId: string) => {
+  const getRoleVariant = (roleId?: string) => {
     switch (roleId) {
       case 'owner':
         return 'destructive';
@@ -33,6 +40,31 @@ export function UserManagement() {
         return 'outline';
     }
   }
+  
+  const handleTogglePermission = async (userToUpdate: UserProfile, permission: 'isAdmin' | 'canFinance') => {
+    if (!firestore || !adminUser || adminUser.uid === userToUpdate.userId) {
+        toast({ title: 'Ação não permitida', description: 'Você não pode alterar suas próprias permissões.', variant: 'destructive' });
+        return;
+    }
+
+    setUpdatingUsers(prev => [...prev, userToUpdate.userId]);
+
+    const userRef = doc(firestore, 'users', userToUpdate.userId);
+    const newPermissionValue = !userToUpdate[permission];
+    
+    try {
+        await updateDoc(userRef, { [permission]: newPermissionValue });
+        toast({ title: 'Permissão atualizada!', description: `${userToUpdate.displayName} agora ${newPermissionValue ? 'tem' : 'não tem'} a permissão de ${permission === 'isAdmin' ? 'administrador' : 'financeiro'}.` });
+        logActivity(firestore, adminUser, `alterou a permissão de ${permission} para ${newPermissionValue} para o usuário ${userToUpdate.displayName}.`);
+        forceRefetch();
+    } catch(err) {
+        console.error("Permission update failed:", err);
+        toast({ title: 'Erro', description: 'Não foi possível atualizar a permissão.', variant: 'destructive' });
+    } finally {
+        setUpdatingUsers(prev => prev.filter(id => id !== userToUpdate.userId));
+    }
+  };
+
 
   return (
     <>
@@ -66,8 +98,8 @@ export function UserManagement() {
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-24" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
@@ -77,19 +109,17 @@ export function UserManagement() {
                       <TableCell className="font-medium">{user.displayName}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={getRoleVariant(user.roleId)}>{user.roleId.charAt(0).toUpperCase() + user.roleId.slice(1)}</Badge>
+                        <Badge variant={getRoleVariant(user.roleId)}>{user.roleId ? (user.roleId.charAt(0).toUpperCase() + user.roleId.slice(1)) : 'N/A'}</Badge>
                       </TableCell>
                        <TableCell>
-                         <Badge variant={user.isAdmin ? 'default' : 'outline'}>
-                            {user.isAdmin ? <ToggleRight className='mr-1' /> : <ToggleLeft className='mr-1'/>}
-                            {user.isAdmin ? 'Sim' : 'Não'}
-                        </Badge>
+                         <Button variant="ghost" size="sm" onClick={() => handleTogglePermission(user, 'isAdmin')} disabled={updatingUsers.includes(user.userId) || adminUser?.uid === user.userId}>
+                            {updatingUsers.includes(user.userId) ? <Loader2 className='h-4 w-4 animate-spin' /> : (user.isAdmin ? <ToggleRight className='h-5 w-5 text-primary' /> : <ToggleLeft className='h-5 w-5 text-muted-foreground'/>)}
+                         </Button>
                       </TableCell>
                        <TableCell>
-                         <Badge variant={user.canFinance ? 'default' : 'outline'}>
-                             {user.canFinance ? <ToggleRight className='mr-1' /> : <ToggleLeft className='mr-1'/>}
-                            {user.canFinance ? 'Sim' : 'Não'}
-                        </Badge>
+                         <Button variant="ghost" size="sm" onClick={() => handleTogglePermission(user, 'canFinance')} disabled={updatingUsers.includes(user.userId) || adminUser?.uid === user.userId}>
+                            {updatingUsers.includes(user.userId) ? <Loader2 className='h-4 w-4 animate-spin' /> : (user.canFinance ? <ToggleRight className='h-5 w-5 text-primary' /> : <ToggleLeft className='h-5 w-5 text-muted-foreground'/>)}
+                         </Button>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="outline" size="icon" disabled>
