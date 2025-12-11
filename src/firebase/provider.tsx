@@ -63,28 +63,36 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
     let isAdmin = false;
     let canFinance = false;
 
-    const ownerRef = doc(firestore, 'roles_OWNER', user.uid);
-    const adminRef = doc(firestore, 'roles_admin', user.uid);
-    const financeRef = doc(firestore, 'roles_finance', user.uid);
-    
-    const [ownerSnap, adminSnap, financeSnap] = await Promise.all([
-        getDoc(ownerRef),
-        getDoc(adminRef),
-        getDoc(financeSnap)
-    ]);
-    
-    if (ownerSnap.exists()) {
+    // Hardcode o owner
+    if (user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2') {
         roleId = 'owner';
-        isAdmin = true;
-        canFinance = true;
-    } else if (adminSnap.exists()) {
-        roleId = 'admin';
-        isAdmin = true;
+    } else {
+        const ownerRef = doc(firestore, 'roles_OWNER', user.uid);
+        const adminRef = doc(firestore, 'roles_admin', user.uid);
+        const financeRef = doc(firestore, 'roles_finance', user.uid);
+        
+        const [ownerSnap, adminSnap, financeSnap] = await Promise.all([
+            getDoc(ownerRef),
+            getDoc(adminRef),
+            getDoc(financeRef)
+        ]);
+        
+        if (ownerSnap.exists()) {
+            roleId = 'owner';
+        } else if (adminSnap.exists()) {
+            roleId = 'admin';
+        }
+        
+        if (financeSnap.exists()) {
+            canFinance = true;
+        }
     }
     
-    if (financeSnap.exists()) {
-        canFinance = true;
+    if (roleId === 'owner' || roleId === 'admin') {
+      isAdmin = true;
+      canFinance = true; // Owners e Admins têm acesso financeiro por padrão no novo modelo
     }
+
 
     const newUserProfile: UserProfile = {
         userId: user.uid,
