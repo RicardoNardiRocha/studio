@@ -16,7 +16,7 @@ import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 export interface UserProfile {
-  userId: string;
+  uid: string;
   displayName: string;
   email: string;
   roleId: 'owner' | 'admin' | 'contador' | 'usuario';
@@ -70,7 +70,7 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
     const isOwner = user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2';
     
     const newUserProfile: UserProfile = {
-        userId: user.uid,
+        uid: user.uid, // Ensure the UID is saved in the document
         displayName: user.displayName || 'Novo Usuário',
         email: user.email || '',
         roleId: isOwner ? 'owner' : 'usuario', // Default to 'usuario' if not the owner

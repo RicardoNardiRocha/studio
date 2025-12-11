@@ -7,7 +7,7 @@
       "type": "object",
       "description": "Represents a user of the system, defining their identity and permissions.",
       "properties": {
-        "userId": {
+        "uid": {
           "type": "string",
           "description": "The unique identifier from the authentication provider (Firebase Auth UID)."
         },
@@ -53,7 +53,7 @@
         }
       },
       "required": [
-        "userId",
+        "uid",
         "displayName",
         "email",
         "roleId",
