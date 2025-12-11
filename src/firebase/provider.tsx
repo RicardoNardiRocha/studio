@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, {
@@ -71,20 +72,26 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
         const adminRef = doc(firestore, 'roles_admin', user.uid);
         const financeRef = doc(firestore, 'roles_finance', user.uid);
         
-        const [ownerSnap, adminSnap, financeSnap] = await Promise.all([
-            getDoc(ownerRef),
-            getDoc(adminRef),
-            getDoc(financeRef)
-        ]);
-        
-        if (ownerSnap.exists()) {
-            roleId = 'owner';
-        } else if (adminSnap.exists()) {
-            roleId = 'admin';
-        }
-        
-        if (financeSnap.exists()) {
-            canFinance = true;
+        try {
+            const [ownerSnap, adminSnap, financeSnap] = await Promise.all([
+                getDoc(ownerRef),
+                getDoc(adminRef),
+                getDoc(financeRef)
+            ]);
+            
+            if (ownerSnap.exists()) {
+                roleId = 'owner';
+            } else if (adminSnap.exists()) {
+                roleId = 'admin';
+            }
+            
+            if (financeSnap.exists()) {
+                canFinance = true;
+            }
+        } catch(e) {
+            console.error("Permission error during profile provisioning check. This is expected if rules are already updated.", e);
+            // Ignore permission errors here, as they are expected if the old roles collections are protected.
+            // The logic will proceed with the default role or the hardcoded owner role.
         }
     }
     
@@ -107,7 +114,6 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
         updatedAt: serverTimestamp(),
     };
 
-    // CORREÇÃO: Salva o novo perfil no banco de dados se ele não existir
     await setDoc(userDocRef, newUserProfile);
     
     // Retorna o perfil recém-criado
@@ -154,18 +160,23 @@ export const FirebaseProvider: React.FC<{
       auth,
       async (firebaseUser) => {
         if (firebaseUser) {
+          // Mantém o estado de loading ENQUANTO provisiona o perfil.
+          setAuthState(current => ({ ...current, isUserLoading: true, userError: null }));
           try {
             const profile = await provisionUserProfile(firestore, firebaseUser);
+            // Só finaliza o loading APÓS o perfil ser garantido.
             setAuthState({
               user: firebaseUser,
               profile: profile,
               isUserLoading: false,
               userError: null,
             });
-            // Após a migração/criação, podemos ouvir por updates em tempo real.
+
+            // Ouve por updates em tempo real após a criação/migração inicial.
             const userDocRef = doc(firestore, 'users', firebaseUser.uid);
             onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
+                    // Atualiza o perfil no estado se ele mudar no banco de dados.
                     setAuthState(current => ({...current, profile: docSnap.data() as UserProfile}));
                 }
             });
@@ -179,16 +190,19 @@ export const FirebaseProvider: React.FC<{
               });
           }
         } else {
+          // Se não há usuário, finaliza o loading.
           setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
         }
       },
-      (error) =>
+      (error) => {
+        // Em caso de erro na autenticação, finaliza o loading.
         setAuthState({
           user: null,
           profile: null,
           isUserLoading: false,
           userError: error,
-        })
+        });
+      }
     );
 
     return () => unsubscribeAuth();

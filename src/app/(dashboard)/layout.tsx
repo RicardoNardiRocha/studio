@@ -12,6 +12,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
   const { user, profile, isUserLoading, userError } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const auth = useAuth();
 
   useEffect(() => {
     // Se o carregamento terminou e não há usuário, redireciona para login.
@@ -28,7 +29,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
     }
   }, [user, profile, isUserLoading, pathname, router]);
 
-  // Durante o carregamento inicial, mostra a tela de loading.
+  // Enquanto carrega o usuário ou o perfil, mostra a tela de loading.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
