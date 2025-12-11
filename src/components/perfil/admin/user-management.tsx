@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { UserProfile } from '@/firebase/provider';
 import { MoreHorizontal, Users, Shield, UserCog, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -14,7 +14,7 @@ import { MoreHorizontal, Users, Shield, UserCog, ToggleLeft, ToggleRight } from 
 export function UserManagement() {
   const firestore = useFirestore();
 
-  const usersQuery = useMemo(() => {
+  const usersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'users'), orderBy('displayName', 'asc'));
   }, [firestore]);

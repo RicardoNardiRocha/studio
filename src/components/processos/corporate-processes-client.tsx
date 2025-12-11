@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
-import { useFirestore, useCollection, useUser } from '@/firebase';
+import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
@@ -90,13 +90,13 @@ export function CorporateProcessesClient() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const processesQuery = useMemo(() => {
+  const processesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
   }, [firestore]);
 
   const { data: processes, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
-  const { data: users } = useCollection(useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]));
+  const { data: users } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const handleProcessAction = () => {
     forceRefetch();
