@@ -12,42 +12,38 @@ service cloud.firestore {
     }
 
     // Get the user's profile from the /users collection
-    function getUserProfile(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Check if the requesting user is an Owner
-    function isOwner() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.roleId == 'owner';
-    }
-
-    // Check if the requesting user is an Admin
+    // Check if the requesting user is an Owner or Admin
     function isAdmin() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.isAdmin == true || profile.roleId == 'owner';
-    }
-
-    // Check if the requesting user has finance access
-    function canAccessFinance() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.canFinance == true || profile.roleId == 'owner';
+      let profile = getUserProfile();
+      return profile.roleId == 'owner' || profile.roleId == 'admin';
     }
 
     // Check if the user is a member of a specific company
     function isCompanyMember(companyId) {
-        let profile = getUserProfile(request.auth.uid);
-        return companyId in profile.companyIds;
+      let profile = getUserProfile();
+      return companyId in profile.companyIds;
     }
 
-    // Owners and Admins can access all company data. Others must be members.
+    // Check if user can read data for a specific company
     function canReadCompanyData(companyId) {
+      // Admins/Owners can read any company. Others need to be a member.
       return isAdmin() || isCompanyMember(companyId);
     }
     
     function canWriteCompanyData(companyId) {
-       let profile = getUserProfile(request.auth.uid);
-       return (profile.roleId == 'contador' && isCompanyMember(companyId)) || isAdmin();
+       let profile = getUserProfile();
+       // Admins and Contadores can write, but Contadores must be members.
+       return isAdmin() || (profile.roleId == 'contador' && isCompanyMember(companyId));
+    }
+    
+    // Check if the requesting user has finance access
+    function canAccessFinance() {
+      let profile = getUserProfile();
+      return profile.canFinance == true;
     }
     
     // =========================================================================
@@ -56,39 +52,38 @@ service cloud.firestore {
 
     // --- User Profiles ---
     match /users/{userId} {
-      allow read: if isSignedIn();
-      // Only Admins/Owners can create users
+      // Anyone can read their own profile. Admins can read any profile.
+      allow read: if request.auth.uid == userId || isAdmin();
+      // Only Admins can create users.
       allow create: if isAdmin();
-      // A user can update their own profile, or an admin can update any profile.
-      allow update: if request.auth.uid == userId || isAdmin();
-      // Only Owners can delete other users
-      allow delete: if isOwner();
+      // A user can update their own profile. An admin can update any profile.
+      // An Admin cannot make themselves or others an Owner.
+      allow update: if (request.auth.uid == userId && request.resource.data.roleId == resource.data.roleId) || 
+                       (isAdmin() && request.resource.data.roleId != 'owner');
+      // Only an Owner can delete users, but not another Owner.
+      allow delete: if getUserProfile().roleId == 'owner' && resource.data.roleId != 'owner';
     }
 
     // --- Companies ---
     match /companies/{companyId} {
-      // Admins/Owners can read any company. Others need to be a member.
       allow read: if canReadCompanyData(companyId);
-       // Admins/Contadores can create/update companies
       allow write: if canWriteCompanyData(companyId);
     }
 
     // --- Partners ---
     match /partners/{partnerId} {
-      // Any signed-in user can manage partners
       allow read, write: if isSignedIn();
     }
 
     // --- Invoices ---
     match /invoices/{invoiceId} {
-      // Only users with the finance flag or owners can access.
       allow read, write: if canAccessFinance();
     }
 
     // --- Tax Obligations ---
     match /taxObligations/{taxObligationId} {
-      allow read: if canReadCompanyData(resource.data.companyId);
-      allow create, update, delete: if canWriteCompanyData(resource.data.companyId);
+      allow read: if canReadCompanyData(get(/databases/$(database)/documents/taxObligations/$(taxObligationId)).data.companyId);
+      allow create, update, delete: if canWriteCompanyData(get(/databases/$(database)/documents/taxObligations/$(taxObligationId)).data.companyId);
     }
     
     // Allow read/write on subcollections if user can write to parent
@@ -98,8 +93,8 @@ service cloud.firestore {
 
     // --- Corporate Processes ---
     match /corporateProcesses/{processId} {
-      allow read: if canReadCompanyData(resource.data.companyId);
-      allow create, update, delete: if canWriteCompanyData(resource.data.companyId);
+      allow read: if canReadCompanyData(get(/databases/$(database)/documents/corporateProcesses/$(processId)).data.companyId);
+      allow create, update, delete: if canWriteCompanyData(get(/databases/$(database)/documents/corporateProcesses/$(processId)).data.companyId);
     }
     
      // Allow read/write on subcollections if user can write to parent
