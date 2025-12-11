@@ -2,12 +2,11 @@
 
 import * as admin from 'firebase-admin';
 import { z } from 'zod';
-import { setDoc, doc, getFirestore } from 'firebase/firestore';
 
+// Schema for provisioning a user profile in Firestore
 const formSchema = z.object({
   displayName: z.string().min(3),
   email: z.string().email(),
-  password: z.string().min(6),
   roleId: z.string(),
 });
 
@@ -24,30 +23,48 @@ function initializeFirebaseAdmin() {
     throw new Error('FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
   }
 
-  return admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(serviceAccount)),
-  });
+  try {
+    return admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(serviceAccount)),
+    });
+  } catch (error: any) {
+    console.error("Error initializing Firebase Admin:", error);
+    throw new Error("Could not initialize Firebase Admin SDK. Check service account credentials.");
+  }
 }
 
+/**
+ * Creates a user profile document in Firestore for an existing Firebase Auth user.
+ * @param data - The user profile data including displayName, email, and roleId.
+ * @returns An object with the user's UID and a success message, or an error object.
+ */
 export async function createUser(data: CreateUserInput) {
   try {
     const app = initializeFirebaseAdmin();
     const auth = admin.auth(app);
     const firestore = admin.firestore(app);
 
-    // Validate input data
     const validatedData = formSchema.parse(data);
 
-    // Create user in Firebase Authentication
-    const userRecord = await auth.createUser({
-      email: validatedData.email,
-      password: validatedData.password,
-      displayName: validatedData.displayName,
-      emailVerified: true, // Or false, depending on your flow
-    });
+    // 1. Verify user exists in Firebase Authentication by email
+    let userRecord;
+    try {
+      userRecord = await auth.getUserByEmail(validatedData.email);
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        throw new Error(`O e-mail "${validatedData.email}" não pertence a um usuário de autenticação existente. Crie a conta de login no painel do Firebase primeiro.`);
+      }
+      throw error; // Re-throw other auth errors
+    }
 
-    // Create user document in Firestore
+    // 2. Check if a profile already exists in Firestore for this UID
     const userDocRef = firestore.collection('users').doc(userRecord.uid);
+    const userDocSnap = await userDocRef.get();
+    if (userDocSnap.exists) {
+      throw new Error(`Um perfil de usuário para ${validatedData.email} já existe no sistema.`);
+    }
+
+    // 3. Create the user profile document in Firestore
     await userDocRef.set({
       uid: userRecord.uid,
       displayName: validatedData.displayName,
@@ -55,23 +72,28 @@ export async function createUser(data: CreateUserInput) {
       photoURL: userRecord.photoURL || '',
       roleId: validatedData.roleId,
     });
+    
+    // Grant special roles if necessary
+    if (validatedData.roleId === 'admin') {
+      await firestore.collection('roles_admin').doc(userRecord.uid).set({});
+    }
+     if (validatedData.roleId === 'finance') {
+      await firestore.collection('roles_finance').doc(userRecord.uid).set({});
+    }
+
 
     return {
       uid: userRecord.uid,
-      message: 'User created successfully',
+      message: 'User profile created successfully',
     };
   } catch (error: any) {
-    console.error('Error creating user:', error);
+    console.error('Error creating user profile:', error);
     
     let errorMessage = 'An unknown error occurred.';
-    if (error.code === 'auth/email-already-exists') {
-        errorMessage = 'Este e-mail já está em uso por outra conta.';
-    } else if (error.code === 'auth/invalid-password') {
-        errorMessage = 'A senha é inválida. Ela deve ter no mínimo 6 caracteres.';
-    } else if (error instanceof z.ZodError) {
-        errorMessage = `Validation error: ${error.errors.map(e => e.message).join(', ')}`;
+    if (error instanceof z.ZodError) {
+      errorMessage = `Validation error: ${error.errors.map(e => e.message).join(', ')}`;
     } else if (error.message) {
-        errorMessage = error.message;
+      errorMessage = error.message;
     }
 
     return {

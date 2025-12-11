@@ -44,7 +44,6 @@ interface AddUserDialogProps {
 const formSchema = z.object({
   displayName: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres.'),
   email: z.string().email('O e-mail é inválido.'),
-  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres.'),
   roleId: z.string({ required_error: 'Selecione um papel para o usuário.' }),
 });
 
@@ -70,7 +69,6 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
     defaultValues: {
       displayName: '',
       email: '',
-      password: '',
       roleId: '',
     },
   });
@@ -83,17 +81,17 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
         throw new Error(result.error);
       }
       toast({
-        title: 'Usuário Criado!',
-        description: `O usuário ${values.displayName} foi criado com o e-mail ${values.email}.`,
+        title: 'Perfil de Usuário Criado!',
+        description: `O perfil para ${values.email} foi criado com sucesso.`,
       });
       onUserAdded();
       form.reset();
       onOpenChange(false);
     } catch (error: any) {
-      console.error('Create user error:', error);
+      console.error('Create user profile error:', error);
       toast({
-        title: 'Erro ao Criar Usuário',
-        description: error.message || 'Verifique se o e-mail já não está em uso.',
+        title: 'Erro ao Criar Perfil',
+        description: error.message,
         variant: 'destructive',
       });
     } finally {
@@ -107,7 +105,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
         <DialogHeader>
           <DialogTitle>Adicionar Novo Usuário</DialogTitle>
           <DialogDescription>
-            Crie uma nova conta de usuário e atribua um papel.
+            Crie um perfil para um usuário já existente na autenticação e atribua um papel.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -134,19 +132,9 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
                   <FormControl>
                     <Input type="email" placeholder="usuario@seu-dominio.com" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Senha</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
+                   <FormDescription>
+                    O usuário já deve ter uma conta de login criada no Firebase Authentication com este e-mail.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -181,7 +169,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Criar Usuário
+                Criar Perfil de Usuário
               </Button>
             </DialogFooter>
           </form>

@@ -196,9 +196,11 @@ export function ProfileClient() {
     )
   }
 
+  const canManageUsers = profile?.roleId === 'owner' || profile?.roleId === 'admin';
+
   return (
     <div className="space-y-6">
-       {profile?.roleId === 'owner' && <UserManagement />}
+       {canManageUsers && <UserManagement />}
 
        <Card>
         <CardHeader>
