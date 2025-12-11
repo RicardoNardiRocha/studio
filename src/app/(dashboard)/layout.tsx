@@ -29,8 +29,8 @@ function AuthGuard({ children }: { children: ReactNode }) {
     }
   }, [user, profile, isUserLoading, pathname, router]);
 
-  // Enquanto carrega o usuário ou o perfil (após a verificação inicial do auth), mostra a tela de loading.
-  if (isUserLoading || (user && !profile)) {
+  // Enquanto carrega o usuário, mostra a tela de loading.
+  if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -44,21 +44,19 @@ function AuthGuard({ children }: { children: ReactNode }) {
       return null;
   }
 
-  // Se o usuário estiver logado, mas o perfil ainda não carregou, continue mostrando o loading.
-  // Isso cobre o caso em que o `onAuthStateChanged` já rodou, mas a busca no firestore está pendente.
-  if(user && !profile) {
-     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Carregando perfil...</p>
-      </div>
-    );
-  }
-
-  // Se o usuário estiver na página de login, mas já autenticado, ele será redirecionado pelo useEffect.
   // Renderiza a página de login se não houver usuário.
   if (!user && pathname === '/login') {
     return <>{children}</>;
+  }
+
+  // Se houver um usuário, mas o perfil não foi encontrado (após o carregamento), mostra erro.
+  if (user && !profile) {
+    return (
+       <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
+        <Loader2 className="h-8 w-8 text-destructive" />
+        <p className="text-destructive">Erro de Perfil. Seu perfil não foi encontrado ou está incompleto. Contate o administrador.</p>
+      </div>
+    )
   }
 
 
