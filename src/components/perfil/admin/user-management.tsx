@@ -15,7 +15,7 @@ export function UserManagement() {
         open={isAddUserOpen}
         onOpenChange={setIsAddUserOpen}
         onUserAdded={() => {
-          // No futuro, podemos forçar a atualização da lista de usuários aqui
+          // In the future, we can force a refresh of the user list here
         }}
       />
       <Card>
