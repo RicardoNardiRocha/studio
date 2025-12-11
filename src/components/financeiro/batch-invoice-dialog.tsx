@@ -24,7 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Info } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import {
   collection,
   query,
@@ -59,7 +59,7 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const companiesCollection = useMemo(() => {
+  const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'companies'));
   }, [firestore]);

@@ -29,7 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useUser } from '@/firebase';
+import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
@@ -65,7 +65,7 @@ export function AddInvoiceDialog({
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const companiesCollection = useMemo(() => {
+  const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
