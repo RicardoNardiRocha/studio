@@ -50,48 +50,43 @@ export interface FirebaseContextState {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-// Função para migrar/criar o perfil do usuário no novo formato
+// This function checks for a user profile and creates one if it doesn't exist.
+// It includes a hardcoded check to ensure the primary user is always an 'owner'.
 const provisionUserProfile = async (firestore: Firestore, user: User): Promise<UserProfile> => {
     const userDocRef = doc(firestore, 'users', user.uid);
-    let userDoc = await getDoc(userDocRef);
+    
+    // First, try to get the document.
+    const userDoc = await getDoc(userDocRef);
 
+    // If the document already exists, return its data.
     if (userDoc.exists()) {
         return userDoc.data() as UserProfile;
     }
 
-    // Hardcode o owner para garantir o acesso inicial e a migração
-    let roleId: UserProfile['roleId'] = 'usuario'; // Default
-    let isAdmin = false;
-    let canFinance = false;
-
-    if (user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2') {
-        roleId = 'owner';
-        isAdmin = true;
-        canFinance = true;
-    }
-
+    // If the document does NOT exist, we create it.
+    // This is the critical step for migration.
+    
+    // Hardcode the owner's UID to ensure they get the correct role.
+    const isOwner = user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2';
+    
     const newUserProfile: UserProfile = {
         userId: user.uid,
-        displayName: user.displayName || 'Usuário',
+        displayName: user.displayName || 'Novo Usuário',
         email: user.email || '',
-        roleId: roleId,
+        roleId: isOwner ? 'owner' : 'usuario', // Default to 'usuario' if not the owner
+        isAdmin: isOwner, // Only the owner is admin by default on creation
+        canFinance: isOwner, // Only the owner has finance access by default
         companyIds: [],
-        isAdmin: isAdmin,
-        canFinance: canFinance,
         photoURL: user.photoURL || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
 
-    // Salva o novo perfil no banco de dados
+    // Save the new profile to the database. This write is allowed by the new security rules.
     await setDoc(userDocRef, newUserProfile);
     
-    // Retorna o perfil recém-criado
-    const createdDoc = await getDoc(userDocRef);
-    if (!createdDoc.exists()) {
-        throw new Error("Falha ao criar e recuperar o perfil do usuário após a migração.");
-    }
-    return createdDoc.data() as UserProfile;
+    // Return the newly created profile.
+    return newUserProfile;
 };
 
 
@@ -129,9 +124,10 @@ export const FirebaseProvider: React.FC<{
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        setAuthState(current => ({ ...current, isUserLoading: true, userError: null }));
+        setAuthState(current => ({ ...current, isUserLoading: true, userError: null, profile: null }));
         if (firebaseUser) {
           try {
+            // This function will now reliably create and/or fetch the user profile.
             const profile = await provisionUserProfile(firestore, firebaseUser);
             setAuthState({
               user: firebaseUser,
@@ -140,16 +136,17 @@ export const FirebaseProvider: React.FC<{
               userError: null,
             });
 
-            // Ouve por updates em tempo real após a criação/migração inicial.
+            // Listen for real-time updates to the profile after it's been provisioned.
             const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-            onSnapshot(userDocRef, (docSnap) => {
+            const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
-                    // Atualiza o perfil no estado se ele mudar no banco de dados.
                     setAuthState(current => ({...current, profile: docSnap.data() as UserProfile}));
                 }
             }, (error) => {
                  setAuthState(current => ({ ...current, userError: error }));
             });
+
+            return () => unsubscribeProfile(); // Cleanup the profile listener
 
           } catch (error: any) {
              setAuthState({
@@ -160,12 +157,12 @@ export const FirebaseProvider: React.FC<{
               });
           }
         } else {
-          // Se não há usuário, finaliza o loading.
+          // No user logged in, finish loading.
           setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
         }
       },
       (error) => {
-        // Em caso de erro na autenticação, finaliza o loading.
+        // Error during auth state change, finish loading.
         setAuthState({
           user: null,
           profile: null,
@@ -175,7 +172,7 @@ export const FirebaseProvider: React.FC<{
       }
     );
 
-    return () => unsubscribeAuth();
+    return () => unsubscribeAuth(); // Cleanup the auth listener
   }, [auth, firestore]);
 
   const value = useMemo(() => {
