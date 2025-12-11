@@ -9,7 +9,7 @@ import React, {
   useEffect,
 } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, onSnapshot } from 'firebase/firestore';
+import { Firestore, doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -49,6 +49,64 @@ export interface FirebaseContextState {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
+// Função para migrar/criar o perfil do usuário no novo formato
+const provisionUserProfile = async (firestore: Firestore, user: User): Promise<UserProfile> => {
+    const userDocRef = doc(firestore, 'users', user.uid);
+    let userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+        return userDoc.data() as UserProfile;
+    }
+
+    // Se não existe, tenta descobrir a role antiga e migra
+    let roleId: UserProfile['roleId'] = 'usuario'; // Default
+    let isAdmin = false;
+    let canFinance = false;
+
+    const ownerRef = doc(firestore, 'roles_OWNER', user.uid);
+    const adminRef = doc(firestore, 'roles_admin', user.uid);
+    const financeRef = doc(firestore, 'roles_finance', user.uid);
+    
+    const [ownerSnap, adminSnap, financeSnap] = await Promise.all([
+        getDoc(ownerRef),
+        getDoc(adminRef),
+        getDoc(financeRef)
+    ]);
+    
+    if (ownerSnap.exists()) {
+        roleId = 'owner';
+        isAdmin = true;
+        canFinance = true;
+    } else if (adminSnap.exists()) {
+        roleId = 'admin';
+        isAdmin = true;
+    }
+    
+    if (financeSnap.exists()) {
+        canFinance = true;
+    }
+
+    const newUserProfile: UserProfile = {
+        userId: user.uid,
+        displayName: user.displayName || 'Usuário',
+        email: user.email || '',
+        roleId: roleId,
+        companyIds: [],
+        isAdmin: isAdmin,
+        canFinance: canFinance,
+        photoURL: user.photoURL || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(userDocRef, newUserProfile);
+    
+    // Retorna o perfil recém-criado
+    const createdDoc = await getDoc(userDocRef);
+    return createdDoc.data() as UserProfile;
+};
+
+
 export const FirebaseProvider: React.FC<{
   children: ReactNode;
   firebaseApp: FirebaseApp | null;
@@ -82,37 +140,32 @@ export const FirebaseProvider: React.FC<{
 
     const unsubscribeAuth = onAuthStateChanged(
       auth,
-      (firebaseUser) => {
+      async (firebaseUser) => {
         if (firebaseUser) {
-          const profileDocRef = doc(firestore, 'users', firebaseUser.uid);
-          const unsubscribeProfile = onSnapshot(profileDocRef, 
-            (docSnap) => {
-              if (docSnap.exists()) {
-                setAuthState({
-                  user: firebaseUser,
-                  profile: docSnap.data() as UserProfile,
-                  isUserLoading: false,
-                  userError: null,
-                });
-              } else {
-                setAuthState({
-                  user: firebaseUser,
-                  profile: null, 
-                  isUserLoading: false,
-                  userError: new Error("Perfil do usuário não encontrado no banco de dados."),
-                });
-              }
-            },
-            (error) => {
-               setAuthState({
-                  user: firebaseUser,
-                  profile: null,
-                  isUserLoading: false,
-                  userError: error,
-                });
-            }
-          );
-          return () => unsubscribeProfile();
+          try {
+            const profile = await provisionUserProfile(firestore, firebaseUser);
+            setAuthState({
+              user: firebaseUser,
+              profile: profile,
+              isUserLoading: false,
+              userError: null,
+            });
+            // Após a migração/criação, podemos ouvir por updates em tempo real.
+            const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+            onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    setAuthState(current => ({...current, profile: docSnap.data() as UserProfile}));
+                }
+            });
+
+          } catch (error: any) {
+             setAuthState({
+                user: firebaseUser,
+                profile: null,
+                isUserLoading: false,
+                userError: error,
+              });
+          }
         } else {
           setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
         }
