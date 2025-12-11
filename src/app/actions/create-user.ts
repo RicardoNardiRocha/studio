@@ -2,17 +2,16 @@
 
 import * as admin from 'firebase-admin';
 import { z } from 'zod';
+import { Timestamp } from 'firebase-admin/firestore';
 
-// Schema for provisioning a user profile in Firestore
 const formSchema = z.object({
   displayName: z.string().min(3),
   email: z.string().email(),
-  roleId: z.string(),
+  roleId: z.enum(['owner', 'admin', 'contador', 'usuario']),
 });
 
 type CreateUserInput = z.infer<typeof formSchema>;
 
-// Initialize Firebase Admin SDK
 function initializeFirebaseAdmin() {
   if (admin.apps.length > 0) {
     return admin.app();
@@ -33,11 +32,6 @@ function initializeFirebaseAdmin() {
   }
 }
 
-/**
- * Creates a user profile document in Firestore for an existing Firebase Auth user.
- * @param data - The user profile data including displayName, email, and roleId.
- * @returns An object with the user's UID and a success message, or an error object.
- */
 export async function createUser(data: CreateUserInput) {
   try {
     const app = initializeFirebaseAdmin();
@@ -46,41 +40,41 @@ export async function createUser(data: CreateUserInput) {
 
     const validatedData = formSchema.parse(data);
 
-    // 1. Verify user exists in Firebase Authentication by email
     let userRecord;
     try {
       userRecord = await auth.getUserByEmail(validatedData.email);
     } catch (error: any) {
       if (error.code === 'auth/user-not-found') {
-        throw new Error(`O e-mail "${validatedData.email}" não pertence a um usuário de autenticação existente. Crie a conta de login no painel do Firebase primeiro.`);
+        throw new Error(`O usuário com e-mail "${validatedData.email}" não existe na autenticação. Crie a conta de login no painel do Firebase primeiro.`);
       }
-      throw error; // Re-throw other auth errors
+      throw error; 
     }
 
-    // 2. Check if a profile already exists in Firestore for this UID
     const userDocRef = firestore.collection('users').doc(userRecord.uid);
     const userDocSnap = await userDocRef.get();
     if (userDocSnap.exists) {
       throw new Error(`Um perfil de usuário para ${validatedData.email} já existe no sistema.`);
     }
 
-    // 3. Create the user profile document in Firestore
-    await userDocRef.set({
-      uid: userRecord.uid,
-      displayName: validatedData.displayName,
-      email: validatedData.email,
-      photoURL: userRecord.photoURL || '',
-      roleId: validatedData.roleId,
-    });
-    
-    // Grant special roles if necessary
-    if (validatedData.roleId === 'admin') {
-      await firestore.collection('roles_admin').doc(userRecord.uid).set({});
-    }
-     if (validatedData.roleId === 'finance') {
-      await firestore.collection('roles_finance').doc(userRecord.uid).set({});
-    }
+    const newUserProfile = {
+        userId: userRecord.uid,
+        displayName: validatedData.displayName,
+        email: validatedData.email,
+        roleId: validatedData.roleId,
+        companyIds: [],
+        isAdmin: validatedData.roleId === 'admin' || validatedData.roleId === 'owner',
+        canFinance: validatedData.roleId === 'admin' || validatedData.roleId === 'owner', // Default finance access for admin/owner
+        photoURL: userRecord.photoURL || '',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+    };
 
+    await userDocRef.set(newUserProfile);
+    
+    // If the main display name in Auth is different, update it
+    if(userRecord.displayName !== validatedData.displayName) {
+        await auth.updateUser(userRecord.uid, { displayName: validatedData.displayName });
+    }
 
     return {
       uid: userRecord.uid,

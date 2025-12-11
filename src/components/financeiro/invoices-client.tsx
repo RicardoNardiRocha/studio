@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search, FilePlus2 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
@@ -79,9 +79,10 @@ export function InvoicesClient() {
   const [dueDateFilter, setDueDateFilter] = useState('');
   
   const firestore = useFirestore();
+  const { profile } = useUser();
   const { toast } = useToast();
 
-  const invoicesQuery = useMemoFirebase(() => {
+  const invoicesQuery = useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
   }, [firestore]);
@@ -136,19 +137,13 @@ export function InvoicesClient() {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  if (error) {
-    toast({
-        title: "Erro de Permissão",
-        description: "Você não tem permissão para visualizar o módulo financeiro. Contate o administrador.",
-        variant: "destructive",
-        duration: Infinity, 
-    });
-    return (
+  if (!profile?.canFinance) {
+     return (
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline text-destructive">Acesso Negado</CardTitle>
                 <CardDescription>
-                    Seu usuário não tem permissão para acessar o Módulo Financeiro.
+                    Seu perfil não tem permissão para acessar o Módulo Financeiro.
                 </CardDescription>
             </CardHeader>
             <CardContent>

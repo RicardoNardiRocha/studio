@@ -196,7 +196,7 @@ export function ProfileClient() {
     )
   }
 
-  const isAdminOrOwner = profile?.roleId === 'admin' || profile?.roleId === 'owner';
+  const isAdminOrOwner = profile?.isAdmin || profile?.roleId === 'owner';
 
   return (
     <div className="space-y-6">

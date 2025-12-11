@@ -31,8 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useUser } from '@/firebase';
 import { createUser } from '@/app/actions/create-user';
 
 interface AddUserDialogProps {
@@ -44,36 +43,33 @@ interface AddUserDialogProps {
 const formSchema = z.object({
   displayName: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres.'),
   email: z.string().email('O e-mail é inválido.'),
-  roleId: z.string({ required_error: 'Selecione um papel para o usuário.' }),
+  roleId: z.enum(['admin', 'contador', 'usuario'], { required_error: 'Selecione um papel para o usuário.' }),
 });
-
-type Role = {
-  id: string;
-  name: string;
-};
 
 export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const firestore = useFirestore();
-
-  const rolesCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'roles'), orderBy('name', 'asc'));
-  }, [firestore]);
-
-  const { data: roles } = useCollection<Role>(rolesCollection);
+  const { profile } = useUser();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       displayName: '',
       email: '',
-      roleId: '',
+      roleId: 'usuario',
     },
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (profile?.roleId !== 'owner' && values.roleId === 'admin') {
+         toast({
+            title: 'Permissão Negada',
+            description: 'Apenas o Owner pode criar outros administradores.',
+            variant: 'destructive',
+        });
+        return;
+    }
+      
     setIsLoading(true);
     try {
       const result = await createUser(values);
@@ -98,6 +94,12 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
       setIsLoading(false);
     }
   };
+  
+  const availableRoles = [
+      { id: 'admin', name: 'Administrador' },
+      { id: 'contador', name: 'Contador' },
+      { id: 'usuario', name: 'Usuário (Apenas Leitura)' },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -132,10 +134,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
                   <FormControl>
                     <Input type="email" placeholder="usuario@seu-dominio.com" {...field} />
                   </FormControl>
-                   <FormDescription>
-                    O usuário já deve ter uma conta de login criada no Firebase Authentication com este e-mail.
-                  </FormDescription>
-                  <FormMessage />
+                   <FormMessage />
                 </FormItem>
               )}
             />
@@ -152,8 +151,8 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {roles?.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id} disabled={profile?.roleId !== 'owner' && role.id === 'admin'}>
                           {role.name}
                         </SelectItem>
                       ))}

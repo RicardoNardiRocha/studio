@@ -1,7 +1,6 @@
 'use client';
 
 import React, {
-  DependencyList,
   createContext,
   useContext,
   ReactNode,
@@ -15,21 +14,19 @@ import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
-interface FirebaseProviderProps {
-  children: ReactNode;
-  firebaseApp: FirebaseApp | null;
-  firestore: Firestore | null;
-  auth: Auth | null;
-  storage: FirebaseStorage | null;
-}
-
-interface UserProfile {
-  uid: string;
+export interface UserProfile {
+  userId: string;
   displayName: string;
   email: string;
-  roleId: string;
+  roleId: 'owner' | 'admin' | 'contador' | 'usuario';
+  companyIds: string[];
+  isAdmin: boolean;
+  canFinance: boolean;
   photoURL?: string;
+  createdAt: any; // serverTimestamp
+  updatedAt: any; // serverTimestamp
 }
+
 
 interface UserAuthState {
   user: User | null;
@@ -52,7 +49,13 @@ export interface FirebaseContextState {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
+export const FirebaseProvider: React.FC<{
+  children: ReactNode;
+  firebaseApp: FirebaseApp | null;
+  firestore: Firestore | null;
+  auth: Auth | null;
+  storage: FirebaseStorage | null;
+}> = ({
   children,
   firebaseApp,
   firestore,
@@ -81,7 +84,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       (firebaseUser) => {
         if (firebaseUser) {
-          // User is signed in, now fetch their profile from Firestore.
           const profileDocRef = doc(firestore, 'users', firebaseUser.uid);
           const unsubscribeProfile = onSnapshot(profileDocRef, 
             (docSnap) => {
@@ -93,17 +95,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                   userError: null,
                 });
               } else {
-                // Profile doesn't exist, which might be a temporary state during signup.
                 setAuthState({
                   user: firebaseUser,
-                  profile: null, // No profile yet
+                  profile: null, 
                   isUserLoading: false,
-                  userError: null, // Not necessarily an error yet
+                  userError: new Error("Perfil do usuário não encontrado no banco de dados."),
                 });
               }
             },
             (error) => {
-               // Error fetching profile
                setAuthState({
                   user: firebaseUser,
                   profile: null,
@@ -112,10 +112,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                 });
             }
           );
-          // Return a cleanup function that unsubscribes from the profile listener.
           return () => unsubscribeProfile();
         } else {
-          // User is signed out.
           setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
         }
       },
@@ -170,14 +168,3 @@ export const useUser = () => {
   const { user, profile, isUserLoading, userError } = useFirebase();
   return { user, profile, isUserLoading, userError };
 };
-
-// useMemoFirebase hook to help with memoization of queries/refs
-export function useMemoFirebase<T>(factory: () => T, deps: React.DependencyList): T {
-  const memoized = useMemo(factory, deps);
-  
-  if (typeof memoized === 'object' && memoized !== null) {
-    (memoized as any).__memo = true;
-  }
-  
-  return memoized;
-}
