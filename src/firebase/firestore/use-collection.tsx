@@ -84,7 +84,16 @@ export function useCollection<T = any>(
       (snapshot: QuerySnapshot<DocumentData>) => {
         const results: ResultItemType[] = [];
         for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
+           let docData = doc.data() as T;
+           
+           // **DATA MIGRATION STEP**
+           // If the collection is 'users' and the doc is missing 'uid', populate it from the document ID.
+           // This ensures backward compatibility for existing user documents.
+           if ((memoizedTargetRefOrQuery as any)._query?.path.segments.includes('users') && !(docData as any).uid) {
+                (docData as any).uid = doc.id;
+           }
+
+          results.push({ ...(docData), id: doc.id });
         }
         setData(results);
         setError(null);
