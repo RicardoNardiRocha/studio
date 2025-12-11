@@ -4,12 +4,13 @@
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { ReactNode, useEffect } from 'react';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 function AuthGuard({ children }: { children: ReactNode }) {
   const { user, profile, isUserLoading } = useUser();
+  const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -34,7 +35,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
   }, [user, profile, isUserLoading, pathname, router]);
 
   // Enquanto carrega o usuário ou o perfil, mostra a tela de loading.
-  if (isUserLoading || (auth.currentUser && !profile)) {
+  if (isUserLoading || (auth?.currentUser && !profile)) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
