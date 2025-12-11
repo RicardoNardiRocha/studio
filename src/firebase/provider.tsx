@@ -70,7 +70,7 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
     const [ownerSnap, adminSnap, financeSnap] = await Promise.all([
         getDoc(ownerRef),
         getDoc(adminRef),
-        getDoc(financeRef)
+        getDoc(financeSnap)
     ]);
     
     if (ownerSnap.exists()) {
@@ -99,10 +99,14 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
         updatedAt: serverTimestamp(),
     };
 
+    // CORREÇÃO: Salva o novo perfil no banco de dados se ele não existir
     await setDoc(userDocRef, newUserProfile);
     
     // Retorna o perfil recém-criado
     const createdDoc = await getDoc(userDocRef);
+    if (!createdDoc.exists()) {
+        throw new Error("Falha ao criar e recuperar o perfil do usuário após a migração.");
+    }
     return createdDoc.data() as UserProfile;
 };
 
