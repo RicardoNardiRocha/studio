@@ -47,7 +47,7 @@ service cloud.firestore {
     
     function canWriteCompanyData(companyId) {
        let profile = getUserProfile(request.auth.uid);
-       return profile.roleId == 'contador' && isCompanyMember(companyId) || isAdmin();
+       return (profile.roleId == 'contador' && isCompanyMember(companyId)) || isAdmin();
     }
     
     // =========================================================================
@@ -67,14 +67,10 @@ service cloud.firestore {
 
     // --- Companies ---
     match /companies/{companyId} {
-      // Anyone signed in can list companies (for selection fields)
-      allow list: if isSignedIn();
-      // Admins and specific members can read.
-      allow get: if canReadCompanyData(companyId);
-      // Admins and Contadores can create/update companies
-      allow create, update: if isAdmin() || getUserProfile(request.auth.uid).roleId == 'contador';
-      // Only admins/owners can delete
-      allow delete: if isAdmin();
+      // Admins/Owners can read any company. Others need to be a member.
+      allow read: if canReadCompanyData(companyId);
+       // Admins/Contadores can create/update companies
+      allow write: if canWriteCompanyData(companyId);
     }
 
     // --- Partners ---
@@ -89,20 +85,26 @@ service cloud.firestore {
       allow read, write: if canAccessFinance();
     }
 
-    // --- Tax Obligations & Corporate Processes ---
+    // --- Tax Obligations ---
     match /taxObligations/{taxObligationId} {
-      allow read: if canReadCompanyData(request.resource.data.companyId);
-      allow create, update, delete: if canWriteCompanyData(request.resource.data.companyId);
-    }
-
-    match /corporateProcesses/{processId} {
-      allow read: if canReadCompanyData(request.resource.data.companyId);
-      allow create, update, delete: if canWriteCompanyData(request.resource.data.companyId);
+      allow read: if canReadCompanyData(resource.data.companyId);
+      allow create, update, delete: if canWriteCompanyData(resource.data.companyId);
     }
     
-    // Subcollections for processes and obligations
-    match /{collection}/{docId}/{subcollection}/{subDocId} {
-       allow read, write: if isSignedIn(); // Simplified rule for subcollections
+    // Allow read/write on subcollections if user can write to parent
+    match /taxObligations/{taxObligationId}/{subcollection}/{subDocId} {
+       allow read, write: if canWriteCompanyData(get(/databases/$(database)/documents/taxObligations/$(taxObligationId)).data.companyId);
+    }
+
+    // --- Corporate Processes ---
+    match /corporateProcesses/{processId} {
+      allow read: if canReadCompanyData(resource.data.companyId);
+      allow create, update, delete: if canWriteCompanyData(resource.data.companyId);
+    }
+    
+     // Allow read/write on subcollections if user can write to parent
+    match /corporateProcesses/{processId}/{subcollection}/{subDocId} {
+       allow read, write: if canWriteCompanyData(get(/databases/$(database)/documents/corporateProcesses/$(processId)).data.companyId);
     }
 
     // --- Documents within a Company ---
