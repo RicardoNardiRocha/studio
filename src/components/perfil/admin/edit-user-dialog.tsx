@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,16 +18,16 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, PlusCircle, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile, ModulePermissions } from '@/firebase/provider';
 import { logActivity } from '@/lib/activity-log';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 
 interface EditUserDialogProps {
@@ -44,6 +44,7 @@ const modules: Array<keyof UserProfile['permissions']> = [
   'obrigacoes',
   'fiscal',
   'financeiro',
+  'documentos',
   'usuarios',
 ];
 
@@ -62,6 +63,7 @@ const formSchema = z.object({
     obrigacoes: permissionSchema,
     fiscal: permissionSchema,
     financeiro: permissionSchema,
+    documentos: permissionSchema,
     usuarios: permissionSchema,
   }),
 });
@@ -73,6 +75,7 @@ const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], Modul
   obrigacoes: { read: false, create: false, update: false, delete: false },
   fiscal: { read: false, create: false, update: false, delete: false },
   financeiro: { read: false, create: false, update: false, delete: false },
+  documentos: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
 });
 
@@ -128,49 +131,82 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
       setIsLoading(false);
     }
   };
+  
+  const permissionsHeader = [
+      { id: 'read', label: 'Ver', icon: Eye },
+      { id: 'create', label: 'Criar', icon: PlusCircle },
+      { id: 'update', label: 'Editar', icon: Pencil },
+      { id: 'delete', label: 'Excluir', icon: Trash2 },
+  ]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Gerenciar Permissões</DialogTitle>
-          <DialogDescription>Editando permissões para <span className='font-bold'>{userToEdit.displayName}</span> ({userToEdit.email})</DialogDescription>
+          <DialogTitle>Gerenciar Permissões de Usuário</DialogTitle>
+          <DialogDescription>Controle o que <span className='font-bold'>{userToEdit.displayName}</span> pode ver e fazer no sistema.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-4">
-              {modules.map((moduleName) => (
-                <div key={moduleName} className="space-y-2">
-                  <h3 className="text-md font-semibold capitalize">{moduleName}</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 rounded-lg border p-4">
-                    {Object.keys(permissionSchema.shape).map((permission) => (
-                      <FormField
-                        key={`${moduleName}-${permission}`}
-                        control={form.control}
-                        name={`permissions.${moduleName}.${permission as keyof ModulePermissions}`}
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="capitalize">{permission}</FormLabel>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+             <div className="space-y-3 p-1">
+                {/* Header */}
+                <div className="flex items-center px-4 py-2">
+                    <div className="flex-1 font-semibold text-muted-foreground text-sm">MÓDULO</div>
+                    {permissionsHeader.map(p => (
+                         <div key={p.id} className="w-24 text-center font-semibold text-muted-foreground text-sm flex flex-col items-center gap-1">
+                            <p.icon className="h-4 w-4" />
+                            {p.label}
+                        </div>
                     ))}
-                  </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Module Cards */}
+                <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-2">
+                    {modules.map((moduleName) => {
+                        const isFinance = moduleName === 'financeiro';
+                        return (
+                            <div key={moduleName} className={`flex items-center p-4 rounded-lg border bg-card shadow-sm ${isFinance ? 'border-amber-500/50' : ''}`}>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        {isFinance && <AlertTriangle className="h-4 w-4 text-amber-500" />}
+                                        <p className="font-semibold text-card-foreground capitalize">{moduleName}</p>
+                                    </div>
+                                </div>
+                                {permissionsHeader.map((permission) => (
+                                    <div key={`${moduleName}-${permission.id}`} className="w-24 flex justify-center">
+                                         <FormField
+                                            control={form.control}
+                                            name={`permissions.${moduleName}.${permission.id as keyof ModulePermissions}`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormControl>
+                                                        {permission.id === 'read' ? (
+                                                             <Switch
+                                                                checked={field.value}
+                                                                onCheckedChange={field.onChange}
+                                                            />
+                                                        ) : (
+                                                            <Checkbox
+                                                                checked={field.value}
+                                                                onCheckedChange={field.onChange}
+                                                                disabled={!form.watch(`permissions.${moduleName}.read`)}
+                                                            />
+                                                        )}
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                            />
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    })}
+                </div>
+             </div>
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className='bg-primary text-primary-foreground hover:bg-primary/90'>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar Permissões
               </Button>
