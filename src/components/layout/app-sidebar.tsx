@@ -26,28 +26,49 @@ import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser } from '@/firebase';
+import type { UserProfile } from '@/firebase/provider';
 
-const menuItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
-  { href: '/empresas', label: 'Empresas', icon: Building },
-  { href: '/societario', label: 'Societário', icon: Briefcase },
-  { href: '/processos', label: 'Processos', icon: Workflow },
-  { href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
-  { href: '/fiscal', label: 'Fiscal', icon: FileCog },
-  { href: '/documentos', label: 'Documentos', icon: FolderOpen },
-  { href: '/financeiro', label: 'Financeiro', icon: Landmark },
+
+const allMenuItems = [
+  { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
+  { id: 'empresas', href: '/empresas', label: 'Empresas', icon: Building },
+  { id: 'societario', href: '/societario', label: 'Societário', icon: Briefcase },
+  { id: 'processos', href: '/processos', label: 'Processos', icon: Workflow },
+  { id: 'obrigacoes', href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
+  { id: 'fiscal', href: '/fiscal', label: 'Fiscal', icon: FileCog },
+  { id: 'documentos', href: '/documentos', label: 'Documentos', icon: FolderOpen },
+  { id: 'financeiro', href: '/financeiro', label: 'Financeiro', icon: Landmark },
 ];
 
 const secondaryMenuItems = [
-    { href: '/perfil', label: 'Perfil', icon: User },
-]
+    { id: 'perfil', href: '/perfil', label: 'Perfil', icon: User },
+];
+
+const hasAccess = (item: { id: string }, profile: UserProfile | null): boolean => {
+    if (!profile) return false;
+
+    const rules: { [key: string]: () => boolean } = {
+        dashboard: () => true,
+        empresas: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
+        societario: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
+        processos: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
+        obrigacoes: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
+        fiscal: () => profile.isAdmin || profile.roleId === 'owner',
+        documentos: () => true, // Todos podem ver o placeholder do menu de documentos
+        financeiro: () => profile.canFinance === true,
+        perfil: () => true,
+    };
+
+    return rules[item.id] ? rules[item.id]() : false;
+};
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar-1');
 
-  const processedPathname = pathname.split('/')[1] || 'dashboard';
+  const visibleMenuItems = allMenuItems.filter(item => hasAccess(item, profile));
+  const visibleSecondaryMenuItems = secondaryMenuItems.filter(item => hasAccess(item, profile));
 
   return (
     <Sidebar>
@@ -59,7 +80,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} passHref>
                 <SidebarMenuButton
@@ -80,7 +101,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
          <SidebarMenu>
-          {secondaryMenuItems.map((item) => (
+          {visibleSecondaryMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} passHref>
                 <SidebarMenuButton
