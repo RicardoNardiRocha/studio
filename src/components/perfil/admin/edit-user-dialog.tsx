@@ -19,16 +19,21 @@ import {
   FormItem,
   FormLabel,
 } from '@/components/ui/form';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Eye, PlusCircle, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Loader2, Eye, PlusCircle, Pencil, Trash2, AlertTriangle, Settings } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile, ModulePermissions } from '@/firebase/provider';
 import { logActivity } from '@/lib/activity-log';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 
 interface EditUserDialogProps {
   userToEdit: UserProfile;
@@ -43,8 +48,8 @@ const modules: Array<keyof UserProfile['permissions']> = [
   'processos',
   'obrigacoes',
   'fiscal',
-  'financeiro',
   'documentos',
+  'financeiro',
   'usuarios',
 ];
 
@@ -62,8 +67,8 @@ const formSchema = z.object({
     processos: permissionSchema,
     obrigacoes: permissionSchema,
     fiscal: permissionSchema,
-    financeiro: permissionSchema,
     documentos: permissionSchema,
+    financeiro: permissionSchema,
     usuarios: permissionSchema,
   }),
 });
@@ -74,8 +79,8 @@ const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], Modul
   processos: { read: false, create: false, update: false, delete: false },
   obrigacoes: { read: false, create: false, update: false, delete: false },
   fiscal: { read: false, create: false, update: false, delete: false },
-  financeiro: { read: false, create: false, update: false, delete: false },
   documentos: { read: false, create: false, update: false, delete: false },
+  financeiro: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
 });
 
@@ -137,7 +142,24 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
       { id: 'create', label: 'Criar', icon: PlusCircle },
       { id: 'update', label: 'Editar', icon: Pencil },
       { id: 'delete', label: 'Excluir', icon: Trash2 },
-  ]
+  ];
+  
+  const setModulePermissions = (module: keyof UserProfile['permissions'], preset: 'admin' | 'user' | 'none') => {
+    const newPermissions: ModulePermissions = { read: false, create: false, update: false, delete: false };
+    if (preset === 'admin') {
+      newPermissions.read = true;
+      newPermissions.create = true;
+      newPermissions.update = true;
+      newPermissions.delete = true;
+    } else if (preset === 'user') {
+      newPermissions.read = true;
+      newPermissions.create = true;
+      newPermissions.update = true;
+      newPermissions.delete = false;
+    }
+    form.setValue(`permissions.${module}`, newPermissions);
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -152,6 +174,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                 {/* Header */}
                 <div className="flex items-center px-4 py-2">
                     <div className="flex-1 font-semibold text-muted-foreground text-sm">MÓDULO</div>
+                    <div className="w-20"></div> {/* Spacer for dropdown */}
                     {permissionsHeader.map(p => (
                          <div key={p.id} className="w-24 text-center font-semibold text-muted-foreground text-sm flex flex-col items-center gap-1">
                             <p.icon className="h-4 w-4" />
@@ -171,6 +194,26 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                                         {isFinance && <AlertTriangle className="h-4 w-4 text-amber-500" />}
                                         <p className="font-semibold text-card-foreground capitalize">{moduleName}</p>
                                     </div>
+                                </div>
+                                <div className="w-20 flex justify-center">
+                                     <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon">
+                                            <Settings className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                          <DropdownMenuItem onClick={() => setModulePermissions(moduleName, 'admin')}>
+                                            Admin (Acesso Total)
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setModulePermissions(moduleName, 'user')}>
+                                            Usuário (Criar/Editar)
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => setModulePermissions(moduleName, 'none')} className="text-destructive">
+                                            Nenhum Acesso
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                 </div>
                                 {permissionsHeader.map((permission) => (
                                     <div key={`${moduleName}-${permission.id}`} className="w-24 flex justify-center">
