@@ -15,6 +15,7 @@ import {
 import {
   Form,
   FormControl,
+  FormField,
   FormItem,
   FormLabel,
   FormMessage,
@@ -78,7 +79,7 @@ const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], Modul
 
 export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }: EditUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { user: currentUser, profile: currentUserProfile } = useUser();
+  const { user: currentUser } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
