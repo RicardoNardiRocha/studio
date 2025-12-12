@@ -26,17 +26,10 @@ export function UserManagement() {
 
   const { data: users, isLoading, forceRefetch } = useCollection<UserProfile>(usersQuery);
 
-  const getRoleVariant = (roleId?: string) => {
-    switch (roleId) {
-      case 'owner':
-        return 'destructive';
-      case 'admin':
-        return 'default';
-      case 'contador':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
+  const getRoleSummary = (permissions: UserProfile['permissions']): string => {
+    if (permissions?.usuarios?.update) return 'Admin';
+    if (permissions?.empresas?.read) return 'Contador';
+    return 'Usuário';
   };
 
   const handleOpenEditDialog = (userToEdit: UserProfile) => {
@@ -50,14 +43,9 @@ export function UserManagement() {
   
   const canEdit = (userToEdit: UserProfile) => {
     if (!adminProfile || !adminUser) return false;
-    // Cannot edit self
-    if(adminUser.uid === userToEdit.uid) return false;
-    // Owners can edit anyone 
-    if(adminProfile.roleId === 'owner') return true;
-    // Admins can edit anyone who is not an owner or another admin
-    if(adminProfile.roleId === 'admin' && userToEdit.roleId !== 'owner' && userToEdit.roleId !== 'admin') return true;
-    
-    return false;
+    if (adminUser.uid === userToEdit.uid) return false;
+    // Simple logic: only admins can edit other users
+    return adminProfile.permissions?.usuarios?.update === true;
   }
 
   return (
@@ -88,9 +76,8 @@ export function UserManagement() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Função</TableHead>
-                  <TableHead>Admin?</TableHead>
-                  <TableHead>Financeiro?</TableHead>
+                  <TableHead>Função Resumida</TableHead>
+                  <TableHead>Acessa Financeiro?</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -101,8 +88,7 @@ export function UserManagement() {
                       <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
@@ -112,13 +98,14 @@ export function UserManagement() {
                       <TableCell className="font-medium">{user.displayName}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant={getRoleVariant(user.roleId)}>{user.roleId ? (user.roleId.charAt(0).toUpperCase() + user.roleId.slice(1)) : 'N/A'}</Badge>
+                        <Badge variant={getRoleSummary(user.permissions) === 'Admin' ? 'default' : 'secondary'}>
+                          {getRoleSummary(user.permissions)}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.isAdmin ? 'default' : 'outline'}>{user.isAdmin ? 'Sim' : 'Não'}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.canFinance ? 'default' : 'outline'}>{user.canFinance ? 'Sim' : 'Não'}</Badge>
+                        <Badge variant={user.permissions?.financeiro?.read ? 'default' : 'outline'}>
+                          {user.permissions?.financeiro?.read ? 'Sim' : 'Não'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(user)} disabled={!canEdit(user)}>
@@ -130,7 +117,7 @@ export function UserManagement() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                       <Users className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                       Nenhum perfil de usuário encontrado no banco de dados.
                       <p className='text-xs text-muted-foreground'>Faça o primeiro login de um novo usuário para que ele apareça aqui.</p>

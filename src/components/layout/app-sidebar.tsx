@@ -44,22 +44,14 @@ const secondaryMenuItems = [
     { id: 'perfil', href: '/perfil', label: 'Perfil', icon: User },
 ];
 
-const hasAccess = (item: { id: string }, profile: UserProfile | null): boolean => {
-    if (!profile) return false;
+const hasAccess = (itemId: string, profile: UserProfile | null): boolean => {
+    if (!profile || !profile.permissions) return false;
+    
+    // Dashboard and Perfil are always visible
+    if (itemId === 'dashboard' || itemId === 'perfil') return true;
 
-    const rules: { [key: string]: () => boolean } = {
-        dashboard: () => true,
-        empresas: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
-        societario: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
-        processos: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
-        obrigacoes: () => profile.isAdmin || profile.roleId === 'owner' || profile.roleId === 'contador',
-        fiscal: () => profile.isAdmin || profile.roleId === 'owner',
-        documentos: () => true, // Todos podem ver o placeholder do menu de documentos
-        financeiro: () => profile.canFinance === true,
-        perfil: () => true,
-    };
-
-    return rules[item.id] ? rules[item.id]() : false;
+    const module = itemId as keyof UserProfile['permissions'];
+    return profile.permissions[module]?.read === true;
 };
 
 export function AppSidebar() {
@@ -67,8 +59,8 @@ export function AppSidebar() {
   const { user, profile } = useUser();
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar-1');
 
-  const visibleMenuItems = allMenuItems.filter(item => hasAccess(item, profile));
-  const visibleSecondaryMenuItems = secondaryMenuItems.filter(item => hasAccess(item, profile));
+  const visibleMenuItems = allMenuItems.filter(item => hasAccess(item.id, profile));
+  const visibleSecondaryMenuItems = secondaryMenuItems.filter(item => hasAccess(item.id, profile));
 
   return (
     <Sidebar>
@@ -101,7 +93,7 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
          <SidebarMenu>
-          {visibleSecondaryMenuItems.map((item) => (
+          {profile?.permissions?.usuarios?.read && visibleSecondaryMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} passHref>
                 <SidebarMenuButton

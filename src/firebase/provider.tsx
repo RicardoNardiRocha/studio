@@ -15,17 +15,30 @@ import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
+export interface ModulePermissions {
+  read: boolean;
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
-  roleId: 'owner' | 'admin' | 'contador' | 'usuario';
+  permissions: {
+    empresas: ModulePermissions;
+    societario: ModulePermissions;
+    processos: ModulePermissions;
+    obrigacoes: ModulePermissions;
+    fiscal: ModulePermissions;
+    financeiro: ModulePermissions;
+    usuarios: ModulePermissions;
+  };
   companyIds: string[];
-  isAdmin: boolean;
-  canFinance: boolean;
   photoURL?: string;
-  createdAt: any; // serverTimestamp
-  updatedAt: any; // serverTimestamp
+  createdAt: any; 
+  updatedAt: any; 
 }
 
 
@@ -50,42 +63,53 @@ export interface FirebaseContextState {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-// This function checks for a user profile and creates one if it doesn't exist.
-// It includes a hardcoded check to ensure the primary user is always an 'owner'.
+const defaultPermissions: UserProfile['permissions'] = {
+  empresas: { read: true, create: false, update: false, delete: false },
+  societario: { read: true, create: false, update: false, delete: false },
+  processos: { read: true, create: false, update: false, delete: false },
+  obrigacoes: { read: true, create: false, update: false, delete: false },
+  fiscal: { read: false, create: false, update: false, delete: false },
+  financeiro: { read: false, create: false, update: false, delete: false },
+  usuarios: { read: false, create: false, update: false, delete: false },
+};
+
+const ownerPermissions: UserProfile['permissions'] = {
+  empresas: { read: true, create: true, update: true, delete: true },
+  societario: { read: true, create: true, update: true, delete: true },
+  processos: { read: true, create: true, update: true, delete: true },
+  obrigacoes: { read: true, create: true, update: true, delete: true },
+  fiscal: { read: true, create: true, update: true, delete: true },
+  financeiro: { read: true, create: true, update: true, delete: true },
+  usuarios: { read: true, create: true, update: true, delete: true },
+};
+
+
 const provisionUserProfile = async (firestore: Firestore, user: User): Promise<UserProfile> => {
     const userDocRef = doc(firestore, 'users', user.uid);
-    
-    // First, try to get the document.
     const userDoc = await getDoc(userDocRef);
 
-    // If the document already exists, return its data.
     if (userDoc.exists()) {
-        return userDoc.data() as UserProfile;
+        const profile = userDoc.data() as UserProfile;
+        if (profile.uid) { // Check if profile is already in the new format
+            return profile;
+        }
     }
-
-    // If the document does NOT exist, we create it.
-    // This is the critical step for migration.
     
-    // Hardcode the owner's UID to ensure they get the correct role.
     const isOwner = user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2';
     
     const newUserProfile: UserProfile = {
-        uid: user.uid, // Ensure the UID is saved in the document
+        uid: user.uid,
         displayName: user.displayName || 'Novo Usuário',
         email: user.email || '',
-        roleId: isOwner ? 'owner' : 'usuario', // Default to 'usuario' if not the owner
-        isAdmin: isOwner, // Only the owner is admin by default on creation
-        canFinance: isOwner, // Only the owner has finance access by default
+        permissions: isOwner ? ownerPermissions : defaultPermissions,
         companyIds: [],
         photoURL: user.photoURL || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
 
-    // Save the new profile to the database. This write is allowed by the new security rules.
-    await setDoc(userDocRef, newUserProfile);
+    await setDoc(userDocRef, newUserProfile, { merge: true });
     
-    // Return the newly created profile.
     return newUserProfile;
 };
 
@@ -127,7 +151,6 @@ export const FirebaseProvider: React.FC<{
         setAuthState(current => ({ ...current, isUserLoading: true, userError: null, profile: null }));
         if (firebaseUser) {
           try {
-            // This function will now reliably create and/or fetch the user profile.
             const profile = await provisionUserProfile(firestore, firebaseUser);
             setAuthState({
               user: firebaseUser,
@@ -136,7 +159,6 @@ export const FirebaseProvider: React.FC<{
               userError: null,
             });
 
-            // Listen for real-time updates to the profile after it's been provisioned.
             const userDocRef = doc(firestore, 'users', firebaseUser.uid);
             const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
@@ -146,7 +168,7 @@ export const FirebaseProvider: React.FC<{
                  setAuthState(current => ({ ...current, userError: error }));
             });
 
-            return () => unsubscribeProfile(); // Cleanup the profile listener
+            return () => unsubscribeProfile();
 
           } catch (error: any) {
              setAuthState({
@@ -157,12 +179,10 @@ export const FirebaseProvider: React.FC<{
               });
           }
         } else {
-          // No user logged in, finish loading.
           setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
         }
       },
       (error) => {
-        // Error during auth state change, finish loading.
         setAuthState({
           user: null,
           profile: null,
@@ -172,7 +192,7 @@ export const FirebaseProvider: React.FC<{
       }
     );
 
-    return () => unsubscribeAuth(); // Cleanup the auth listener
+    return () => unsubscribeAuth();
   }, [auth, firestore]);
 
   const value = useMemo(() => {

@@ -20,23 +20,23 @@
           "description": "The user's email address, used for login.",
           "format": "email"
         },
-        "roleId": {
-          "type": "string",
-          "description": "The primary role of the user, determining their base level of access.",
-          "enum": ["owner", "admin", "contador", "usuario"]
+        "permissions": {
+          "type": "object",
+          "description": "A map of granular, module-based permissions.",
+          "properties": {
+            "empresas": { "$ref": "#/entities/ModulePermissions" },
+            "societario": { "$ref": "#/entities/ModulePermissions" },
+            "processos": { "$ref": "#/entities/ModulePermissions" },
+            "obrigacoes": { "$ref": "#/entities/ModulePermissions" },
+            "fiscal": { "$ref": "#/entities/ModulePermissions" },
+            "financeiro": { "$ref": "#/entities/ModulePermissions" },
+            "usuarios": { "$ref": "#/entities/ModulePermissions" }
+          }
         },
         "companyIds": {
             "type": "array",
-            "description": "A list of company IDs the user is permitted to access. Empty for admins/owners who have global access.",
+            "description": "A list of company IDs the user is permitted to access. This is enforced by security rules for non-admins.",
             "items": { "type": "string" }
-        },
-        "isAdmin": {
-            "type": "boolean",
-            "description": "Flag indicating if the user has administrative privileges over users and settings."
-        },
-        "canFinance": {
-            "type": "boolean",
-            "description": "Flag indicating if the user has access to the financial module."
         },
         "photoURL": {
           "type": "string",
@@ -52,16 +52,20 @@
             "format": "date-time"
         }
       },
-      "required": [
-        "uid",
-        "displayName",
-        "email",
-        "roleId",
-        "isAdmin",
-        "canFinance",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": [ "uid", "displayName", "email", "permissions", "createdAt", "updatedAt" ]
+    },
+    "ModulePermissions": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ModulePermissions",
+        "type": "object",
+        "description": "Defines the CRUD permissions for a single module.",
+        "properties": {
+            "read": { "type": "boolean" },
+            "create": { "type": "boolean" },
+            "update": { "type": "boolean" },
+            "delete": { "type": "boolean" }
+        },
+        "required": ["read", "create", "update", "delete"]
     },
      "Company": {
       "$schema": "http://json-schema.org/draft-07/schema#",

@@ -17,7 +17,6 @@ function AuthGuard({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Se o carregamento terminou e não há usuário, redireciona para login.
     if (!isUserLoading && !user) {
       if (pathname !== '/login') {
         router.replace('/login');
@@ -25,14 +24,12 @@ function AuthGuard({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Se o usuário estiver logado e na página de login, redireciona para o dashboard.
     if (user && profile && pathname === '/login') {
       router.replace('/dashboard');
     }
 
-    // Verifica permissões de rota
     if (user && profile) {
-      if (pathname.startsWith('/financeiro') && !profile.canFinance) {
+      if (pathname.startsWith('/financeiro') && !profile.permissions?.financeiro?.read) {
         toast({
           title: 'Acesso Negado',
           description: "Você não tem permissão para acessar este módulo.",
@@ -44,7 +41,6 @@ function AuthGuard({ children }: { children: ReactNode }) {
 
   }, [user, profile, isUserLoading, pathname, router, toast]);
 
-  // Enquanto carrega o usuário ou o perfil, mostra a tela de loading.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
@@ -54,7 +50,6 @@ function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // Após o carregamento, se há usuário mas não perfil, mostra o erro.
   if (user && !profile) {
     return (
        <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
@@ -65,20 +60,16 @@ function AuthGuard({ children }: { children: ReactNode }) {
     )
   }
 
-  // Se não houver usuário (e não estiver na página de login), retorna null para evitar piscar.
   if (!user && pathname !== '/login') {
       return null;
   }
 
-  // Renderiza a página de login se for a rota de login.
   if (pathname === '/login') {
     return <>{children}</>;
   }
 
-  // Se tudo estiver OK (usuário e perfil carregados), mostra a aplicação.
   if (user && profile) {
-    // Adicionado um check extra para não renderizar a página proibida durante o redirect
-    if (pathname.startsWith('/financeiro') && !profile.canFinance) {
+    if (pathname.startsWith('/financeiro') && !profile.permissions?.financeiro?.read) {
         return (
              <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -98,7 +89,6 @@ function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  // Fallback para o caso de o usuário não estar logado e estar numa rota protegida (o useEffect cuidará do redirect)
   return null;
 }
 
