@@ -14,99 +14,92 @@ service cloud.firestore {
     function getUserProfile(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
-
-    // Check if the requesting user is an Owner
-    function isOwner() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.roleId == 'owner';
-    }
-
-    // Check if the requesting user is an Admin
-    function isAdmin() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.isAdmin == true || profile.roleId == 'owner';
-    }
-
-    // Check if the requesting user has finance access
-    function canAccessFinance() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.canFinance == true || profile.roleId == 'owner';
-    }
-
-    // Check if the user is a member of a specific company
-    function isCompanyMember(companyId) {
-        let profile = getUserProfile(request.auth.uid);
-        return companyId in profile.companyIds;
-    }
-
-    // Owners and Admins can access all company data. Others must be members.
-    function canReadCompanyData(companyId) {
-      return isAdmin() || isCompanyMember(companyId);
+    
+    function canRead(module) {
+      return getUserProfile(request.auth.uid).permissions[module].read == true;
     }
     
-    function canWriteCompanyData(companyId) {
-       let profile = getUserProfile(request.auth.uid);
-       return profile.roleId == 'contador' && isCompanyMember(companyId) || isAdmin();
+    function canCreate(module) {
+      return getUserProfile(request.auth.uid).permissions[module].create == true;
     }
     
+    function canUpdate(module) {
+      return getUserProfile(request.auth.uid).permissions[module].update == true;
+    }
+
+    function canDelete(module) {
+      return getUserProfile(request.auth.uid).permissions[module].delete == true;
+    }
+
     // =========================================================================
     // Collection Rules
     // =========================================================================
 
     // --- User Profiles ---
     match /users/{userId} {
+      // Um usuário pode sempre ler e atualizar seu próprio perfil básico (nome, foto).
       allow read: if isSignedIn();
-      // Only Admins/Owners can create users
-      allow create: if isAdmin();
-      // A user can update their own profile, or an admin can update any profile.
-      allow update: if request.auth.uid == userId || isAdmin();
-      // Only Owners can delete other users
-      allow delete: if isOwner();
+      allow update: if request.auth.uid == userId;
+      
+      // Apenas usuários com permissão de 'update' no módulo 'usuarios' podem alterar
+      // o perfil (incluindo permissões) de outros usuários.
+      allow update: if canUpdate('usuarios');
+      
+      // Apenas usuários com permissão de 'delete' podem excluir outros usuários.
+      allow delete: if canDelete('usuarios');
+      
+      // Apenas usuários com permissão de 'create' podem criar novos usuários (embora a criação seja no Auth).
+      allow create: if canCreate('usuarios');
     }
 
     // --- Companies ---
     match /companies/{companyId} {
-      // Anyone signed in can list companies (for selection fields)
-      allow list: if isSignedIn();
-      // Admins and specific members can read.
-      allow get: if canReadCompanyData(companyId);
-      // Admins and Contadores can create/update companies
-      allow create, update: if isAdmin() || getUserProfile(request.auth.uid).roleId == 'contador';
-      // Only admins/owners can delete
-      allow delete: if isAdmin();
+      allow list, get: if canRead('empresas');
+      allow create: if canCreate('empresas');
+      allow update: if canUpdate('empresas');
+      allow delete: if canDelete('empresas');
     }
 
     // --- Partners ---
     match /partners/{partnerId} {
-      // Any signed-in user can manage partners
-      allow read, write: if isSignedIn();
+      allow read: if canRead('societario');
+      allow write: if canCreate('societario') || canUpdate('societario');
     }
 
     // --- Invoices ---
     match /invoices/{invoiceId} {
-      // Only users with the finance flag or owners can access.
-      allow read, write: if canAccessFinance();
+      allow read: if canRead('financeiro');
+      allow write: if canCreate('financeiro') || canUpdate('financeiro');
     }
 
-    // --- Tax Obligations & Corporate Processes ---
+    // --- Tax Obligations ---
     match /taxObligations/{taxObligationId} {
-      allow read: if canReadCompanyData(request.resource.data.companyId);
-      allow create, update, delete: if canWriteCompanyData(request.resource.data.companyId);
-    }
+      allow read: if canRead('obrigacoes');
+      allow create: if canCreate('obrigacoes');
+      allow update: if canUpdate('obrigacoes');
+      allow delete: if canDelete('obrigacoes');
 
-    match /corporateProcesses/{processId} {
-      allow read: if canReadCompanyData(request.resource.data.companyId);
-      allow create, update, delete: if canWriteCompanyData(request.resource.data.companyId);
+      match /{subcollection}/{subDocId} {
+        allow read, write: if canRead('obrigacoes');
+      }
     }
     
-    // Subcollections for processes and obligations
-    match /{collection}/{docId}/{subcollection}/{subDocId} {
-       allow read, write: if isSignedIn(); // Simplified rule for subcollections
+    // --- Corporate Processes ---
+    match /corporateProcesses/{processId} {
+      allow read: if canRead('processos');
+      allow create: if canCreate('processos');
+      allow update: if canUpdate('processos');
+      allow delete: if canDelete('processos');
+
+      match /{subcollection}/{subDocId} {
+        allow read, write: if canRead('processos');
+      }
     }
 
     // --- Documents within a Company ---
     match /companies/{companyId}/documents/{documentId} {
-      allow read, write: if canWriteCompanyData(companyId);
+       allow read: if canRead('documentos');
+       allow write: if canCreate('documentos') || canUpdate('documentos') || canDelete('documentos');
     }
 
     // --- Activity Log ---
