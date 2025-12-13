@@ -15,20 +15,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
-    function canRead(module) {
-      return getUserProfile(request.auth.uid).permissions[module].read == true;
-    }
-    
-    function canCreate(module) {
-      return getUserProfile(request.auth.uid).permissions[module].create == true;
-    }
-    
-    function canUpdate(module) {
-      return getUserProfile(request.auth.uid).permissions[module].update == true;
-    }
-
-    function canDelete(module) {
-      return getUserProfile(request.auth.uid).permissions[module].delete == true;
+    function hasPermission(module, permissionType) {
+      // permissionType must be 'read', 'create', 'update', or 'delete'
+      return getUserProfile(request.auth.uid).permissions[module][permissionType] == true;
     }
 
     // =========================================================================
@@ -37,69 +26,75 @@ service cloud.firestore {
 
     // --- User Profiles ---
     match /users/{userId} {
-      // Um usuário pode sempre ler e atualizar seu próprio perfil básico (nome, foto).
-      allow read: if isSignedIn();
+      // A user can always read and update their own basic profile data (name, photo).
+      allow read: if request.auth.uid == userId || hasPermission('usuarios', 'read');
       allow update: if request.auth.uid == userId;
       
-      // Apenas usuários com permissão de 'update' no módulo 'usuarios' podem alterar
-      // o perfil (incluindo permissões) de outros usuários.
-      allow update: if canUpdate('usuarios');
+      // Only users with 'update' permission for the 'usuarios' module can change
+      // the profile (including permissions) of other users.
+      allow update: if hasPermission('usuarios', 'update');
       
-      // Apenas usuários com permissão de 'delete' podem excluir outros usuários.
-      allow delete: if canDelete('usuarios');
+      // Only users with 'delete' permission can delete other users.
+      allow delete: if hasPermission('usuarios', 'delete');
       
-      // Apenas usuários com permissão de 'create' podem criar novos usuários (embora a criação seja no Auth).
-      allow create: if canCreate('usuarios');
+      // Only users with 'create' permission can create new users (although creation is in Auth).
+      allow create: if hasPermission('usuarios', 'create');
     }
 
     // --- Companies ---
     match /companies/{companyId} {
-      allow list, get: if canRead('empresas');
-      allow create: if canCreate('empresas');
-      allow update: if canUpdate('empresas');
-      allow delete: if canDelete('empresas');
+      allow list, get: if hasPermission('empresas', 'read');
+      allow create: if hasPermission('empresas', 'create');
+      allow update: if hasPermission('empresas', 'update');
+      allow delete: if hasPermission('empresas', 'delete');
     }
 
     // --- Partners ---
     match /partners/{partnerId} {
-      allow read: if canRead('societario');
-      allow write: if canCreate('societario') || canUpdate('societario');
+      allow read: if hasPermission('societario', 'read');
+      allow create: if hasPermission('societario', 'create');
+      allow update: if hasPermission('societario', 'update');
+      allow delete: if hasPermission('societario', 'delete');
     }
 
     // --- Invoices ---
     match /invoices/{invoiceId} {
-      allow read: if canRead('financeiro');
-      allow write: if canCreate('financeiro') || canUpdate('financeiro');
+      allow read: if hasPermission('financeiro', 'read');
+      allow create: if hasPermission('financeiro', 'create');
+      allow update: if hasPermission('financeiro', 'update');
+      allow delete: if hasPermission('financeiro', 'delete');
     }
 
     // --- Tax Obligations ---
     match /taxObligations/{taxObligationId} {
-      allow read: if canRead('obrigacoes');
-      allow create: if canCreate('obrigacoes');
-      allow update: if canUpdate('obrigacoes');
-      allow delete: if canDelete('obrigacoes');
+      allow read: if hasPermission('obrigacoes', 'read');
+      allow create: if hasPermission('obrigacoes', 'create');
+      allow update: if hasPermission('obrigacoes', 'update');
+      allow delete: if hasPermission('obrigacoes', 'delete');
 
       match /{subcollection}/{subDocId} {
-        allow read, write: if canRead('obrigacoes');
+        allow read, write: if hasPermission('obrigacoes', 'read'); // Simplified for subcollections
       }
     }
     
     // --- Corporate Processes ---
     match /corporateProcesses/{processId} {
-      allow read: if canRead('processos');
-      allow create: if canCreate('processos');
-      allow update: if canUpdate('processos');
-      allow delete: if canDelete('processos');
+      allow read: if hasPermission('processos', 'read');
+      allow create: if hasPermission('processos', 'create');
+      allow update: if hasPermission('processos', 'update');
+      allow delete: if hasPermission('processos', 'delete');
 
       match /{subcollection}/{subDocId} {
-        allow read, write: if canRead('processos');
+        allow read, write: if hasPermission('processos', 'read'); // Simplified for subcollections
       }
     }
 
     // --- Documents within a Company ---
     match /companies/{companyId}/documents/{documentId} {
-       allow read: if canRead('documentos');
-       allow write: if canCreate('documentos') || canUpdate('documentos') || canDelete('documentos');
+       allow read: if hasPermission('documentos', 'read');
+       allow create: if hasPermission('documentos', 'create');
+       allow update: if hasPermission('documentos', 'update');
+       allow delete: if hasPermission('documentos', 'delete');
     }
 
     // --- Activity Log ---
