@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, {
@@ -145,45 +144,64 @@ export const FirebaseProvider: React.FC<{
       });
       return;
     }
+    
+    let unsubscribeProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        setAuthState(current => ({ ...current, isUserLoading: true, userError: null, profile: null }));
+        // When auth state changes, cancel any previous profile subscription
+        if (unsubscribeProfile) {
+          unsubscribeProfile();
+          unsubscribeProfile = null;
+        }
+
         if (firebaseUser) {
-          try {
-            const profile = await provisionUserProfile(firestore, firebaseUser);
-            setAuthState({
-              user: firebaseUser,
-              profile: profile,
-              isUserLoading: false,
-              userError: null,
-            });
-
-            const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-            const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    setAuthState(current => ({...current, profile: docSnap.data() as UserProfile}));
+          setAuthState(current => ({ ...current, user: firebaseUser, isUserLoading: true, userError: null }));
+          
+          const userDocRef = doc(firestore, 'users', firebaseUser.uid);
+          
+          // Subscribe to real-time updates for the user's profile
+          unsubscribeProfile = onSnapshot(userDocRef, 
+            async (docSnap) => {
+              if (docSnap.exists() && docSnap.data().permissions) {
+                // Profile exists and is valid, update the state
+                setAuthState(current => ({
+                  ...current,
+                  profile: docSnap.data() as UserProfile,
+                  isUserLoading: false,
+                  userError: null,
+                }));
+              } else {
+                // Profile doesn't exist or is incomplete, provision it
+                 try {
+                  const profile = await provisionUserProfile(firestore, firebaseUser);
+                   setAuthState(current => ({
+                    ...current,
+                    profile: profile,
+                    isUserLoading: false,
+                    userError: null,
+                  }));
+                } catch (error: any) {
+                   setAuthState(current => ({ ...current, userError: error, isUserLoading: false, profile: null }));
                 }
-            }, (error) => {
-                 setAuthState(current => ({ ...current, userError: error }));
-            });
+              }
+            }, 
+            (error) => {
+              // Handle errors during snapshot listening
+              console.error("Error listening to user profile:", error);
+              setAuthState(current => ({ ...current, userError: error, isUserLoading: false, profile: null }));
+            }
+          );
 
-            return () => unsubscribeProfile();
-
-          } catch (error: any) {
-             setAuthState({
-                user: firebaseUser,
-                profile: null,
-                isUserLoading: false,
-                userError: error,
-              });
-          }
         } else {
+          // No user is logged in
           setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
         }
       },
       (error) => {
+        // Handle initial auth state error
+        console.error("Auth state error:", error);
         setAuthState({
           user: null,
           profile: null,
@@ -193,7 +211,12 @@ export const FirebaseProvider: React.FC<{
       }
     );
 
-    return () => unsubscribeAuth();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+    };
   }, [auth, firestore]);
 
   const value = useMemo(() => {
