@@ -32,6 +32,7 @@ export interface UserProfile {
     processos: ModulePermissions;
     obrigacoes: ModulePermissions;
     fiscal: ModulePermissions;
+    documentos: ModulePermissions;
     financeiro: ModulePermissions;
     usuarios: ModulePermissions;
   };
@@ -69,6 +70,7 @@ const defaultPermissions: UserProfile['permissions'] = {
   processos: { read: true, create: false, update: false, delete: false },
   obrigacoes: { read: true, create: false, update: false, delete: false },
   fiscal: { read: false, create: false, update: false, delete: false },
+  documentos: { read: true, create: false, update: false, delete: false },
   financeiro: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
 };
@@ -79,6 +81,7 @@ const ownerPermissions: UserProfile['permissions'] = {
   processos: { read: true, create: true, update: true, delete: true },
   obrigacoes: { read: true, create: true, update: true, delete: true },
   fiscal: { read: true, create: true, update: true, delete: true },
+  documentos: { read: true, create: true, update: true, delete: true },
   financeiro: { read: true, create: true, update: true, delete: true },
   usuarios: { read: true, create: true, update: true, delete: true },
 };
@@ -88,13 +91,11 @@ const provisionUserProfile = async (firestore: Firestore, user: User): Promise<U
     const userDocRef = doc(firestore, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
 
-    if (userDoc.exists()) {
-        const profile = userDoc.data() as UserProfile;
-        if (profile.uid) { // Check if profile is already in the new format
-            return profile;
-        }
+    if (userDoc.exists() && userDoc.data().permissions) {
+        return userDoc.data() as UserProfile;
     }
     
+    // Check for a specific hardcoded Owner UID.
     const isOwner = user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2';
     
     const newUserProfile: UserProfile = {
