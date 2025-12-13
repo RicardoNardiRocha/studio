@@ -106,20 +106,18 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
   }, [userToEdit, form]);
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // We get the currentUser again inside onSubmit to ensure we have the latest state
-    const { user: actionUser, profile: actionUserProfile } = useUser();
-
-    if (!firestore || !actionUserProfile || !actionUser) {
+    if (!firestore || !currentUserProfile || !currentUser) {
       toast({ title: 'Erro', description: 'Não foi possível salvar as permissões. Perfil ou serviços indisponíveis.', variant: 'destructive' });
       return;
     }
 
-    if (actionUser.uid === userToEdit.uid) {
+    if (currentUser.uid === userToEdit.uid) {
        toast({ title: 'Ação não permitida', description: 'Você não pode alterar suas próprias permissões.', variant: 'destructive' });
        return;
     }
-
-    if (!actionUserProfile.permissions?.usuarios?.update) {
+    
+    // Check permissions using the profile state from the hook
+    if (!currentUserProfile.permissions?.usuarios?.update) {
        toast({ title: 'Acesso Negado', description: 'Você não tem permissão para alterar as permissões de outros usuários.', variant: 'destructive' });
        return;
     }
@@ -133,7 +131,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
       
       await updateDoc(userRef, dataToUpdate);
 
-      logActivity(firestore, actionUser, `atualizou as permissões de ${userToEdit.displayName}.`);
+      logActivity(firestore, currentUser, `atualizou as permissões de ${userToEdit.displayName}.`);
       toast({ title: 'Permissões atualizadas!', description: `As permissões de ${userToEdit.displayName} foram salvas.` });
       
       onUserUpdated();
