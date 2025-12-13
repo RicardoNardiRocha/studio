@@ -1,17 +1,19 @@
+
 'use client';
 
 import React, {
   createContext,
   useContext,
   ReactNode,
+  useEffect,
   useMemo,
   useState,
-  useEffect,
 } from 'react';
+
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, onSnapshot, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Firestore, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 export interface ModulePermissions {
@@ -25,109 +27,46 @@ export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
-  permissions: {
-    empresas: ModulePermissions;
-    societario: ModulePermissions;
-    processos: ModulePermissions;
-    obrigacoes: ModulePermissions;
-    fiscal: ModulePermissions;
-    documentos: ModulePermissions;
-    financeiro: ModulePermissions;
-    usuarios: ModulePermissions;
-  };
+  permissions: Record<keyof ModulePermissions, ModulePermissions>;
   companyIds: string[];
   photoURL?: string;
-  createdAt: any; 
-  updatedAt: any; 
 }
 
-
-interface UserAuthState {
-  user: User | null;
-  profile: UserProfile | null;
-  isUserLoading: boolean;
-  userError: Error | null;
-}
-
-export interface FirebaseContextState {
+interface FirebaseContextState {
   areServicesAvailable: boolean;
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null;
   storage: FirebaseStorage | null;
+
   user: User | null;
   profile: UserProfile | null;
   isUserLoading: boolean;
   userError: Error | null;
 }
 
-export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
+export const FirebaseContext =
+  createContext<FirebaseContextState | undefined>(undefined);
 
-const defaultPermissions: UserProfile['permissions'] = {
-  empresas: { read: true, create: false, update: false, delete: false },
-  societario: { read: true, create: false, update: false, delete: false },
-  processos: { read: true, create: false, update: false, delete: false },
-  obrigacoes: { read: true, create: false, update: false, delete: false },
-  fiscal: { read: false, create: false, update: false, delete: false },
-  documentos: { read: true, create: false, update: false, delete: false },
-  financeiro: { read: false, create: false, update: false, delete: false },
-  usuarios: { read: false, create: false, update: false, delete: false },
-};
-
-const ownerPermissions: UserProfile['permissions'] = {
-  empresas: { read: true, create: true, update: true, delete: true },
-  societario: { read: true, create: true, update: true, delete: true },
-  processos: { read: true, create: true, update: true, delete: true },
-  obrigacoes: { read: true, create: true, update: true, delete: true },
-  fiscal: { read: true, create: true, update: true, delete: true },
-  documentos: { read: true, create: true, update: true, delete: true },
-  financeiro: { read: true, create: true, update: true, delete: true },
-  usuarios: { read: true, create: true, update: true, delete: true },
-};
-
-
-const provisionUserProfile = async (firestore: Firestore, user: User): Promise<UserProfile> => {
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists() && userDoc.data().permissions) {
-        return userDoc.data() as UserProfile;
-    }
-    
-    // Check for a specific hardcoded Owner UID.
-    const isOwner = user.uid === 'wK9BRBsngobSOBFZEYacPLYAHXl2';
-    
-    const newUserProfile: UserProfile = {
-        uid: user.uid,
-        displayName: user.displayName || 'Novo Usuário',
-        email: user.email || '',
-        permissions: isOwner ? ownerPermissions : defaultPermissions,
-        companyIds: [],
-        photoURL: user.photoURL || '',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    };
-
-    await setDoc(userDocRef, newUserProfile, { merge: true });
-    
-    return newUserProfile;
-};
-
-
-export const FirebaseProvider: React.FC<{
-  children: ReactNode;
-  firebaseApp: FirebaseApp | null;
-  firestore: Firestore | null;
-  auth: Auth | null;
-  storage: FirebaseStorage | null;
-}> = ({
+export function FirebaseProvider({
   children,
   firebaseApp,
   firestore,
   auth,
   storage,
-}) => {
-  const [authState, setAuthState] = useState<UserAuthState>({
+}: {
+  children: ReactNode;
+  firebaseApp: FirebaseApp | null;
+  firestore: Firestore | null;
+  auth: Auth | null;
+  storage: FirebaseStorage | null;
+}) {
+  const [state, setState] = useState<{
+    user: User | null;
+    profile: UserProfile | null;
+    isUserLoading: boolean;
+    userError: Error | null;
+  }>({
     user: null,
     profile: null,
     isUserLoading: true,
@@ -135,119 +74,111 @@ export const FirebaseProvider: React.FC<{
   });
 
   useEffect(() => {
-    if (!auth || !firestore) {
-      setAuthState({
-        user: null,
-        profile: null,
-        isUserLoading: false,
-        userError: new Error('Auth or Firestore service not available'),
-      });
-      return;
-    }
-    
-    let unsubscribeProfile: (() => void) | null = null;
+    if (!auth || !firestore) return;
 
-    const unsubscribeAuth = onAuthStateChanged(
-      auth,
-      async (firebaseUser) => {
-        // When auth state changes, cancel any previous profile subscription
-        if (unsubscribeProfile) {
-          unsubscribeProfile();
-          unsubscribeProfile = null;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setState({
+          user: null,
+          profile: null,
+          isUserLoading: false,
+          userError: null,
+        });
+        return;
+      }
+
+      // Start loading when we have a firebaseUser
+      setState(s => ({ ...s, isUserLoading: true }));
+
+      try {
+        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+
+        // If user document doesn't exist, they are not authorized. Log them out.
+        if (!userSnap.exists() || !userSnap.data().permissions) {
+          await signOut(auth);
+          setState({
+            user: null,
+            profile: null,
+            isUserLoading: false,
+            userError: new Error(
+              'Seu perfil de usuário não foi encontrado ou está incompleto. Contate um administrador.'
+            ),
+          });
+          return;
         }
 
-        if (firebaseUser) {
-          setAuthState(current => ({ ...current, user: firebaseUser, isUserLoading: true, userError: null }));
-          
-          const userDocRef = doc(firestore, 'users', firebaseUser.uid);
-          
-          // Subscribe to real-time updates for the user's profile
-          unsubscribeProfile = onSnapshot(userDocRef, 
-            async (docSnap) => {
-              if (docSnap.exists() && docSnap.data().permissions) {
-                // Profile exists and is valid, update the state
-                setAuthState(current => ({
-                  ...current,
-                  profile: docSnap.data() as UserProfile,
-                  isUserLoading: false,
-                  userError: null,
-                }));
-              } else {
-                // Profile doesn't exist or is incomplete, provision it
-                 try {
-                  const profile = await provisionUserProfile(firestore, firebaseUser);
-                   setAuthState(current => ({
-                    ...current,
-                    profile: profile,
-                    isUserLoading: false,
-                    userError: null,
-                  }));
-                } catch (error: any) {
-                   setAuthState(current => ({ ...current, userError: error, isUserLoading: false, profile: null }));
-                }
-              }
-            }, 
-            (error) => {
-              // Handle errors during snapshot listening
-              console.error("Error listening to user profile:", error);
-              setAuthState(current => ({ ...current, userError: error, isUserLoading: false, profile: null }));
-            }
-          );
+        // Profile exists, so we subscribe to real-time changes
+        const unsubscribeProfile = onSnapshot(userRef, (snap) => {
+          if (snap.exists()) {
+             setState({
+              user: firebaseUser,
+              profile: snap.data() as UserProfile,
+              isUserLoading: false,
+              userError: null,
+            });
+          } else {
+            // This case might happen if the user is deleted while they are logged in.
+             signOut(auth);
+             setState({
+                user: null,
+                profile: null,
+                isUserLoading: false,
+                userError: new Error('Seu perfil foi removido do sistema.'),
+            });
+          }
+        }, (error) => {
+           // Handle errors on the snapshot listener itself
+           console.error("Error listening to profile changes:", error);
+           setState({ user: firebaseUser, profile: null, isUserLoading: false, userError: error });
+        });
 
-        } else {
-          // No user is logged in
-          setAuthState({ user: null, profile: null, isUserLoading: false, userError: null });
-        }
-      },
-      (error) => {
-        // Handle initial auth state error
-        console.error("Auth state error:", error);
-        setAuthState({
+        // Return the cleanup function for the profile listener
+        return () => unsubscribeProfile();
+      } catch (error: any) {
+        console.error("Error checking user profile:", error);
+        setState({
           user: null,
           profile: null,
           isUserLoading: false,
           userError: error,
         });
       }
-    );
+    });
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeProfile) {
-        unsubscribeProfile();
-      }
-    };
+    // Return the cleanup function for the auth state listener
+    return () => unsubscribe();
   }, [auth, firestore]);
 
-  const value = useMemo(() => {
-    const available =
-      firebaseApp !== null && firestore !== null && auth !== null && storage !== null;
-
-    return {
-      areServicesAvailable: available,
+  const value = useMemo(
+    () => ({
+      areServicesAvailable:
+        !!firebaseApp && !!firestore && !!auth && !!storage,
       firebaseApp,
       firestore,
       auth,
       storage,
-      user: authState.user,
-      profile: authState.profile,
-      isUserLoading: authState.isUserLoading,
-      userError: authState.userError,
-    };
-  }, [firebaseApp, firestore, auth, storage, authState]);
+      user: state.user,
+      profile: state.profile,
+      isUserLoading: state.isUserLoading,
+      userError: state.userError,
+    }),
+    [firebaseApp, firestore, auth, storage, state]
+  );
 
   return (
     <FirebaseContext.Provider value={value}>
-      <FirebaseErrorListener />
+       <FirebaseErrorListener />
       {children}
     </FirebaseContext.Provider>
   );
-};
+}
 
 export function useFirebase() {
   const ctx = useContext(FirebaseContext);
-  if (!ctx) throw new Error('useFirebase must be inside FirebaseProvider');
-  if (!ctx.areServicesAvailable) throw new Error('Firebase core services not available');
+  if (!ctx) throw new Error('useFirebase must be used inside FirebaseProvider');
+  if (!ctx.areServicesAvailable)
+    throw new Error('Firebase core services not available');
   return ctx;
 }
 
