@@ -27,9 +27,12 @@ export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
-  permissions: Record<keyof ModulePermissions, ModulePermissions>;
-  companyIds: string[];
+  permissions: Record<string, ModulePermissions>;
+  companyIds?: string[];
   photoURL?: string;
+  isAdmin?: boolean;
+  roleId?: string;
+  canFinance?: boolean;
 }
 
 interface FirebaseContextState {
@@ -74,7 +77,10 @@ export function FirebaseProvider({
   });
 
   useEffect(() => {
-    if (!auth || !firestore) return;
+    if (!auth || !firestore) {
+      setState(s => ({...s, isUserLoading: false}));
+      return;
+    };
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -92,53 +98,45 @@ export function FirebaseProvider({
 
       try {
         const userRef = doc(firestore, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-
-        // If user document doesn't exist, they are not authorized. Log them out.
-        if (!userSnap.exists() || !userSnap.data().permissions) {
-          await signOut(auth);
-          setState({
-            user: null,
-            profile: null,
-            isUserLoading: false,
-            userError: new Error(
-              'Seu perfil de usuário não foi encontrado ou está incompleto. Contate um administrador.'
-            ),
-          });
-          return;
-        }
-
-        // Profile exists, so we subscribe to real-time changes
+        
+        // Use onSnapshot to listen for real-time updates
         const unsubscribeProfile = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
+             const profileData = snap.data() as UserProfile;
+             // Ensure UID is present, for backward compatibility
+             if (!profileData.uid) {
+                profileData.uid = snap.id;
+             }
+
              setState({
               user: firebaseUser,
-              profile: snap.data() as UserProfile,
+              profile: profileData,
               isUserLoading: false,
               userError: null,
             });
           } else {
-            // This case might happen if the user is deleted while they are logged in.
+            // Document does not exist, sign out user
              signOut(auth);
              setState({
                 user: null,
                 profile: null,
                 isUserLoading: false,
-                userError: new Error('Seu perfil foi removido do sistema.'),
+                userError: new Error('Seu perfil de usuário não foi encontrado. Contate um administrador.'),
             });
           }
         }, (error) => {
-           // Handle errors on the snapshot listener itself
+           // Handle errors on the snapshot listener itself (e.g., permissions)
            console.error("Error listening to profile changes:", error);
            setState({ user: firebaseUser, profile: null, isUserLoading: false, userError: error });
         });
 
         // Return the cleanup function for the profile listener
         return () => unsubscribeProfile();
+
       } catch (error: any) {
-        console.error("Error checking user profile:", error);
+        console.error("Error setting up user profile listener:", error);
         setState({
-          user: null,
+          user: firebaseUser, // keep user, but profile is unavailable
           profile: null,
           isUserLoading: false,
           userError: error,

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -82,19 +83,10 @@ export function useCollection<T = any>(
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-           let docData = doc.data() as T;
-           
-           // **DATA MIGRATION STEP**
-           // If the collection is 'users' and the doc is missing 'uid', populate it from the document ID.
-           // This ensures backward compatibility for existing user documents.
-           if ((memoizedTargetRefOrQuery as any)._query?.path.segments.includes('users') && !(docData as any).uid) {
-                (docData as any).uid = doc.id;
-           }
-
-          results.push({ ...(docData), id: doc.id });
-        }
+        const results: ResultItemType[] = snapshot.docs.map(doc => ({
+            ...(doc.data() as T),
+            id: doc.id,
+        }));
         setData(results);
         setError(null);
         setIsLoading(false);
