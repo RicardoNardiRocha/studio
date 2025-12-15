@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -167,7 +168,7 @@ export function ProfileClient() {
   const handleLogout = async () => {
     if (auth) {
       await signOut(auth);
-      router.push('/login');
+      router.push('/');
     }
   };
 

@@ -37,7 +37,7 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
   const handleLogout = async () => {
     if (auth) {
       await signOut(auth);
-      router.push('/login');
+      router.push('/');
     }
   };
 
