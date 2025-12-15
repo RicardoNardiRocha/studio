@@ -11,7 +11,7 @@ import React, {
 } from 'react';
 
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -27,13 +27,24 @@ export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
-  permissions: Record<string, ModulePermissions>;
+  permissions: Record<keyof typeof defaultPermissions, ModulePermissions>;
   companyIds?: string[];
   photoURL?: string;
   isAdmin?: boolean;
   roleId?: string;
   canFinance?: boolean;
 }
+
+const defaultPermissions = {
+  empresas: { read: false, create: false, update: false, delete: false },
+  societario: { read: false, create: false, update: false, delete: false },
+  processos: { read: false, create: false, update: false, delete: false },
+  obrigacoes: { read: false, create: false, update: false, delete: false },
+  fiscal: { read: false, create: false, update: false, delete: false },
+  documentos: { read: false, create: false, update: false, delete: false },
+  financeiro: { read: false, create: false, update: false, delete: false },
+  usuarios: { read: false, create: false, update: false, delete: false },
+};
 
 interface FirebaseContextState {
   areServicesAvailable: boolean;
@@ -93,21 +104,40 @@ export function FirebaseProvider({
         return;
       }
 
-      // Start loading when we have a firebaseUser
       setState(s => ({ ...s, isUserLoading: true }));
 
+      const userRef = doc(firestore, 'users', firebaseUser.uid);
+
       try {
-        const userRef = doc(firestore, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          // Profile does not exist, create it with default permissions
+          const newUserProfile: UserProfile = {
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName || 'Novo Usuário',
+            email: firebaseUser.email || '',
+            permissions: defaultPermissions,
+            photoURL: firebaseUser.photoURL || '',
+          };
+          
+          try {
+            await setDoc(userRef, newUserProfile);
+          } catch(e) {
+             console.error("Error creating user profile: ", e);
+             signOut(auth);
+             setState({ user: null, profile: null, isUserLoading: false, userError: e as Error });
+             return;
+          }
+        }
         
-        // Use onSnapshot to listen for real-time updates
+        // At this point, profile exists or was just created, so we can listen to it.
         const unsubscribeProfile = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
              const profileData = snap.data() as UserProfile;
-             // Ensure UID is present, for backward compatibility
              if (!profileData.uid) {
                 profileData.uid = snap.id;
              }
-
              setState({
               user: firebaseUser,
               profile: profileData,
@@ -115,28 +145,25 @@ export function FirebaseProvider({
               userError: null,
             });
           } else {
-            // Document does not exist, sign out user
              signOut(auth);
              setState({
                 user: null,
                 profile: null,
                 isUserLoading: false,
-                userError: new Error('Seu perfil de usuário não foi encontrado. Contate um administrador.'),
+                userError: new Error('Seu perfil de usuário foi removido. Contate um administrador.'),
             });
           }
         }, (error) => {
-           // Handle errors on the snapshot listener itself (e.g., permissions)
            console.error("Error listening to profile changes:", error);
            setState({ user: firebaseUser, profile: null, isUserLoading: false, userError: error });
         });
 
-        // Return the cleanup function for the profile listener
         return () => unsubscribeProfile();
 
       } catch (error: any) {
         console.error("Error setting up user profile listener:", error);
         setState({
-          user: firebaseUser, // keep user, but profile is unavailable
+          user: firebaseUser,
           profile: null,
           isUserLoading: false,
           userError: error,
@@ -144,7 +171,6 @@ export function FirebaseProvider({
       }
     });
 
-    // Return the cleanup function for the auth state listener
     return () => unsubscribe();
   }, [auth, firestore]);
 

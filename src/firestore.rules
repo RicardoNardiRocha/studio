@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -18,11 +19,18 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn();
-      // Permite que um usuário atualize seu próprio perfil OU se tiver permissão de 'update' para 'usuarios'.
-      allow update: if request.auth.uid == userId || hasPermission('usuarios', 'update');
-      allow create: if hasPermission('usuarios', 'create');
-      allow delete: if hasPermission('usuarios', 'delete');
+      // Um usuário pode atualizar seu próprio perfil.
+      allow update: if request.auth.uid == userId;
+      
+      // Um usuário pode ler seu próprio perfil OU se tiver permissão para ler o módulo de usuários.
+      allow read: if request.auth.uid == userId || hasPermission('usuarios', 'read');
+
+      // Permite a criação de um perfil SE o UID do usuário que está sendo criado é o mesmo do usuário autenticado.
+      // OU se o requisitante tem permissão para criar usuários.
+      allow create: if request.auth.uid == userId || hasPermission('usuarios', 'create');
+
+      // Apenas quem tem permissão para deletar usuários pode fazê-lo, e não pode deletar a si mesmo.
+      allow delete: if hasPermission('usuarios', 'delete') && request.auth.uid != userId;
     }
 
     match /companies/{companyId} {
