@@ -79,7 +79,7 @@ export function ProcessDetailsDialog({
   const firestore = useFirestore();
   const storage = getStorage();
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, profile } = useUser();
 
   const attachmentsQuery = useMemo(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id]);
   const { data: attachments, isLoading: isLoadingAttachments } = useCollection(attachmentsQuery);
@@ -222,6 +222,9 @@ export function ProcessDetailsDialog({
     }
   };
 
+  const canEdit = profile?.permissions.processos.update;
+  const canDelete = profile?.permissions.processos.delete;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
@@ -243,26 +246,28 @@ export function ProcessDetailsDialog({
                      <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
                         <div className='grid grid-cols-2 gap-4'>
-                         <FormField control={form.control} name="processType" render={({ field }) => (<FormItem><FormLabel>Tipo de Processo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl><SelectContent>{processTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                         <FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                         <FormField control={form.control} name="processType" render={({ field }) => (<FormItem><FormLabel>Tipo de Processo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl><SelectContent>{processTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                         <FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                           <FormField control={form.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Prioridade</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{processPriorities.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                           <FormField control={form.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Prioridade</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{processPriorities.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                         </div>
                          <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="startDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Data de Início</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
-                            <FormField control={form.control} name="protocolDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Data do Protocolo (Opcional)</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Nenhuma</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
+                            <FormField control={form.control} name="startDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Data de Início</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')} disabled={!canEdit}>{field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
+                            <FormField control={form.control} name="protocolDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Data do Protocolo (Opcional)</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')} disabled={!canEdit}>{field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Nenhuma</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)}/>
                         </div>
-                        <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notas Internas</FormLabel><FormControl><Textarea placeholder="Adicione notas sobre o processo..." {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                        <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notas Internas</FormLabel><FormControl><Textarea placeholder="Adicione notas sobre o processo..." {...field} disabled={!canEdit}/></FormControl><FormMessage /></FormItem>)}/>
                       </form>
                     </Form>
                 </TabsContent>
                 
                 <TabsContent value="attachments" className="p-4 space-y-4">
-                     <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
-                        Adicionar Anexo
-                    </Button>
+                     {canEdit && (
+                        <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                            Adicionar Anexo
+                        </Button>
+                     )}
                     <Input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                     
                     <ul className="space-y-2">
@@ -275,7 +280,7 @@ export function ProcessDetailsDialog({
                                 </div>
                                 <div className="flex items-center gap-2">
                                      <Button variant="ghost" size="icon" asChild><a href={att.url} download={att.name}><Download className="h-4 w-4"/></a></Button>
-                                     <Button variant="ghost" size="icon" onClick={() => handleDeleteAttachment(att.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                     {canDelete && <Button variant="ghost" size="icon" onClick={() => handleDeleteAttachment(att.id)}><Trash2 className="h-4 w-4 text-destructive"/></Button>}
                                 </div>
                             </li>
                         ))}
@@ -305,8 +310,12 @@ export function ProcessDetailsDialog({
             </div>
         </Tabs>
         <DialogFooter className="pt-4 flex-row justify-between w-full border-t">
-          <AlertDialog><AlertDialogTrigger asChild><Button type="button" variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />Excluir</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita. Isso irá excluir permanentemente o processo.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Sim, excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-          <div className="flex gap-2"><DialogClose asChild><Button type="button" variant="ghost">Fechar</Button></DialogClose><Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button></div>
+          {canDelete ? (
+            <AlertDialog><AlertDialogTrigger asChild><Button type="button" variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />Excluir</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita. Isso irá excluir permanentemente o processo.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Sim, excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+          ) : <div></div>}
+          <div className="flex gap-2"><DialogClose asChild><Button type="button" variant="ghost">Fechar</Button></DialogClose>
+          {canEdit && <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

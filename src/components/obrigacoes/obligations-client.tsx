@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
@@ -85,6 +85,7 @@ export function ObligationsClient() {
   
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { profile } = useUser();
 
   const obligationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -160,10 +161,12 @@ export function ObligationsClient() {
               Gerencie todas as obrigações fiscais dos seus clientes.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nova Obrigação
-          </Button>
+          {profile?.permissions.obrigacoes.create && (
+            <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nova Obrigação
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
@@ -241,6 +244,7 @@ export function ObligationsClient() {
                         <Select
                           value={obligation.status}
                           onValueChange={(newStatus: ObligationStatus) => handleStatusChange(obligation, newStatus)}
+                          disabled={!profile?.permissions.obrigacoes.update}
                         >
                           <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
                              <SelectValue asChild>

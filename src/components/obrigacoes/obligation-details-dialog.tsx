@@ -100,7 +100,7 @@ export function ObligationDetailsDialog({
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, profile } = useUser();
 
   const usersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -175,6 +175,9 @@ export function ObligationDetailsDialog({
     }
   };
 
+  const canEdit = profile?.permissions.obrigacoes.update;
+  const canDelete = profile?.permissions.obrigacoes.delete;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -193,7 +196,7 @@ export function ObligationDetailsDialog({
                 <FormItem>
                   <FormLabel>Nome da Obrigação</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: DAS, SPED, DEFIS" {...field} />
+                    <Input placeholder="Ex: DAS, SPED, DEFIS" {...field} disabled={!canEdit}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -207,7 +210,7 @@ export function ObligationDetailsDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
                       <FormControl>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                       </FormControl>
@@ -227,7 +230,7 @@ export function ObligationDetailsDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Periodicidade</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
                       <FormControl>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                       </FormControl>
@@ -251,7 +254,7 @@ export function ObligationDetailsDialog({
                     <FormItem>
                     <FormLabel>Competência</FormLabel>
                     <FormControl>
-                        <Input type="month" {...field} />
+                        <Input type="month" {...field} disabled={!canEdit}/>
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -269,6 +272,7 @@ export function ObligationDetailsDialog({
                             <Button
                               variant={'outline'}
                               className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                              disabled={!canEdit}
                             >
                               {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -291,7 +295,7 @@ export function ObligationDetailsDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                     </FormControl>
@@ -312,7 +316,7 @@ export function ObligationDetailsDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
                     </FormControl>
@@ -329,36 +333,40 @@ export function ObligationDetailsDialog({
 
 
             <DialogFooter className="pt-4 flex-row justify-between w-full">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive" size="sm">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. Isso irá excluir permanentemente a obrigação.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                      Sim, excluir
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {canDelete ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente a obrigação.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                        Sim, excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : <div></div>}
               <div className="flex gap-2">
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">Fechar</Button>
                 </DialogClose>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar
-                </Button>
+                {canEdit && (
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Salvar
+                  </Button>
+                )}
               </div>
           </DialogFooter>
           </form>

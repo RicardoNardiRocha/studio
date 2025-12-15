@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
@@ -94,6 +94,7 @@ export function CompaniesClient() {
 
 
   const firestore = useFirestore();
+  const { profile } = useUser();
 
   const companiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -159,16 +160,18 @@ export function CompaniesClient() {
               Visualize e gerencie todas as empresas atendidas pelo escritório.
             </CardDescription>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <Button variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
-              <Upload className="mr-2 h-4 w-4" />
-              Importar em Lote
-            </Button>
-            <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nova Empresa
-            </Button>
-          </div>
+          {profile?.permissions.empresas.create && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <Button variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
+                <Upload className="mr-2 h-4 w-4" />
+                Importar em Lote
+              </Button>
+              <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nova Empresa
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row items-center gap-4 mb-4">

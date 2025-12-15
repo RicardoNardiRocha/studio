@@ -89,6 +89,7 @@ export function CorporateProcessesClient() {
 
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { profile } = useUser();
 
   const processesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -193,10 +194,12 @@ export function CorporateProcessesClient() {
               Gerencie aberturas, alterações e encerramentos de empresas.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Novo Processo
-          </Button>
+          {profile?.permissions.processos.create && (
+            <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Novo Processo
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-4 mb-4">
@@ -271,7 +274,7 @@ export function CorporateProcessesClient() {
                             Protocolo: {formatDate(process.protocolDate)}
                           </TableCell>
                           <TableCell>
-                            <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process.id, newStatus)}>
+                            <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process.id, newStatus)} disabled={!profile?.permissions.processos.update}>
                               <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
                                 <SelectValue asChild>
                                     <Badge variant={getStatusBadgeVariant(process.status)} className="w-full justify-center font-medium">

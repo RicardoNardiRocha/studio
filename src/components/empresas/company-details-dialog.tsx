@@ -136,7 +136,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const [isLoading, setIsLoading] = useState(false);
   const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -259,7 +259,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                                 <Select 
                                     onValueChange={field.onChange} 
                                     defaultValue={field.value}
-                                    disabled={company.taxRegime === 'Simples Nacional'}
+                                    disabled={!profile?.permissions.empresas.update || company.taxRegime === 'Simples Nacional'}
                                 >
                                     <FormControl>
                                     <SelectTrigger>
@@ -323,6 +323,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                                     {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
                                 </p>
                             </div>
+                            {profile?.permissions.empresas.update && (
                              <div className="flex items-center gap-2">
                               {company.certificateA1Url && (
                                   <Button variant="outline" size="sm" asChild>
@@ -337,6 +338,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                                   Adicionar/Atualizar
                               </Button>
                             </div>
+                            )}
                         </div>
                     </div>
                 
@@ -379,36 +381,40 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
             </Tabs>
 
           <DialogFooter className="p-6 pt-4 flex-row justify-between w-full border-t">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir Empresa
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. Isso irá excluir permanentemente a empresa <strong>{company.name}</strong> e todos os seus dados associados.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                      Sim, excluir
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {profile?.permissions.empresas.delete ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="destructive">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir Empresa
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente a empresa <strong>{company.name}</strong> e todos os seus dados associados.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                        Sim, excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : <div></div>}
               <div className="flex gap-2">
                 <DialogClose asChild>
                   <Button type="button" variant="outline">Fechar</Button>
                 </DialogClose>
-                <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar Alterações
-                </Button>
+                {profile?.permissions.empresas.update && (
+                  <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Salvar Alterações
+                  </Button>
+                )}
               </div>
           </DialogFooter>
       </DialogContent>

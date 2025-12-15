@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -84,9 +83,9 @@ export function InvoicesClient() {
   const { toast } = useToast();
 
   const invoicesQuery = useMemoFirebase(() => {
-    if (!firestore || !profile?.canFinance) return null;
+    if (!firestore) return null;
     return query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
-  }, [firestore, profile?.canFinance]);
+  }, [firestore]);
 
   const { data: invoices, isLoading, error, forceRefetch } = useCollection<Invoice>(invoicesQuery);
 
@@ -138,7 +137,7 @@ export function InvoicesClient() {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  if (!profile?.canFinance) {
+  if (!profile?.permissions.financeiro.read) {
      return null;
   }
 
@@ -174,16 +173,18 @@ export function InvoicesClient() {
               Controle os pagamentos de mensalidades de todos os clientes.
             </CardDescription>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-4 md:mt-0">
-             <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
-                <FilePlus2 className="mr-2 h-4 w-4" />
-                Gerar Mensalidades
-             </Button>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nova Fatura
-            </Button>
-          </div>
+          {profile?.permissions.financeiro.create && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-4 md:mt-0">
+              <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
+                  <FilePlus2 className="mr-2 h-4 w-4" />
+                  Gerar Mensalidades
+              </Button>
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nova Fatura
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row items-center gap-4 mb-4">

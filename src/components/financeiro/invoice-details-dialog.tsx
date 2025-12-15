@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -96,7 +95,7 @@ export function InvoiceDetailsDialog({
 }: InvoiceDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, profile } = useUser();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -162,6 +161,9 @@ export function InvoiceDetailsDialog({
     }
   };
 
+  const canEdit = profile?.permissions.financeiro.update;
+  const canDelete = profile?.permissions.financeiro.delete;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -180,7 +182,7 @@ export function InvoiceDetailsDialog({
                   <FormItem>
                   <FormLabel>Competência</FormLabel>
                   <FormControl>
-                      <Input type="month" {...field} />
+                      <Input type="month" {...field} disabled={!canEdit} />
                   </FormControl>
                   <FormMessage />
                   </FormItem>
@@ -195,7 +197,7 @@ export function InvoiceDetailsDialog({
                     <FormItem>
                     <FormLabel>Valor (R$)</FormLabel>
                     <FormControl>
-                        <Input type="number" {...field} />
+                        <Input type="number" {...field} disabled={!canEdit} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -207,7 +209,7 @@ export function InvoiceDetailsDialog({
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                         </FormControl>
@@ -236,6 +238,7 @@ export function InvoiceDetailsDialog({
                             <Button
                               variant={'outline'}
                               className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                              disabled={!canEdit}
                             >
                               {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Escolha uma data</span>}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -262,6 +265,7 @@ export function InvoiceDetailsDialog({
                             <Button
                               variant={'outline'}
                               className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                              disabled={!canEdit}
                             >
                               {field.value ? format(field.value, 'PPP', { locale: ptBR }) : <span>Não pago</span>}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
@@ -279,36 +283,40 @@ export function InvoiceDetailsDialog({
             </div>
 
             <DialogFooter className="pt-4 flex-row justify-between w-full">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive" size="sm">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta ação não pode ser desfeita. Isso irá excluir permanentemente a fatura.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                      Sim, excluir
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {canDelete ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente a fatura.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                        Sim, excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : <div></div>}
               <div className="flex gap-2">
                 <DialogClose asChild>
                   <Button type="button" variant="ghost">Fechar</Button>
                 </DialogClose>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Salvar
-                </Button>
+                {canEdit && (
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Salvar
+                  </Button>
+                )}
               </div>
           </DialogFooter>
           </form>

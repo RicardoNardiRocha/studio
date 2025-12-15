@@ -100,7 +100,7 @@ export function PartnerDetailsDialog({
   const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
-  const { user } = useUser();
+  const { user, profile } = useUser();
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -198,6 +198,9 @@ export function PartnerDetailsDialog({
     }
   };
 
+  const canEdit = profile?.permissions.societario.update;
+  const canDelete = profile?.permissions.societario.delete;
+
   return (
     <>
       <EcpfUploadDialog
@@ -223,7 +226,7 @@ export function PartnerDetailsDialog({
                   <FormItem>
                     <FormLabel>Nome Completo</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nome do sócio" {...field} />
+                      <Input placeholder="Nome do sócio" {...field} disabled={!canEdit} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -256,6 +259,7 @@ export function PartnerDetailsDialog({
                           options={companyOptions}
                           placeholder="Selecione as empresas..."
                           noOptionsMessage={() => 'Nenhuma empresa encontrada'}
+                          isDisabled={!canEdit}
                           styles={{
                             control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
                             menu: (base) => ({ ...base, zIndex: 100 }),
@@ -279,20 +283,22 @@ export function PartnerDetailsDialog({
                           : 'Nenhum e-CPF configurado.'}
                       </p>
                     </div>
-                     <div className="flex items-center gap-2">
-                      {partner.ecpfUrl && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={partner.ecpfUrl} download={`${partner.name}_${partner.cpf}.pfx`} target="_blank" rel="noopener noreferrer">
-                            <Download className="mr-2 h-4 w-4" />
-                            Baixar
-                          </a>
+                     {canEdit && (
+                      <div className="flex items-center gap-2">
+                        {partner.ecpfUrl && (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={partner.ecpfUrl} download={`${partner.name}_${partner.cpf}.pfx`} target="_blank" rel="noopener noreferrer">
+                              <Download className="mr-2 h-4 w-4" />
+                              Baixar
+                            </a>
+                          </Button>
+                        )}
+                        <Button type="button" size="sm" onClick={() => setIsCertUploadOpen(true)}>
+                          <UploadCloud className="mr-2 h-4 w-4" />
+                          Adicionar/Atualizar
                         </Button>
-                      )}
-                      <Button type="button" size="sm" onClick={() => setIsCertUploadOpen(true)}>
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        Adicionar/Atualizar
-                      </Button>
-                    </div>
+                      </div>
+                    )}
                   </div>
               </div>
 
@@ -303,7 +309,7 @@ export function PartnerDetailsDialog({
                   <FormItem>
                     <FormLabel>Login GOV.BR</FormLabel>
                     <FormControl>
-                      <Input placeholder="Login do portal GOV.BR" {...field} />
+                      <Input placeholder="Login do portal GOV.BR" {...field} disabled={!canEdit} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -321,6 +327,7 @@ export function PartnerDetailsDialog({
                           type={showPassword ? 'text' : 'password'}
                           placeholder="Não altere se não for necessário"
                           {...field}
+                          disabled={!canEdit}
                         />
                       </FormControl>
                       <Button
@@ -347,6 +354,7 @@ export function PartnerDetailsDialog({
                       <Textarea
                         placeholder="Informações adicionais, contatos, etc."
                         {...field}
+                        disabled={!canEdit}
                       />
                     </FormControl>
                     <FormMessage />
@@ -372,36 +380,40 @@ export function PartnerDetailsDialog({
               </div>
 
               <DialogFooter className="pt-4 bg-background sticky bottom-0 flex-row justify-between w-full">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button type="button" variant="destructive">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir Sócio
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente os dados do sócio <strong>{partner.name}</strong> do sistema.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                        Sim, excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                {canDelete ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir Sócio
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita. Isso irá excluir permanentemente os dados do sócio <strong>{partner.name}</strong> do sistema.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                          Sim, excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : <div></div>}
                 <div className="flex gap-2">
                   <DialogClose asChild>
                     <Button type="button" variant="ghost">Cancelar</Button>
                   </DialogClose>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Salvar Alterações
-                  </Button>
+                  {canEdit && (
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Salvar Alterações
+                    </Button>
+                  )}
                 </div>
               </DialogFooter>
             </form>
