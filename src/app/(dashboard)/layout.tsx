@@ -8,6 +8,8 @@ import { useUser, useAuth } from '@/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { signOut } from 'firebase/auth';
 
 function AuthGuard({ children }: { children: ReactNode }) {
   const { user, profile, isUserLoading, userError } = useUser();
@@ -17,28 +19,38 @@ function AuthGuard({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Se não está carregando e não há usuário, manda para a página inicial (login)
-    if (!isUserLoading && !user) {
+    if (isUserLoading) {
+      return; // Aguarda o carregamento do usuário e perfil antes de tomar qualquer decisão.
+    }
+
+    // Cenário 1: Usuário não está logado.
+    if (!user) {
+      // Se não estiver na página de login, redireciona para lá.
       if (pathname !== '/') {
         router.replace('/');
       }
       return;
     }
 
-    // Se usuário está logado, com perfil, e está na página de login, manda para o dashboard
-    if (user && profile && pathname === '/') {
-      router.replace('/dashboard');
-    }
-    
-    // NOVO: Se o usuário logou, tem um perfil, mas não tem permissão para ver o dashboard,
-    // manda ele para a página de perfil. Isso cobre o caso do primeiro login.
-    if (user && profile && !profile.permissions?.dashboard?.read && pathname !== '/perfil') {
+    // Cenário 2: Usuário está logado.
+    if (user && profile) {
+      // Se está na página de login, decide para onde redirecionar.
+      if (pathname === '/') {
+        if (profile.permissions?.dashboard?.read) {
+          router.replace('/dashboard'); // Tem permissão? Vai para o dashboard.
+        } else {
+          router.replace('/perfil'); // Não tem? Vai para o perfil.
+        }
+        return;
+      }
+      
+      // Se está em qualquer outra página e não tem permissão para o dashboard, força para o perfil.
+      if (!profile.permissions?.dashboard?.read && pathname !== '/perfil') {
         router.replace('/perfil');
         return;
-    }
-
-    // Se tem permissão para o financeiro, mas está tentando acessar, nega e redireciona.
-    if (user && profile) {
+      }
+      
+      // Proteção específica para o módulo financeiro.
       if (pathname.startsWith('/financeiro') && !profile.permissions?.financeiro?.read) {
         toast({
           title: 'Acesso Negado',
@@ -76,16 +88,11 @@ function AuthGuard({ children }: { children: ReactNode }) {
   if (!user && pathname !== '/') {
       return null;
   }
-
-  // Se está na página de login, renderiza o conteúdo (a própria página de login)
-  if (pathname === '/') {
-    return <>{children}</>;
-  }
-
-  // Se o usuário está logado e tem perfil, mostra o layout principal
-  if (user && profile) {
-    // Caso especial para redirecionamento do financeiro
-    if (pathname.startsWith('/financeiro') && !profile.permissions?.financeiro?.read) {
+  
+  // Renderiza a página de login se for o caso, ou o conteúdo protegido.
+  if (pathname === '/' || (user && profile)) {
+    // Caso especial para redirecionamento do financeiro enquanto a página carrega
+    if (pathname.startsWith('/financeiro') && profile && !profile.permissions?.financeiro?.read) {
         return (
              <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -93,7 +100,13 @@ function AuthGuard({ children }: { children: ReactNode }) {
              </div>
         )
     }
-
+    
+    // Se for a página de login, renderiza o filho (a própria página de login).
+    if (pathname === '/') {
+        return <>{children}</>;
+    }
+    
+    // Senão, renderiza o layout principal da aplicação.
     return (
       <SidebarProvider>
         <AppSidebar />
