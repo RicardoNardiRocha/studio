@@ -15,21 +15,21 @@ service cloud.firestore {
     function hasPermission(module, permissionType) {
       let profile = getUserProfile();
       // Use ?. para acessar propriedades aninhadas que podem não existir de forma segura
-      return profile.permissions[module][permissionType] == true;
+      // O '|| false' garante que se o caminho não existir, o resultado seja falso.
+      return (profile.permissions[module][permissionType] || false) == true;
     }
 
     match /users/{userId} {
-      // Um usuário pode atualizar seu próprio perfil.
-      allow update: if request.auth.uid == userId;
-      
-      // Um usuário pode ler seu próprio perfil OU se tiver permissão para ler o módulo de usuários.
+      // LEITURA: Um usuário pode ler seu próprio perfil OU se tiver permissão para ler o módulo de usuários.
       allow read: if request.auth.uid == userId || hasPermission('usuarios', 'read');
+      
+      // CRIAÇÃO: Permite a criação de um perfil SE o UID do usuário que está sendo criado é o mesmo do usuário autenticado (primeiro login).
+      allow create: if request.auth.uid == userId;
 
-      // Permite a criação de um perfil SE o UID do usuário que está sendo criado é o mesmo do usuário autenticado.
-      // OU se o requisitante tem permissão para criar usuários.
-      allow create: if request.auth.uid == userId || hasPermission('usuarios', 'create');
-
-      // Apenas quem tem permissão para deletar usuários pode fazê-lo, e não pode deletar a si mesmo.
+      // ATUALIZAÇÃO: Um usuário pode atualizar seu próprio perfil OU se tiver permissão para editar usuários.
+      allow update: if request.auth.uid == userId || hasPermission('usuarios', 'update');
+      
+      // EXCLUSÃO: Apenas quem tem permissão para deletar usuários pode fazê-lo, e não pode deletar a si mesmo.
       allow delete: if hasPermission('usuarios', 'delete') && request.auth.uid != userId;
     }
 
@@ -42,12 +42,16 @@ service cloud.firestore {
       // Regras para subcoleções
       match /taxObligations/{obligationId} {
         allow read: if hasPermission('obrigacoes', 'read');
-        allow write: if hasPermission('obrigacoes', 'create') || hasPermission('obrigacoes', 'update') || hasPermission('obrigacoes', 'delete');
+        allow create: if hasPermission('obrigacoes', 'create');
+        allow update: if hasPermission('obrigacoes', 'update');
+        allow delete: if hasPermission('obrigacoes', 'delete');
       }
 
       match /corporateProcesses/{processId} {
         allow read: if hasPermission('processos', 'read');
-        allow write: if hasPermission('processos', 'create') || hasPermission('processos', 'update') || hasPermission('processos', 'delete');
+        allow create: if hasPermission('processos', 'create');
+        allow update: if hasPermission('processos', 'update');
+        allow delete: if hasPermission('processos', 'delete');
          match /history/{historyId} {
             allow read, write: if hasPermission('processos', 'update');
         }
@@ -57,7 +61,9 @@ service cloud.firestore {
       }
        match /documents/{documentId} {
         allow read: if hasPermission('documentos', 'read');
-        allow write: if hasPermission('documentos', 'create') || hasPermission('documentos', 'update') || hasPermission('documentos', 'delete');
+        allow create: if hasPermission('documentos', 'create');
+        allow update: if hasPermission('documentos', 'update');
+        allow delete: if hasPermission('documentos', 'delete');
        }
     }
 
