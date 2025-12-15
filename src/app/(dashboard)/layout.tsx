@@ -14,7 +14,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
     const auth = useAuth();
     
-    // AuthHandler no layout raiz agora cuida do redirecionamento.
+    // O AuthHandler no layout raiz agora cuida do redirecionamento.
     // Este layout apenas protege o conteúdo do dashboard.
 
     if (isUserLoading) {
@@ -38,7 +38,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     }
 
     // Se o usuário não estiver logado ou o perfil não for carregado, o AuthHandler já terá redirecionionado.
-    // Se ainda assim chegar aqui, não renderiza nada para evitar piscar de tela.
+    // Se ainda assim chegar aqui, não renderiza nada para evitar piscar de tela ou erros de permissão no logout.
     if (!user || !profile) {
         return null;
     }
@@ -54,4 +54,3 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
         </SidebarProvider>
     );
 }
-
