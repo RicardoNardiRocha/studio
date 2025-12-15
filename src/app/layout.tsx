@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Metadata } from 'next';
@@ -5,8 +6,8 @@ import { Poppins, Inter } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase';
 import { ClientProviders } from './providers';
+import { AuthHandler } from '@/components/layout/auth-handler';
 
 const fontPoppins = Poppins({
   subsets: ['latin'],
@@ -33,10 +34,11 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={cn('font-body antialiased', fontPoppins.variable, fontInter.variable)}>
         <ClientProviders>
-          {children}
+          <AuthHandler>{children}</AuthHandler>
           <Toaster />
         </ClientProviders>
       </body>
     </html>
   );
 }
+
