@@ -32,7 +32,7 @@ function AuthGuard({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Cenário 2: Usuário está logado.
+    // Cenário 2: Usuário está logado e o perfil foi carregado.
     if (user && profile) {
       // Se está na página de login, decide para onde redirecionar.
       if (pathname === '/') {
