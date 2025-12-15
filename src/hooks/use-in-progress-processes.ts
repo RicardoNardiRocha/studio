@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { collectionGroup, query, where, getCountFromServer } from 'firebase/firestore';
 
 export function useInProgressProcesses() {
   const [count, setCount] = useState(0);
@@ -16,8 +17,8 @@ export function useInProgressProcesses() {
       setIsLoading(true);
       try {
         const processesQuery = query(
-          collection(firestore, 'corporateProcesses'),
-          where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Exigência'])
+          collectionGroup(firestore, 'corporateProcesses'),
+          where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão'])
         );
         const snapshot = await getCountFromServer(processesQuery);
         setCount(snapshot.data().count);

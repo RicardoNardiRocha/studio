@@ -29,30 +29,18 @@
             "processos": { "$ref": "#/entities/ModulePermissions" },
             "obrigacoes": { "$ref": "#/entities/ModulePermissions" },
             "fiscal": { "$ref": "#/entities/ModulePermissions" },
+            "documentos": { "$ref": "#/entities/ModulePermissions" },
             "financeiro": { "$ref": "#/entities/ModulePermissions" },
             "usuarios": { "$ref": "#/entities/ModulePermissions" }
           }
-        },
-        "companyIds": {
-            "type": "array",
-            "description": "A list of company IDs the user is permitted to access. This is enforced by security rules for non-admins.",
-            "items": { "type": "string" }
         },
         "photoURL": {
           "type": "string",
           "format": "uri",
           "description": "URL of the user's profile picture."
-        },
-        "createdAt": {
-            "type": "string",
-            "format": "date-time"
-        },
-        "updatedAt": {
-            "type": "string",
-            "format": "date-time"
         }
       },
-      "required": [ "uid", "displayName", "email", "permissions", "createdAt", "updatedAt" ]
+      "required": [ "uid", "displayName", "email", "permissions" ]
     },
     "ModulePermissions": {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -123,6 +111,10 @@
           "type": "string",
           "format": "uri",
           "description": "URL of the A1 certificate file in Firebase Storage."
+        },
+        "members": {
+          "type": "object",
+          "description": "Map of user UIDs to their roles within this company for access control. Example: { 'uid1': 'admin', 'uid2': 'viewer' }."
         }
       },
       "required": [
@@ -207,8 +199,8 @@
         "companyId": { "type": "string" },
         "companyName": { "type": "string" },
         "nome": { "type": "string" },
-        "categoria": { "type": "string", "enum": ["Fiscal", "Contábil", "DP", "Societário"] },
-        "periodicidade": { "type": "string", "enum": ["Mensal", "Trimestral", "Anual", "Eventual"] },
+        "categoria": { "type": "string", "enum": ["Fiscal", "Contábil", "DP", "Outros"] },
+        "periodicidade": { "type": "string", "enum": ["Mensal", "Anual", "Eventual"] },
         "periodo": { "type": "string" },
         "dataVencimento": { "type": "string", "format": "date-time" },
         "dataEntrega": { "type": "string", "format": "date-time" },
@@ -232,9 +224,11 @@
         "processType": { "type": "string" },
         "startDate": { "type": "string", "format": "date-time" },
         "protocolDate": { "type": "string", "format": "date-time" },
-        "status": { "type": "string" }
+        "status": { "type": "string", "enum": ["Aguardando Documentação", "Em Análise", "Em Preenchimento", "Protocolado", "Em Andamento Externo", "Aguardando Cliente", "Aguardando Órgão", "Concluído", "Cancelado"] },
+        "priority": { "type": "string", "enum": ["Baixa", "Média", "Alta"] },
+        "notes": { "type": "string" }
       },
-      "required": ["id", "companyId", "companyName", "processType", "startDate", "status"]
+      "required": ["id", "companyId", "companyName", "processType", "startDate", "status", "priority"]
     },
     "Invoice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -276,27 +270,37 @@
         }
       },
       {
+        "path": "/companies/{companyId}/taxObligations/{taxObligationId}",
+        "definition": {
+          "entityName": "TaxObligation",
+          "schema": { "$ref": "#/entities/TaxObligation" },
+          "description": "Subcollection to store tax obligations for a specific company."
+        }
+      },
+       {
+        "path": "/companies/{companyId}/corporateProcesses/{processId}",
+        "definition": {
+          "entityName": "CorporateProcess",
+          "schema": { "$ref": "#/entities/CorporateProcess" },
+          "description": "Subcollection to store corporate processes for a specific company."
+        }
+      },
+      {
+        "path": "/companies/{companyId}/documents/{documentId}",
+        "definition": {
+          "entityName": "Document",
+          "schema": {
+            "$ref": "#/entities/Document"
+          },
+          "description": "Subcollection to store documents related to a specific company."
+        }
+      },
+      {
         "path": "/partners/{partnerId}",
         "definition": {
           "entityName": "Partner",
           "schema": { "$ref": "#/entities/Partner" },
           "description": "Collection to store partner and administrator information."
-        }
-      },
-      {
-        "path": "/taxObligations/{taxObligationId}",
-        "definition": {
-          "entityName": "TaxObligation",
-          "schema": { "$ref": "#/entities/TaxObligation" },
-          "description": "Main collection for all tax obligations."
-        }
-      },
-       {
-        "path": "/corporateProcesses/{processId}",
-        "definition": {
-          "entityName": "CorporateProcess",
-          "schema": { "$ref": "#/entities/CorporateProcess" },
-          "description": "Main collection for all corporate processes."
         }
       },
       {

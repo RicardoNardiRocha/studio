@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -26,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
 import { Badge } from '../ui/badge';
@@ -93,11 +94,10 @@ export function CorporateProcessesClient() {
 
   const processesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
+    return query(collectionGroup(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
   }, [firestore]);
 
   const { data: processes, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
-  const { data: users } = useCollection(useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]));
 
   const handleProcessAction = () => {
     forceRefetch();
@@ -105,9 +105,9 @@ export function CorporateProcessesClient() {
     setIsAddDialogOpen(false);
   };
   
-  const handleStatusChange = async (processId: string, newStatus: ProcessStatus) => {
+  const handleStatusChange = async (process: CorporateProcess, newStatus: ProcessStatus) => {
     if (!firestore) return;
-    const processRef = doc(firestore, 'corporateProcesses', processId);
+    const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
     try {
         await updateDoc(processRef, { status: newStatus });
         forceRefetch();
@@ -161,11 +161,13 @@ export function CorporateProcessesClient() {
 
   return (
     <>
-      <AddProcessDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onProcessAdded={handleProcessAction}
-      />
+      {profile?.permissions.processos.create && (
+        <AddProcessDialog
+          open={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onProcessAdded={handleProcessAction}
+        />
+      )}
       {selectedProcess && (
         <ProcessDetailsDialog
           key={selectedProcess.id}
@@ -274,7 +276,7 @@ export function CorporateProcessesClient() {
                             Protocolo: {formatDate(process.protocolDate)}
                           </TableCell>
                           <TableCell>
-                            <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process.id, newStatus)} disabled={!profile?.permissions.processos.update}>
+                            <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process, newStatus)} disabled={!profile?.permissions.processos.update}>
                               <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
                                 <SelectValue asChild>
                                     <Badge variant={getStatusBadgeVariant(process.status)} className="w-full justify-center font-medium">

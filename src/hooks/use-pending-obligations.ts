@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { collectionGroup, query, where, getCountFromServer } from 'firebase/firestore';
 
 export function usePendingObligations() {
   const [count, setCount] = useState(0);
@@ -16,7 +17,7 @@ export function usePendingObligations() {
       setIsLoading(true);
       try {
         const obligationsQuery = query(
-          collection(firestore, 'taxObligations'),
+          collectionGroup(firestore, 'taxObligations'),
           where('status', 'in', ['Pendente', 'Atrasada'])
         );
         const snapshot = await getCountFromServer(obligationsQuery);

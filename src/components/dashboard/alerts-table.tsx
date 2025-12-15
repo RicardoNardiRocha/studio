@@ -1,7 +1,8 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, collectionGroup } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -97,7 +98,7 @@ export function AlertsTable() {
 
         // Check for overdue and upcoming obligations
         const obligationsQuery = query(
-          collection(firestore, `taxObligations`),
+          collectionGroup(firestore, `taxObligations`),
           where('status', 'in', ['Pendente', 'Atrasada'])
         );
         const obligationsSnapshot = await getDocs(obligationsQuery);
@@ -125,7 +126,7 @@ export function AlertsTable() {
 
         // Check for processes 'Em Exigência'
         const processesQuery = query(
-          collection(firestore, `corporateProcesses`),
+          collectionGroup(firestore, `corporateProcesses`),
           where('status', '==', 'Em Exigência')
         );
         const processesSnapshot = await getDocs(processesQuery);

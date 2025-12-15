@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -36,7 +37,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -111,8 +112,7 @@ export function AddProcessDialog({
       if (!company) throw new Error("Empresa não encontrada.");
 
       const batch = writeBatch(firestore);
-      const processCollectionRef = collection(firestore, 'corporateProcesses');
-      const processDocRef = doc(processCollectionRef);
+      const processDocRef = doc(collection(firestore, 'companies', company.id, 'corporateProcesses'));
 
       const newProcess = {
         id: processDocRef.id,
@@ -130,7 +130,7 @@ export function AddProcessDialog({
       
       batch.set(processDocRef, newProcess);
       
-      const historyCollectionRef = collection(firestore, `corporateProcesses/${processDocRef.id}/history`);
+      const historyCollectionRef = collection(firestore, `companies/${company.id}/corporateProcesses/${processDocRef.id}/history`);
       const historyDocRef = doc(historyCollectionRef);
       batch.set(historyDocRef, {
         id: historyDocRef.id,

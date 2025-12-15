@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -44,6 +45,7 @@ import { ptBR } from 'date-fns/locale';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { logActivity } from '@/lib/activity-log';
 
 interface AddObligationDialogProps {
   open: boolean;
@@ -115,8 +117,7 @@ export function AddObligationDialog({
       const responsibleUser = users?.find(u => u.uid === values.responsavelId);
       const batch = writeBatch(firestore);
 
-      const obligationCollectionRef = collection(firestore, 'taxObligations');
-      const obligationDocRef = doc(obligationCollectionRef);
+      const obligationDocRef = doc(collection(firestore, 'companies', company.id, 'taxObligations'));
       
       const newObligation = {
         id: obligationDocRef.id,
@@ -136,15 +137,7 @@ export function AddObligationDialog({
       };
       batch.set(obligationDocRef, newObligation);
 
-      const historyCollectionRef = collection(firestore, `taxObligations/${obligationDocRef.id}/history`);
-      const historyDocRef = doc(historyCollectionRef);
-      batch.set(historyDocRef, {
-        id: historyDocRef.id,
-        timestamp: serverTimestamp(),
-        userId: user.uid,
-        userName: user.displayName || 'Usuário',
-        action: `Obrigação criada com status "Pendente".`,
-      });
+      logActivity(firestore, user, `criou a obrigação ${values.nome} para ${company.name}.`);
 
       if (values.attachment) {
         const file = values.attachment;
@@ -153,7 +146,7 @@ export function AddObligationDialog({
         await uploadBytes(fileRef, file);
         const fileUrl = await getDownloadURL(fileRef);
 
-        const attachmentCollectionRef = collection(firestore, `taxObligations/${obligationDocRef.id}/attachments`);
+        const attachmentCollectionRef = collection(firestore, `companies/${company.id}/taxObligations/${obligationDocRef.id}/attachments`);
         const attachmentDocRef = doc(attachmentCollectionRef);
         batch.set(attachmentDocRef, {
           id: attachmentDocRef.id,

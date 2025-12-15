@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -26,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
 import { Badge } from '../ui/badge';
@@ -41,8 +42,8 @@ export interface TaxObligation {
   companyId: string;
   companyName: string;
   nome: string;
-  categoria: 'Fiscal' | 'Contábil' | 'DP' | 'Societário';
-  periodicidade: 'Mensal' | 'Trimestral' | 'Anual' | 'Eventual';
+  categoria: 'Fiscal' | 'Contábil' | 'DP' | 'Outros';
+  periodicidade: 'Mensal' | 'Anual' | 'Eventual';
   periodo: string; // "YYYY-MM"
   dataVencimento: Timestamp | Date;
   dataEntrega?: Timestamp | Date | null;
@@ -57,7 +58,7 @@ export interface TaxObligation {
 
 
 const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
-const obligationCategories = ['Todos', 'Fiscal', 'Contábil', 'DP', 'Societário'];
+const obligationCategories = ['Todos', 'Fiscal', 'Contábil', 'DP', 'Outros'];
 
 
 const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -89,7 +90,7 @@ export function ObligationsClient() {
 
   const obligationsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'taxObligations'), orderBy('dataVencimento', 'asc'));
+    return query(collectionGroup(firestore, 'taxObligations'), orderBy('dataVencimento', 'asc'));
   }, [firestore]);
 
   const { data: obligations, isLoading, forceRefetch } = useCollection<TaxObligation>(obligationsQuery);
@@ -102,7 +103,7 @@ export function ObligationsClient() {
   
   const handleStatusChange = async (obligation: TaxObligation, newStatus: ObligationStatus) => {
     if (!firestore) return;
-    const obligationRef = doc(firestore, 'taxObligations', obligation.id);
+    const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
     try {
         await updateDoc(obligationRef, { status: newStatus, updatedAt: new Date() });
         forceRefetch(); // Força o useCollection a buscar os dados novamente
@@ -136,11 +137,13 @@ export function ObligationsClient() {
 
   return (
     <>
-      <AddObligationDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onObligationAdded={handleAction}
-      />
+      {profile?.permissions.obrigacoes.create && (
+        <AddObligationDialog
+          open={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onObligationAdded={handleAction}
+        />
+      )}
       {selectedObligation && (
         <ObligationDetailsDialog
           key={selectedObligation.id}

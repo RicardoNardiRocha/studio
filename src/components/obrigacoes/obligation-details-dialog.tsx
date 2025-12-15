@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -71,8 +72,8 @@ const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Ent
 
 const formSchema = z.object({
   nome: z.string().min(1, 'O nome da obrigação é obrigatório.'),
-  categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Societário']),
-  periodicidade: z.enum(['Mensal', 'Trimestral', 'Anual', 'Eventual']),
+  categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Outros']),
+  periodicidade: z.enum(['Mensal', 'Anual', 'Eventual']),
   periodo: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
   dataVencimento: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   status: z.enum(obligationStatuses),
@@ -126,7 +127,7 @@ export function ObligationDetailsDialog({
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
-    const obligationRef = doc(firestore, 'taxObligations', obligation.id);
+    const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
     deleteDocumentNonBlocking(obligationRef);
     logActivity(firestore, user, `excluiu a obrigação ${obligation.nome} de ${obligation.companyName}.`);
     toast({
@@ -145,7 +146,7 @@ export function ObligationDetailsDialog({
     setIsLoading(true);
 
     try {
-      const obligationRef = doc(firestore, 'taxObligations', obligation.id);
+      const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
       
       const responsibleUser = users?.find(u => u.uid === values.responsavelId);
       
@@ -172,6 +173,7 @@ export function ObligationDetailsDialog({
       });
     } finally {
       setIsLoading(false);
+      onOpenChange(false);
     }
   };
 
@@ -215,7 +217,7 @@ export function ObligationDetailsDialog({
                         <SelectTrigger><SelectValue /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {['Fiscal', 'Contábil', 'DP', 'Societário'].map(cat => (
+                        {['Fiscal', 'Contábil', 'DP', 'Outros'].map(cat => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
@@ -235,7 +237,7 @@ export function ObligationDetailsDialog({
                         <SelectTrigger><SelectValue /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {['Mensal', 'Trimestral', 'Anual', 'Eventual'].map(p => (
+                        {['Mensal', 'Anual', 'Eventual'].map(p => (
                           <SelectItem key={p} value={p}>{p}</SelectItem>
                         ))}
                       </SelectContent>

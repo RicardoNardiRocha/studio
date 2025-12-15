@@ -4,109 +4,64 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================================================================
-    // Helper Functions
-    // =========================================================================
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Get the user's profile from the /users collection
-    function getUserProfile(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Check if the requesting user is an Owner or Admin based on their profile
-    function isAdmin() {
-      let profile = getUserProfile(request.auth.uid);
-      return profile.isAdmin == true || profile.roleId == 'owner';
+    function hasPermission(module, permissionType) {
+      let profile = getUserProfile();
+      // Use ?. to safely access nested properties that might not exist
+      return profile.permissions[module][permissionType] == true;
     }
 
-    // Check if the user is a member of a specific company
-    function isCompanyMember(companyId) {
-        let profile = getUserProfile(request.auth.uid);
-        return companyId in profile.companyIds;
-    }
-
-    // Admins and Owners can read any company data.
-    // Other users can only read data for companies they are members of.
-    function canReadCompanyData(companyId) {
-      return isAdmin() || isCompanyMember(companyId);
-    }
-    
-    // Admins/Owners and Contadores can write company data.
-    // Contadores must be a member of the company.
-    function canWriteCompanyData(companyId) {
-       let profile = getUserProfile(request.auth.uid);
-       return isAdmin() || (profile.roleId == 'contador' && isCompanyMember(companyId));
-    }
-
-    // Check if the user has financial access based on their profile flag
-    function canAccessFinance() {
-      return getUserProfile(request.auth.uid).canFinance == true;
-    }
-    
-    // =========================================================================
-    // Collection Rules
-    // =========================================================================
-
-    // --- User Profiles ---
     match /users/{userId} {
-      // A user can create, read, and update their own profile.
-      allow read, write: if request.auth.uid == userId;
-      // An admin can read any user's profile.
-      allow read: if isAdmin();
-      // An admin can update any user's profile, but cannot assign 'owner' role unless they are an owner.
-      allow update: if isAdmin() && (request.resource.data.roleId != 'owner' || getUserProfile(request.auth.uid).roleId == 'owner');
-      // An Owner can delete any user except another Owner.
-      allow delete: if getUserProfile(request.auth.uid).roleId == 'owner' && resource.data.roleId != 'owner';
+      allow read: if isSignedIn();
+      // Allow a user to update their own profile OR if they have 'update' permission for 'usuarios'.
+      allow update: if request.auth.uid == userId || hasPermission('usuarios', 'update');
+      allow create: if hasPermission('usuarios', 'create');
+      allow delete: if hasPermission('usuarios', 'delete');
     }
 
-    // --- Companies ---
     match /companies/{companyId} {
-      allow list: if isSignedIn();
-      allow get: if canReadCompanyData(companyId);
-      allow write: if canWriteCompanyData(companyId);
+      allow read: if hasPermission('empresas', 'read');
+      allow create: if hasPermission('empresas', 'create');
+      allow update: if hasPermission('empresas', 'update');
+      allow delete: if hasPermission('empresas', 'delete');
+
+      // Rules for subcollections
+      match /taxObligations/{obligationId} {
+        allow read: if hasPermission('obrigacoes', 'read');
+        allow write: if hasPermission('obrigacoes', 'create') || hasPermission('obrigacoes', 'update') || hasPermission('obrigacoes', 'delete');
+      }
+
+      match /corporateProcesses/{processId} {
+        allow read: if hasPermission('processos', 'read');
+        allow write: if hasPermission('processos', 'create') || hasPermission('processos', 'update') || hasPermission('processos', 'delete');
+      }
+       match /documents/{documentId} {
+        allow read: if hasPermission('documentos', 'read');
+        allow write: if hasPermission('documentos', 'create') || hasPermission('documentos', 'update') || hasPermission('documentos', 'delete');
+       }
     }
 
-    // --- Partners ---
     match /partners/{partnerId} {
-      allow read, write: if isSignedIn();
+      allow read: if hasPermission('societario', 'read');
+      allow create: if hasPermission('societario', 'create');
+      allow update: if hasPermission('societario', 'update');
+      allow delete: if hasPermission('societario', 'delete');
     }
 
-    // --- Invoices ---
     match /invoices/{invoiceId} {
-      allow read, write: if canAccessFinance();
-    }
-
-    // --- Tax Obligations ---
-    match /taxObligations/{taxObligationId} {
-        // Use `resource.data` for read rules, as the resource already exists.
-        allow read: if canReadCompanyData(resource.data.companyId);
-        // Use `request.resource.data` for write rules, as it refers to the incoming data.
-        allow create, update, delete: if canWriteCompanyData(request.resource.data.companyId);
-
-        match /{subcollection}/{subDocId} {
-            allow read, write: if canReadCompanyData(get(/databases/$(database)/documents/taxObligations/$(taxObligationId)).data.companyId);
-        }
+      allow read: if hasPermission('financeiro', 'read');
+      allow create: if hasPermission('financeiro', 'create');
+      allow update: if hasPermission('financeiro', 'update');
+      allow delete: if hasPermission('financeiro', 'delete');
     }
     
-    // --- Corporate Processes ---
-    match /corporateProcesses/{processId} {
-        allow read: if canReadCompanyData(resource.data.companyId);
-        allow create, update, delete: if canWriteCompanyData(request.resource.data.companyId);
-
-        match /{subcollection}/{subDocId} {
-            allow read, write: if canReadCompanyData(get(/databases/$(database)/documents/corporateProcesses/$(processId)).data.companyId);
-        }
-    }
-
-    // --- Documents within a Company ---
-    match /companies/{companyId}/documents/{documentId} {
-      allow read, write: if canWriteCompanyData(companyId);
-    }
-
-    // --- Activity Log ---
     match /activities/{activityId} {
       allow read, create: if isSignedIn();
       allow update, delete: if false; // Immutable log
