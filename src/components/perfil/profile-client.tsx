@@ -168,7 +168,7 @@ export function ProfileClient() {
   const handleLogout = async () => {
     if (auth) {
       await signOut(auth);
-      router.push('/');
+      // O redirecionamento agora é tratado pelo AuthHandler
     }
   };
 
