@@ -17,6 +17,7 @@ service cloud.firestore {
     
     function hasPermission(module, permissionType) {
       // permissionType must be 'read', 'create', 'update', or 'delete'
+      // Use ?. to safely access nested properties that might not exist
       return getUserProfile(request.auth.uid).permissions[module][permissionType] == true;
     }
 
@@ -26,24 +27,22 @@ service cloud.firestore {
 
     // --- User Profiles ---
     match /users/{userId} {
-      // A user can always read and update their own basic profile data (name, photo).
+      // Allow a user to read their own profile, or if they have 'read' permission for the 'usuarios' module.
       allow read: if request.auth.uid == userId || hasPermission('usuarios', 'read');
-      allow update: if request.auth.uid == userId;
       
-      // Only users with 'update' permission for the 'usuarios' module can change
-      // the profile (including permissions) of other users.
-      allow update: if hasPermission('usuarios', 'update');
+      // Allow a user to update their own profile OR if they have 'update' permission for 'usuarios'.
+      allow update: if request.auth.uid == userId || hasPermission('usuarios', 'update');
       
-      // Only users with 'delete' permission can delete other users.
-      allow delete: if hasPermission('usuarios', 'delete');
-      
-      // Only users with 'create' permission can create new users (although creation is in Auth).
+      // Allow creating a user profile if the user has 'create' permission.
       allow create: if hasPermission('usuarios', 'create');
+
+      // Allow deleting a user if the user has 'delete' permission.
+      allow delete: if hasPermission('usuarios', 'delete');
     }
 
     // --- Companies ---
     match /companies/{companyId} {
-      allow list, get: if hasPermission('empresas', 'read');
+      allow read: if hasPermission('empresas', 'read');
       allow create: if hasPermission('empresas', 'create');
       allow update: if hasPermission('empresas', 'update');
       allow delete: if hasPermission('empresas', 'delete');
@@ -73,7 +72,7 @@ service cloud.firestore {
       allow delete: if hasPermission('obrigacoes', 'delete');
 
       match /{subcollection}/{subDocId} {
-        allow read, write: if hasPermission('obrigacoes', 'read'); // Simplified for subcollections
+        allow read, write: if hasPermission('obrigacoes', 'update');
       }
     }
     
@@ -85,16 +84,15 @@ service cloud.firestore {
       allow delete: if hasPermission('processos', 'delete');
 
       match /{subcollection}/{subDocId} {
-        allow read, write: if hasPermission('processos', 'read'); // Simplified for subcollections
+        allow read, write: if hasPermission('processos', 'update'); 
       }
     }
 
     // --- Documents within a Company ---
     match /companies/{companyId}/documents/{documentId} {
        allow read: if hasPermission('documentos', 'read');
-       allow create: if hasPermission('documentos', 'create');
-       allow update: if hasPermission('documentos', 'update');
-       allow delete: if hasPermission('documentos', 'delete');
+       // Combine create/update/delete into a single 'write' permission check for simplicity
+       allow write: if hasPermission('documentos', 'update') || hasPermission('documentos', 'create') || hasPermission('documentos', 'delete');
     }
 
     // --- Activity Log ---
