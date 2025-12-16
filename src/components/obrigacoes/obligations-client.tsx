@@ -5,8 +5,17 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, LayoutGrid, List, CalendarDays, Filter, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
@@ -15,9 +24,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
 import { KpiCard } from '../dashboard/kpi-card';
-import { startOfMonth, endOfMonth, isWithinInterval, format, isPast } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format, isPast, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ObligationCard, type ObligationGroup } from './obligation-card';
+import { ObligationCard } from './obligation-card';
 
 export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada';
 
@@ -38,7 +47,19 @@ export interface TaxObligation {
   updatedAt: Timestamp | Date;
   historico?: any[];
   comprovantes?: string[];
+  displayStatus?: ObligationStatus;
 }
+
+const getStatusBadgeVariant = (status?: ObligationStatus): 'default' | 'secondary' | 'destructive' | 'outline' => {
+  if (!status) return 'outline';
+  switch (status) {
+    case 'Entregue': return 'default';
+    case 'Atrasada': return 'destructive';
+    case 'Pendente': return 'secondary';
+    case 'Em Andamento': return 'secondary'; // Could be another color
+    default: return 'outline';
+  }
+};
 
 
 export function ObligationsClient() {
@@ -46,8 +67,10 @@ export function ObligationsClient() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedObligation, setSelectedObligation] = useState<TaxObligation | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewType, setViewType] = useState<'kanban' | 'list' | 'calendar'>('kanban');
+  const [viewType, setViewType] = useState<'kanban' | 'list'>('kanban');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [statusFilter, setStatusFilter] = useState<ObligationStatus | 'Todos'>('Todos');
+
 
   const [allObligations, setAllObligations] = useState<TaxObligation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +87,7 @@ export function ObligationsClient() {
 
   const fetchAllObligations = async () => {
     if (!firestore || isLoadingCompanies) return;
-    if (!companies) {
+    if (!companies || companies.length === 0) {
         setIsLoading(false);
         setAllObligations([]);
         return;
@@ -123,68 +146,41 @@ export function ObligationsClient() {
       
       const start = startOfMonth(selectedDate);
       const end = endOfMonth(selectedDate);
+      const today = startOfDay(new Date());
 
-      return allObligations.filter(o => {
-        const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
-        const isDateInMonth = isWithinInterval(dueDate, { start, end });
-        const searchMatch = searchTerm === '' || 
-                            o.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            o.nome.toLowerCase().includes(searchTerm.toLowerCase());
-        return isDateInMonth && searchMatch;
-    });
-  }, [allObligations, searchTerm, selectedDate]);
+      return allObligations
+        .map(o => {
+            const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
+            const isOverdue = isPast(dueDate) && o.status === 'Pendente';
+            const displayStatus: ObligationStatus = isOverdue ? 'Atrasada' : o.status;
+            return { ...o, displayStatus };
+        })
+        .filter(o => {
+            const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
+            const isDateInMonth = isWithinInterval(dueDate, { start, end });
+            const searchMatch = searchTerm === '' || 
+                                o.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                o.nome.toLowerCase().includes(searchTerm.toLowerCase());
+            const statusMatch = statusFilter === 'Todos' || o.displayStatus === statusFilter;
+            return isDateInMonth && searchMatch && statusMatch;
+        });
+  }, [allObligations, searchTerm, selectedDate, statusFilter]);
   
-  const groupedObligations = useMemo(() => {
-    const groups: { [key: string]: ObligationGroup } = {};
-    const today = new Date();
-
-    filteredObligations.forEach(ob => {
-        const dueDate = ob.dataVencimento instanceof Timestamp ? ob.dataVencimento.toDate() : ob.dataVencimento;
-        const isOverdue = isPast(dueDate) && ob.status === 'Pendente';
-        const effectiveStatus: ObligationStatus = isOverdue ? 'Atrasada' : ob.status;
-
-        if (!groups[ob.nome]) {
-            groups[ob.nome] = {
-                name: ob.nome,
-                dueDate: dueDate,
-                total: 0,
-                entregue: 0,
-                pendente: 0,
-                atrasada: 0,
-                em_andamento: 0,
-                status: 'Pendente',
-            };
-        }
-        
-        const group = groups[ob.nome];
-        group.total++;
-        if (effectiveStatus === 'Entregue') group.entregue++;
-        else if (effectiveStatus === 'Pendente') group.pendente++;
-        else if (effectiveStatus === 'Atrasada') group.atrasada++;
-        else if (effectiveStatus === 'Em Andamento') group.em_andamento++;
-    });
-
-    // Determine overall status for each group
-    Object.values(groups).forEach(group => {
-        if (group.atrasada > 0) {
-            group.status = 'Atrasada';
-        } else if (group.pendente > 0 || group.em_andamento > 0) {
-            group.status = 'Pendente';
-        } else if (group.total > 0 && group.entregue === group.total) {
-            group.status = 'Entregue';
-        }
-    });
-
-    return Object.values(groups).sort((a,b) => a.dueDate.getTime() - b.dueDate.getTime());
-}, [filteredObligations]);
-
   const kpis = useMemo(() => {
-    const total = filteredObligations.length;
-    const entregue = filteredObligations.filter(o => o.status === 'Entregue').length;
-    const atrasada = filteredObligations.filter(o => {
+    const obligationsInMonth = allObligations.filter(o => {
+      const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
+      return isWithinInterval(dueDate, { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) });
+    });
+
+    const today = startOfDay(new Date());
+    const total = obligationsInMonth.length;
+    const entregue = obligationsInMonth.filter(o => o.status === 'Entregue').length;
+    
+    const atrasada = obligationsInMonth.filter(o => {
         const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
-        return isPast(dueDate) && o.status === 'Pendente';
+        return isPast(dueDate) && o.status !== 'Entregue' && o.status !== 'Cancelada';
     }).length;
+
     const pendente = total - entregue - atrasada;
 
     return {
@@ -194,13 +190,33 @@ export function ObligationsClient() {
         pendente,
         percentualEntregue: total > 0 ? (entregue / total) * 100 : 0,
     }
-  }, [filteredObligations]);
+  }, [allObligations, selectedDate]);
 
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const [year, month] = e.target.value.split('-').map(Number);
-    setSelectedDate(new Date(year, month - 1, 15)); // Use mid-month to avoid timezone issues
+    setSelectedDate(new Date(year, month - 1, 15));
   }
+  
+  const handleKpiClick = (status: ObligationStatus | 'Todos') => {
+    setStatusFilter(current => current === status ? 'Todos' : status);
+  };
+
+  const formatDate = (date: any): string => {
+    if (!date) return 'N/A';
+    const d = date instanceof Date ? date : (date as Timestamp).toDate();
+    return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  };
+  
+  const formatPeriod = (period: string) => {
+    try {
+        const [year, month] = period.split('-');
+        return `${month}/${year}`;
+    } catch {
+        return period;
+    }
+  }
+
 
   return (
     <>
@@ -212,15 +228,21 @@ export function ObligationsClient() {
       )}
       
       <div className="space-y-4">
-        {/* KPI Header */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard title="Obrigações do Mês" value={String(kpis.total)} icon="CalendarClock" description={format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })} href="#" />
-          <KpiCard title="Entregues" value={String(kpis.entregue)} icon="CheckCircle2" description={`${kpis.percentualEntregue.toFixed(0)}% concluído`} href="#" />
-          <KpiCard title="Pendentes" value={String(kpis.pendente)} icon="Clock" description="Aguardando ação" href="#" />
-          <KpiCard title="Atrasadas" value={String(kpis.atrasada)} icon="AlertTriangle" description="Exigem atenção imediata" href="#" />
+            <div onClick={() => setStatusFilter('Todos')} className={statusFilter !== 'Todos' ? 'opacity-50' : ''}>
+                <KpiCard title="Obrigações do Mês" value={String(kpis.total)} icon="CalendarClock" description={format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })} href="#" />
+            </div>
+            <div onClick={() => handleKpiClick('Entregue')} className={statusFilter !== 'Todos' && statusFilter !== 'Entregue' ? 'opacity-50' : ''}>
+                <KpiCard title="Entregues" value={String(kpis.entregue)} icon="CheckCircle2" description={`${kpis.percentualEntregue.toFixed(0)}% concluído`} href="#" />
+            </div>
+            <div onClick={() => handleKpiClick('Pendente')} className={statusFilter !== 'Todos' && statusFilter !== 'Pendente' ? 'opacity-50' : ''}>
+                <KpiCard title="Pendentes" value={String(kpis.pendente)} icon="Clock" description="Aguardando ação" href="#" />
+            </div>
+            <div onClick={() => handleKpiClick('Atrasada')} className={statusFilter !== 'Todos' && statusFilter !== 'Atrasada' ? 'opacity-50' : ''}>
+                <KpiCard title="Atrasadas" value={String(kpis.atrasada)} icon="AlertTriangle" description="Exigem atenção imediata" href="#" />
+            </div>
         </div>
 
-        {/* Filter and Actions Bar */}
         <Card>
             <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
                  <Input
@@ -240,8 +262,7 @@ export function ObligationsClient() {
                 </div>
                  <div className="flex items-center gap-2">
                     <Button variant={viewType === 'kanban' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('kanban')}><LayoutGrid/></Button>
-                    <Button variant={viewType === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('list')} disabled><List/></Button>
-                    <Button variant={viewType === 'calendar' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('calendar')} disabled><CalendarDays/></Button>
+                    <Button variant={viewType === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('list')}><List/></Button>
                  </div>
                  {profile?.permissions.obrigacoes.create && (
                     <Button onClick={() => setIsAddDialogOpen(true)} className="w-full md:w-auto">
@@ -252,25 +273,67 @@ export function ObligationsClient() {
             </CardContent>
         </Card>
         
-        {/* Main Content Area */}
         {isLoading || isLoadingCompanies ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {Array.from({length: 10}).map((_, i) => (
                     <Skeleton key={i} className="h-40 w-full" />
                 ))}
             </div>
-        ) : (
+        ) : viewType === 'kanban' ? (
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {groupedObligations.length > 0 ? (
-                    groupedObligations.map(group => (
-                        <ObligationCard key={group.name} group={group} />
+                {filteredObligations.length > 0 ? (
+                    filteredObligations.map(ob => (
+                        <ObligationCard key={ob.id} obligation={ob} onClick={() => handleOpenDetails(ob)} />
                     ))
                 ) : (
                     <div className="col-span-full text-center py-10">
-                        <p className="text-muted-foreground">Nenhuma obrigação encontrada para o mês selecionado.</p>
+                        <p className="text-muted-foreground">Nenhuma obrigação encontrada para os filtros aplicados.</p>
                     </div>
                 )}
             </div>
+        ) : (
+             <Card>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Empresa</TableHead>
+                                <TableHead>Obrigação</TableHead>
+                                <TableHead>Competência</TableHead>
+                                <TableHead>Vencimento</TableHead>
+                                <TableHead>Responsável</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead><span className="sr-only">Ações</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredObligations.length > 0 ? (
+                                filteredObligations.map(ob => (
+                                <TableRow key={ob.id}>
+                                    <TableCell className="font-medium">{ob.companyName}</TableCell>
+                                    <TableCell>{ob.nome}</TableCell>
+                                    <TableCell>{formatPeriod(ob.periodo)}</TableCell>
+                                    <TableCell>{formatDate(ob.dataVencimento)}</TableCell>
+                                    <TableCell>{ob.responsavelNome}</TableCell>
+                                    <TableCell><Badge variant={getStatusBadgeVariant(ob.displayStatus)}>{ob.displayStatus}</Badge></TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="outline" size="icon" onClick={() => handleOpenDetails(ob)}>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="h-24 text-center">
+                                        Nenhuma obrigação encontrada para os filtros aplicados.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+             </Card>
         )}
 
       </div>
