@@ -36,6 +36,7 @@ export interface UserProfile {
 }
 
 const defaultPermissions = {
+  dashboard: { read: true, create: false, update: false, delete: false },
   empresas: { read: false, create: false, update: false, delete: false },
   societario: { read: false, create: false, update: false, delete: false },
   processos: { read: false, create: false, update: false, delete: false },
@@ -93,7 +94,14 @@ export function FirebaseProvider({
       return;
     };
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (!firebaseUser) {
         setState({
           user: null,
@@ -104,7 +112,7 @@ export function FirebaseProvider({
         return;
       }
 
-      setState(s => ({ ...s, isUserLoading: true }));
+      setState(s => ({ ...s, user: firebaseUser, isUserLoading: true }));
 
       const userRef = doc(firestore, 'users', firebaseUser.uid);
 
@@ -112,7 +120,6 @@ export function FirebaseProvider({
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-          // Profile does not exist, create it with default permissions
           const newUserProfile: UserProfile = {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Novo Usuário',
@@ -131,8 +138,7 @@ export function FirebaseProvider({
           }
         }
         
-        // At this point, profile exists or was just created, so we can listen to it.
-        const unsubscribeProfile = onSnapshot(userRef, (snap) => {
+        unsubscribeProfile = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
              const profileData = snap.data() as UserProfile;
              if (!profileData.uid) {
@@ -158,8 +164,6 @@ export function FirebaseProvider({
            setState({ user: firebaseUser, profile: null, isUserLoading: false, userError: error });
         });
 
-        return () => unsubscribeProfile();
-
       } catch (error: any) {
         console.error("Error setting up user profile listener:", error);
         setState({
@@ -171,7 +175,12 @@ export function FirebaseProvider({
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+    };
   }, [auth, firestore]);
 
   const value = useMemo(
