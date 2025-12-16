@@ -64,9 +64,11 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-       <SidebarHeader className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
-        <Layers className="text-primary h-8 w-8 shrink-0" />
-        <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
+       <SidebarHeader className="p-2">
+        <div className="flex items-center gap-2">
+          <Layers className="text-primary h-8 w-8 shrink-0" />
+          <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
+        </div>
       </SidebarHeader>
       <div className="p-2 group-data-[collapsible=icon]:px-1.5">
           <SidebarTrigger className="w-full hidden md:flex" />
