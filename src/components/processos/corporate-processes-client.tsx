@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -27,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp, collectionGroup } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
 import { Badge } from '../ui/badge';
@@ -88,16 +88,48 @@ export function CorporateProcessesClient() {
   const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
   const [showOnlyHighPriority, setShowOnlyHighPriority] = useState(false);
 
+  const [allProcesses, setAllProcesses] = useState<CorporateProcess[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const firestore = useFirestore();
   const { toast } = useToast();
   const { profile } = useUser();
 
-  const processesQuery = useMemoFirebase(() => {
+  const companiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collectionGroup(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
+    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
+  const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
-  const { data: processes, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
+  const fetchAllProcesses = async () => {
+    if (!firestore || !companies) return;
+    setIsLoading(true);
+    let collectedProcesses: CorporateProcess[] = [];
+    try {
+        for (const company of companies) {
+            const processesRef = collection(firestore, 'companies', company.id, 'corporateProcesses');
+            const processesSnap = await getDocs(processesRef);
+            processesSnap.forEach(doc => {
+                collectedProcesses.push({ id: doc.id, ...doc.data() } as CorporateProcess);
+            });
+        }
+        collectedProcesses.sort((a, b) => (b.startDate as Timestamp).toMillis() - (a.startDate as Timestamp).toMillis());
+        setAllProcesses(collectedProcesses);
+    } catch (error) {
+        console.error("Error fetching all processes: ", error);
+        toast({ title: "Erro ao buscar processos", description: "Não foi possível carregar os dados de todas as empresas.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (companies) {
+      fetchAllProcesses();
+    }
+  }, [companies, firestore]);
+
+  const forceRefetch = () => fetchAllProcesses();
 
   const handleProcessAction = () => {
     forceRefetch();
@@ -124,9 +156,9 @@ export function CorporateProcessesClient() {
   };
 
   const filteredProcesses = useMemo(() => {
-    if (!processes) return [];
+    if (!allProcesses) return [];
     const today = new Date();
-    return processes.filter(p => {
+    return allProcesses.filter(p => {
         const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             p.processType.toLowerCase().includes(searchTerm.toLowerCase());
         const typeMatch = typeFilter === 'Todos' || p.processType === typeFilter;
@@ -137,7 +169,7 @@ export function CorporateProcessesClient() {
         
         return searchMatch && typeMatch && statusMatch && priorityMatch && highPriorityMatch;
     });
-  }, [processes, searchTerm, typeFilter, statusFilter, priorityFilter, showOnlyHighPriority]);
+  }, [allProcesses, searchTerm, typeFilter, statusFilter, priorityFilter, showOnlyHighPriority]);
 
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
@@ -146,18 +178,18 @@ export function CorporateProcessesClient() {
   };
   
   const kpiValues = useMemo(() => {
-    if (!processes) return { inProgress: 0, completed: 0, delayed: 0, total: 0 };
+    if (!allProcesses) return { inProgress: 0, completed: 0, delayed: 0, total: 0 };
     const today = new Date();
-    const inProgress = processes.filter(p => !['Concluído', 'Cancelado'].includes(p.status)).length;
-    const completed = processes.filter(p => p.status === 'Concluído').length;
-    const delayed = processes.filter(p => p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30).length;
+    const inProgress = allProcesses.filter(p => !['Concluído', 'Cancelado'].includes(p.status)).length;
+    const completed = allProcesses.filter(p => p.status === 'Concluído').length;
+    const delayed = allProcesses.filter(p => p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30).length;
     return {
-        total: processes.length,
+        total: allProcesses.length,
         inProgress,
         completed,
         delayed
     }
-  }, [processes]);
+  }, [allProcesses]);
 
   return (
     <>
@@ -252,7 +284,7 @@ export function CorporateProcessesClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {isLoading || isLoadingCompanies ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-5" /></TableCell>
