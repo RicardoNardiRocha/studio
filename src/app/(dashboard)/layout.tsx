@@ -43,7 +43,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
         <SidebarProvider>
             <div className="relative flex">
                 <AppSidebar />
-                <div className="absolute left-[calc(var(--sidebar-width-icon)_-_0.5rem)] top-1/2 z-20 -translate-y-1/2 opacity-0 transition-all duration-300 group-data-[collapsible=icon]:opacity-100 group-hover/sidebar:opacity-100 group-hover/sidebar:left-[calc(var(--sidebar-width-icon)_-_0.5rem)] group-data-[collapsible=icon]:group-hover/sidebar:left-[calc(var(--sidebar-width-icon)_-_0.5rem)] group-data-[state=expanded]:left-[calc(var(--sidebar-width)_-_0.5rem)] group-data-[state=expanded]:opacity-0 group-data-[state=expanded]:group-hover/sidebar:opacity-0">
+                <div className="absolute left-[calc(var(--sidebar-width-icon)_-_0.5rem)] top-1/2 z-20 -translate-y-1/2 opacity-0 transition-all duration-300 group-data-[collapsible=icon]:opacity-100 group-hover/sidebar-wrapper:opacity-100 group-data-[collapsible=icon]:group-hover/sidebar-wrapper:left-[calc(var(--sidebar-width-icon)_-_0.5rem)] group-data-[state=expanded]:left-[calc(var(--sidebar-width)_-_0.5rem)] group-data-[state=expanded]:opacity-0 group-data-[state=expanded]:group-hover/sidebar-wrapper:opacity-0">
                     <SidebarTrigger className="h-24 w-6 rounded-r-full rounded-l-none p-1" />
                 </div>
                 <div className="flex-1">

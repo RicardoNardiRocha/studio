@@ -51,8 +51,12 @@ const hasAccess = (itemId: string, profile: UserProfile | null): boolean => {
     
     if (itemId === 'dashboard' || itemId === 'perfil') return true;
 
-    const module = itemId as keyof UserProfile['permissions'];
-    return profile.permissions[module]?.read === true;
+    // Adapta o nome do item do menu para corresponder à chave de permissão
+    const moduleKey = itemId === 'societario' ? 'societario' : itemId;
+    const module = moduleKey as keyof UserProfile['permissions'];
+    
+    // Verifica se o módulo existe nas permissões e se a leitura é permitida
+    return profile.permissions[module] && profile.permissions[module]?.read === true;
 };
 
 export function AppSidebar() {
