@@ -8,7 +8,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger
 } from '@/components/ui/sidebar';
 import {
   BarChartBig,
@@ -70,9 +69,6 @@ export function AppSidebar() {
           <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
         </div>
       </SidebarHeader>
-      <div className="p-2 group-data-[collapsible=icon]:px-1.5">
-          <SidebarTrigger className="w-full hidden md:flex" />
-      </div>
       <SidebarContent>
         <SidebarMenu>
           {visibleMenuItems.map((item) => (

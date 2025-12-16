@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
@@ -42,6 +43,9 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
         <SidebarProvider>
             <div className="relative flex">
                 <AppSidebar />
+                 <div className="absolute left-[calc(var(--sidebar-width)_-_1rem)] top-1/2 z-20 -translate-y-1/2 transition-all duration-200 group-data-[collapsible=icon]:left-[calc(var(--sidebar-width-icon)_-_1rem)] group-hover/sidebar:left-[calc(var(--sidebar-width))] group-data-[collapsible=icon]:group-hover/sidebar:left-[calc(var(--sidebar-width-icon))]">
+                    <SidebarTrigger className="h-24 w-6 rounded-r-full rounded-l-none p-1" />
+                </div>
                 <div className="flex-1">
                     <SidebarInset>
                         <div className="flex min-h-screen w-full flex-col">
