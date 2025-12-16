@@ -4,9 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, LayoutGrid, List, CalendarDays, Filter, X } from 'lucide-react';
@@ -14,13 +11,13 @@ import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
-import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
 import { KpiCard } from '../dashboard/kpi-card';
-import { startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ObligationCard, type ObligationGroup } from './obligation-card';
 
 export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada';
 
@@ -42,19 +39,6 @@ export interface TaxObligation {
   historico?: any[];
   comprovantes?: string[];
 }
-
-
-const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
-
-const getStatusStyles = (status: ObligationStatus): { bg: string, text: string, border: string } => {
-  switch (status) {
-    case 'Pendente': return { bg: 'bg-yellow-100 dark:bg-yellow-900/50', text: 'text-yellow-800 dark:text-yellow-300', border: 'border-yellow-500' };
-    case 'Em Andamento': return { bg: 'bg-blue-100 dark:bg-blue-900/50', text: 'text-blue-800 dark:text-blue-300', border: 'border-blue-500' };
-    case 'Entregue': return { bg: 'bg-green-100 dark:bg-green-900/50', text: 'text-green-800 dark:text-green-300', border: 'border-green-500' };
-    case 'Atrasada': return { bg: 'bg-red-100 dark:bg-red-900/50', text: 'text-red-800 dark:text-red-300', border: 'border-red-500' };
-    default: return { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-800 dark:text-gray-300', border: 'border-gray-500' };
-  }
-};
 
 
 export function ObligationsClient() {
@@ -112,13 +96,13 @@ export function ObligationsClient() {
   };
 
   useEffect(() => {
-    if (companies && !isLoadingCompanies) {
+    if (!isLoadingCompanies && companies) {
       fetchAllObligations();
     }
   }, [companies, isLoadingCompanies]);
   
   const forceRefetch = () => {
-    if (companies && !isLoadingCompanies) {
+    if (!isLoadingCompanies && companies) {
       fetchAllObligations();
     }
   };
@@ -150,11 +134,58 @@ export function ObligationsClient() {
     });
   }, [allObligations, searchTerm, selectedDate]);
   
+  const groupedObligations = useMemo(() => {
+    const groups: { [key: string]: ObligationGroup } = {};
+    const today = new Date();
+
+    filteredObligations.forEach(ob => {
+        const dueDate = ob.dataVencimento instanceof Timestamp ? ob.dataVencimento.toDate() : ob.dataVencimento;
+        const isOverdue = isPast(dueDate) && ob.status === 'Pendente';
+        const effectiveStatus: ObligationStatus = isOverdue ? 'Atrasada' : ob.status;
+
+        if (!groups[ob.nome]) {
+            groups[ob.nome] = {
+                name: ob.nome,
+                dueDate: dueDate,
+                total: 0,
+                entregue: 0,
+                pendente: 0,
+                atrasada: 0,
+                em_andamento: 0,
+                status: 'Pendente',
+            };
+        }
+        
+        const group = groups[ob.nome];
+        group.total++;
+        if (effectiveStatus === 'Entregue') group.entregue++;
+        else if (effectiveStatus === 'Pendente') group.pendente++;
+        else if (effectiveStatus === 'Atrasada') group.atrasada++;
+        else if (effectiveStatus === 'Em Andamento') group.em_andamento++;
+    });
+
+    // Determine overall status for each group
+    Object.values(groups).forEach(group => {
+        if (group.atrasada > 0) {
+            group.status = 'Atrasada';
+        } else if (group.pendente > 0 || group.em_andamento > 0) {
+            group.status = 'Pendente';
+        } else if (group.total > 0 && group.entregue === group.total) {
+            group.status = 'Entregue';
+        }
+    });
+
+    return Object.values(groups).sort((a,b) => a.dueDate.getTime() - b.dueDate.getTime());
+}, [filteredObligations]);
+
   const kpis = useMemo(() => {
     const total = filteredObligations.length;
     const entregue = filteredObligations.filter(o => o.status === 'Entregue').length;
-    const atrasada = filteredObligations.filter(o => o.status === 'Atrasada').length;
-    const pendente = filteredObligations.filter(o => o.status === 'Pendente').length;
+    const atrasada = filteredObligations.filter(o => {
+        const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
+        return isPast(dueDate) && o.status === 'Pendente';
+    }).length;
+    const pendente = total - entregue - atrasada;
 
     return {
         total,
@@ -165,26 +196,11 @@ export function ObligationsClient() {
     }
   }, [filteredObligations]);
 
+
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const [year, month] = e.target.value.split('-').map(Number);
     setSelectedDate(new Date(year, month - 1, 15)); // Use mid-month to avoid timezone issues
   }
-
-  const ObligationCard = ({ obligation }: { obligation: TaxObligation }) => (
-    <Card 
-        className="cursor-pointer hover:shadow-lg transition-shadow"
-        onClick={() => handleOpenDetails(obligation)}
-    >
-      <CardHeader className="p-4">
-        <CardTitle className="text-sm font-bold">{obligation.nome}</CardTitle>
-        <CardDescription className="text-xs">{obligation.companyName}</CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 pt-0 text-xs text-muted-foreground">
-        <p>Vencimento: {obligation.dataVencimento instanceof Date ? obligation.dataVencimento.toLocaleDateString() : (obligation.dataVencimento as Timestamp).toDate().toLocaleDateString()}</p>
-        <p>Responsável: {obligation.responsavelNome || 'N/A'}</p>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <>
@@ -238,36 +254,23 @@ export function ObligationsClient() {
         
         {/* Main Content Area */}
         {isLoading || isLoadingCompanies ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Array.from({length: 4}).map((_, i) => (
-                    <div key={i} className="space-y-4">
-                        <Skeleton className="h-8 w-1/2" />
-                        <Skeleton className="h-24 w-full" />
-                        <Skeleton className="h-24 w-full" />
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {Array.from({length: 10}).map((_, i) => (
+                    <Skeleton key={i} className="h-40 w-full" />
                 ))}
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-            {obligationStatuses.map(status => {
-              const { bg, text, border } = getStatusStyles(status);
-              const obligationsInStatus = filteredObligations.filter(o => o.status === status);
-              return (
-                <div key={status} className={`p-4 rounded-lg h-full ${bg}`}>
-                  <h3 className={`font-semibold mb-4 pb-2 border-b-2 ${border} ${text}`}>
-                    {status} <Badge variant="secondary">{obligationsInStatus.length}</Badge>
-                  </h3>
-                  <div className="space-y-4 h-[calc(100vh-22rem)] overflow-y-auto pr-2">
-                    {obligationsInStatus.length > 0 ? (
-                      obligationsInStatus.map(ob => <ObligationCard key={ob.id} obligation={ob} />)
-                    ) : (
-                      <p className={`text-sm text-center py-8 ${text}`}>Nenhuma obrigação.</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {groupedObligations.length > 0 ? (
+                    groupedObligations.map(group => (
+                        <ObligationCard key={group.name} group={group} />
+                    ))
+                ) : (
+                    <div className="col-span-full text-center py-10">
+                        <p className="text-muted-foreground">Nenhuma obrigação encontrada para o mês selecionado.</p>
+                    </div>
+                )}
+            </div>
         )}
 
       </div>
