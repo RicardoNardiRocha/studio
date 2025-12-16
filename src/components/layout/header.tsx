@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Home, ChevronsRight } from 'lucide-react';
+import { Home, ChevronsRight, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -44,8 +44,8 @@ export function AppHeader({ pageTitle }: AppHeaderProps) {
   const userAvatar = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:border-0 sm:bg-transparent sm:px-6 sm:py-4">
-      <SidebarTrigger className="sm:hidden" />
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+      <SidebarTrigger />
       
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground"><Home className="h-4 w-4" /></Link>

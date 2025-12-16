@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal, AlertTriangle, X } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
@@ -73,6 +74,7 @@ export function ObligationsClient() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
   const [statusFilter, setStatusFilter] = useState<ObligationStatus | 'Todos'>('Todos');
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
 
 
   const [allObligations, setAllObligations] = useState<TaxObligation[]>([]);
@@ -89,7 +91,15 @@ export function ObligationsClient() {
   const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
  const fetchAllObligations = async () => {
-    if (!firestore || !companies || companies.length === 0) {
+    if (!firestore || !companies) {
+      if(!isLoadingCompanies) {
+        setAllObligations([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    if (companies.length === 0) {
       setAllObligations([]);
       setIsLoading(false);
       return;
@@ -121,10 +131,10 @@ export function ObligationsClient() {
   };
 
   useEffect(() => {
-    if (!isLoadingCompanies && companies) {
+    if (!isLoadingCompanies) {
       fetchAllObligations();
     }
-  }, [companies, isLoadingCompanies, firestore]);
+  }, [isLoadingCompanies, companies, firestore]);
   
   const forceRefetch = () => {
     if (!isLoadingCompanies && companies) {
@@ -175,10 +185,10 @@ export function ObligationsClient() {
     const tenDaysFromNow = addDays(today, 10);
     
     return allObligations.filter(o => {
+      if (o.status === 'Entregue' || o.status === 'Cancelada') return false;
       const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
       const isUpcoming = differenceInDays(dueDate, today) >= 0 && differenceInDays(dueDate, today) <= 10;
-      const isActive = o.status === 'Pendente' || o.status === 'Em Andamento' || o.status === 'Atrasada';
-      return isUpcoming && isActive;
+      return isUpcoming;
     });
   }, [allObligations]);
 
@@ -236,7 +246,10 @@ export function ObligationsClient() {
   const formatPeriod = (period: string) => {
     try {
         const [year, month] = period.split('-');
-        return `${month}/${year}`;
+        if (month && year) {
+          return `${month}/${year}`;
+        }
+        return period;
     } catch {
         return period;
     }
@@ -253,13 +266,19 @@ export function ObligationsClient() {
       )}
       
       <div className="space-y-4">
-        {upcomingObligations.length > 0 && (
-          <Alert variant="destructive">
+        {!isAlertDismissed && upcomingObligations.length > 0 && (
+          <Alert variant="destructive" className="relative">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Atenção: Vencimentos Próximos!</AlertTitle>
             <AlertDescription>
               Você possui <strong>{upcomingObligations.length}</strong> obrigações vencendo nos próximos 10 dias.
             </AlertDescription>
+            <button 
+              onClick={() => setIsAlertDismissed(true)} 
+              className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </Alert>
         )}
 
