@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -27,7 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp, collectionGroup } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
 import { Badge } from '../ui/badge';
@@ -84,16 +84,48 @@ export function ObligationsClient() {
   const [categoryFilter, setCategoryFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
   
+  const [allObligations, setAllObligations] = useState<TaxObligation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
   const firestore = useFirestore();
   const { toast } = useToast();
   const { profile } = useUser();
 
-  const obligationsQuery = useMemoFirebase(() => {
+  const companiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collectionGroup(firestore, 'taxObligations'), orderBy('dataVencimento', 'asc'));
+    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
   }, [firestore]);
+  const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
-  const { data: obligations, isLoading, forceRefetch } = useCollection<TaxObligation>(obligationsQuery);
+  const fetchAllObligations = async () => {
+    if (!firestore || !companies) return;
+    setIsLoading(true);
+    let collectedObligations: TaxObligation[] = [];
+    try {
+        for (const company of companies) {
+            const obligationsRef = collection(firestore, 'companies', company.id, 'taxObligations');
+            const obligationsSnap = await getDocs(obligationsRef);
+            obligationsSnap.forEach(doc => {
+                collectedObligations.push({ id: doc.id, ...doc.data() } as TaxObligation);
+            });
+        }
+        collectedObligations.sort((a, b) => (b.dataVencimento as Timestamp).toMillis() - (a.dataVencimento as Timestamp).toMillis());
+        setAllObligations(collectedObligations);
+    } catch (error) {
+        console.error("Error fetching all obligations: ", error);
+        toast({ title: "Erro ao buscar obrigações", description: "Não foi possível carregar os dados de todas as empresas.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (companies) {
+      fetchAllObligations();
+    }
+  }, [companies, firestore]);
+  
+  const forceRefetch = () => fetchAllObligations();
 
   const handleAction = () => {
     forceRefetch();
@@ -120,14 +152,14 @@ export function ObligationsClient() {
   };
 
   const filteredObligations = useMemo(() => {
-    if (!obligations) return [];
-    return obligations.filter(o => {
+    if (!allObligations) return [];
+    return allObligations.filter(o => {
         const searchMatch = o.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || o.nome.toLowerCase().includes(searchTerm.toLowerCase());
         const categoryMatch = categoryFilter === 'Todos' || o.categoria === categoryFilter;
         const statusMatch = statusFilter === 'Todos' || o.status === statusFilter;
         return searchMatch && categoryMatch && statusMatch;
     });
-  }, [obligations, searchTerm, categoryFilter, statusFilter]);
+  }, [allObligations, searchTerm, categoryFilter, statusFilter]);
 
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
@@ -223,7 +255,7 @@ export function ObligationsClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {isLoading || isLoadingCompanies ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
