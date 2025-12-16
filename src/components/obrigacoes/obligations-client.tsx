@@ -24,11 +24,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
 import { KpiCard } from '../dashboard/kpi-card';
-import { startOfMonth, endOfMonth, isWithinInterval, format, isPast, startOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format, isPast, startOfDay, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ObligationCard } from './obligation-card';
 
-export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada';
+export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada' | 'Cancelada';
 
 export interface TaxObligation {
   id: string;
@@ -57,6 +57,7 @@ const getStatusBadgeVariant = (status?: ObligationStatus): 'default' | 'secondar
     case 'Atrasada': return 'destructive';
     case 'Pendente': return 'secondary';
     case 'Em Andamento': return 'secondary'; // Could be another color
+    case 'Cancelada': return 'outline';
     default: return 'outline';
   }
 };
@@ -69,6 +70,7 @@ export function ObligationsClient() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewType, setViewType] = useState<'kanban' | 'list'>('kanban');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
   const [statusFilter, setStatusFilter] = useState<ObligationStatus | 'Todos'>('Todos');
 
 
@@ -86,8 +88,8 @@ export function ObligationsClient() {
   const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
   const fetchAllObligations = async () => {
-    if (!firestore || isLoadingCompanies) return;
-    if (!companies || companies.length === 0) {
+    if (!firestore) return;
+    if (!companies) {
         setIsLoading(false);
         setAllObligations([]);
         return;
@@ -119,13 +121,13 @@ export function ObligationsClient() {
   };
 
   useEffect(() => {
-    if (!isLoadingCompanies && companies) {
+    if (!isLoadingCompanies) {
       fetchAllObligations();
     }
-  }, [companies, isLoadingCompanies]);
+  }, [isLoadingCompanies]);
   
   const forceRefetch = () => {
-    if (!isLoadingCompanies && companies) {
+    if (!isLoadingCompanies) {
       fetchAllObligations();
     }
   };
@@ -192,12 +194,21 @@ export function ObligationsClient() {
     }
   }, [allObligations, selectedDate]);
 
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const [year, month] = e.target.value.split('-').map(Number);
-    setSelectedDate(new Date(year, month - 1, 15));
-  }
-  
+    if (value.length === 7) {
+      const date = parse(value, 'MM/yyyy', new Date());
+      if (!isNaN(date.getTime())) {
+        setSelectedDate(date);
+      }
+    }
+  };
+
   const handleKpiClick = (status: ObligationStatus | 'Todos') => {
     setStatusFilter(current => current === status ? 'Todos' : status);
   };
@@ -246,10 +257,12 @@ export function ObligationsClient() {
         <Card>
             <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
                  <Input
-                    type="month"
-                    value={format(selectedDate, 'yyyy-MM')}
-                    onChange={handleDateChange}
-                    className="w-full md:w-auto"
+                    placeholder="MM/AAAA"
+                    value={competenceInput}
+                    onChange={handleCompetenceChange}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                    className="w-full md:w-auto md:min-w-[120px]"
+                    maxLength={7}
                 />
                  <div className="relative w-full md:flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

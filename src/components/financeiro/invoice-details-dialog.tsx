@@ -70,7 +70,7 @@ interface InvoiceDetailsDialogProps {
 const invoiceStatuses: InvoiceStatus[] = ['Pendente', 'Paga', 'Atrasada', 'Cancelada'];
 
 const formSchema = z.object({
-  referencePeriod: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
+  referencePeriod: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
   amount: z.coerce.number().min(0.01, 'O valor deve ser maior que zero.'),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   paymentDate: z.date().nullable().optional(),
@@ -97,6 +97,8 @@ export function InvoiceDetailsDialog({
   const firestore = useFirestore();
   const { user, profile } = useUser();
   const { toast } = useToast();
+  const [competenceInput, setCompetenceInput] = useState(invoice.referencePeriod);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -108,6 +110,16 @@ export function InvoiceDetailsDialog({
       status: invoice.status,
     },
   });
+
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+    form.setValue('referencePeriod', value);
+  };
+
 
   const handleDelete = () => {
     if (!firestore || !user) {
@@ -182,7 +194,14 @@ export function InvoiceDetailsDialog({
                   <FormItem>
                   <FormLabel>Competência</FormLabel>
                   <FormControl>
-                      <Input type="month" {...field} disabled={!canEdit} />
+                      <Input 
+                        placeholder="MM/AAAA"
+                        value={competenceInput}
+                        onChange={handleCompetenceChange}
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                        maxLength={7}
+                        disabled={!canEdit}
+                      />
                   </FormControl>
                   <FormMessage />
                   </FormItem>

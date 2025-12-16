@@ -58,7 +58,7 @@ const formSchema = z.object({
   nome: z.string().min(1, 'O nome da obrigação é obrigatório.'),
   categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Outros'], { required_error: 'Selecione uma categoria.' }),
   periodicidade: z.enum(['Mensal', 'Anual', 'Eventual'], { required_error: 'Selecione a periodicidade.' }),
-  periodo: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
+  periodo: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
   dataVencimento: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   responsavelId: z.string().optional(),
   description: z.string().optional(),
@@ -78,6 +78,7 @@ export function AddObligationDialog({
   const firestore = useFirestore();
   const storage = useStorage();
   const { user } = useUser();
+  const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -96,12 +97,21 @@ export function AddObligationDialog({
     defaultValues: {
       companyId: '',
       nome: '',
-      periodo: format(new Date(), 'yyyy-MM'),
+      periodo: format(new Date(), 'MM/yyyy'),
       responsavelId: user?.uid || '',
       description: '',
       attachment: null,
     },
   });
+
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+    form.setValue('periodo', value);
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!firestore || !user || !storage) {
@@ -168,11 +178,12 @@ export function AddObligationDialog({
       form.reset({
         companyId: '',
         nome: '',
-        periodo: format(new Date(), 'yyyy-MM'),
+        periodo: format(new Date(), 'MM/yyyy'),
         responsavelId: user?.uid || '',
         description: '',
         attachment: null,
       });
+      setCompetenceInput(format(new Date(), 'MM/yyyy'));
       onOpenChange(false);
     } catch (error: any) {
       console.error(error);
@@ -280,7 +291,13 @@ export function AddObligationDialog({
                     <FormItem>
                     <FormLabel>Período de Competência</FormLabel>
                     <FormControl>
-                        <Input type="month" placeholder="AAAA-MM" {...field} />
+                        <Input 
+                            placeholder="MM/AAAA" 
+                            value={competenceInput}
+                            onChange={handleCompetenceChange}
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                            maxLength={7}
+                        />
                     </FormControl>
                     <FormMessage />
                     </FormItem>

@@ -47,7 +47,7 @@ interface BatchInvoiceDialogProps {
 }
 
 const formSchema = z.object({
-  referencePeriod: z.string().regex(/^\d{4}-\d{2}$/, 'Formato inválido. Use AAAA-MM.'),
+  referencePeriod: z.string().regex(/^\d{2}\/\d{4}$/, 'Formato inválido. Use MM/AAAA.'),
   amount: z.coerce.number().min(0.01, 'O valor deve ser maior que zero.'),
 });
 
@@ -58,6 +58,8 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
+
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -68,10 +70,20 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      referencePeriod: format(new Date(), 'yyyy-MM'),
+      referencePeriod: format(new Date(), 'MM/yyyy'),
       amount: 300,
     },
   });
+
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+    form.setValue('referencePeriod', value);
+  };
+
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!firestore || !companies || companies.length === 0) {
@@ -86,7 +98,7 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
     const totalCompanies = companies.length;
     const { referencePeriod, amount } = values;
 
-    const [year, month] = referencePeriod.split('-').map(Number);
+    const [month, year] = referencePeriod.split('/').map(Number);
     const competenceDate = new Date(year, month - 1, 1);
     const dueDate = lastDayOfMonth(competenceDate);
 
@@ -168,7 +180,13 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
                   <FormItem>
                     <FormLabel>Competência</FormLabel>
                     <FormControl>
-                      <Input type="month" {...field} />
+                        <Input 
+                            placeholder="MM/AAAA"
+                            value={competenceInput}
+                            onChange={handleCompetenceChange}
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                            maxLength={7}
+                        />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

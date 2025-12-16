@@ -26,7 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Search, FilePlus2 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, where } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -34,7 +34,7 @@ import { Input } from '../ui/input';
 import { AddInvoiceDialog } from './add-invoice-dialog';
 import { InvoiceDetailsDialog } from './invoice-details-dialog';
 import { BatchInvoiceDialog } from './batch-invoice-dialog';
-import { isPast, startOfDay } from 'date-fns';
+import { isPast, startOfDay, parse } from 'date-fns';
 
 export type InvoiceStatus = 'Pendente' | 'Paga' | 'Atrasada' | 'Cancelada';
 
@@ -75,8 +75,7 @@ export function InvoicesClient() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
-  const [competenceFilter, setCompetenceFilter] = useState('');
-  const [dueDateFilter, setDueDateFilter] = useState('');
+  const [competenceInput, setCompetenceInput] = useState('');
   
   const firestore = useFirestore();
   const { profile } = useUser();
@@ -84,7 +83,16 @@ export function InvoicesClient() {
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
+
+    let q = query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
+    
+    // This is not a good way to filter by competence period, a proper text search engine would be better
+    // For now we will filter client side
+    // if (competenceFilter) {
+    //   q = query(q, where('referencePeriod', '==', competenceFilter));
+    // }
+
+    return q;
   }, [firestore]);
 
   const { data: invoices, isLoading, error, forceRefetch } = useCollection<Invoice>(invoicesQuery);
@@ -101,6 +109,14 @@ export function InvoicesClient() {
     setIsDetailsDialogOpen(true);
   };
   
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+  };
+
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
     const d = date instanceof Date ? date : (date as Timestamp).toDate();
@@ -123,15 +139,11 @@ export function InvoicesClient() {
         const effectiveStatus = i.displayStatus;
         const statusMatch = statusFilter === 'Todos' || effectiveStatus === statusFilter;
 
-        const competenceMatch = !competenceFilter || i.referencePeriod === competenceFilter;
+        const competenceMatch = !competenceInput || i.referencePeriod === competenceInput;
 
-        const dueDateMatch = !dueDateFilter || (
-          i.dueDate instanceof Timestamp ? i.dueDate.toDate() : i.dueDate
-        ).toISOString().startsWith(dueDateFilter);
-
-        return searchMatch && statusMatch && competenceMatch && dueDateMatch;
+        return searchMatch && statusMatch && competenceMatch;
     });
-  }, [invoices, searchTerm, statusFilter, competenceFilter, dueDateFilter]);
+  }, [invoices, searchTerm, statusFilter, competenceInput]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -199,16 +211,11 @@ export function InvoicesClient() {
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">
               <Input
-                type="month"
-                value={competenceFilter}
-                onChange={(e) => setCompetenceFilter(e.target.value)}
-              />
-            </div>
-            <div className="w-full md:w-auto md:min-w-[180px]">
-              <Input
-                type="month"
-                value={dueDateFilter}
-                onChange={(e) => setDueDateFilter(e.target.value)}
+                placeholder="Filtrar por Competência (MM/AAAA)"
+                value={competenceInput}
+                onChange={handleCompetenceChange}
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+                maxLength={7}
               />
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">

@@ -68,13 +68,13 @@ interface ObligationDetailsDialogProps {
   onObligationDeleted: () => void;
 }
 
-const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada'];
+const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada', 'Cancelada'];
 
 const formSchema = z.object({
   nome: z.string().min(1, 'O nome da obrigação é obrigatório.'),
   categoria: z.enum(['Fiscal', 'Contábil', 'DP', 'Outros']),
   periodicidade: z.enum(['Mensal', 'Anual', 'Eventual']),
-  periodo: z.string().regex(/^\d{4}-\d{2}$/, "Formato inválido. Use AAAA-MM."),
+  periodo: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
   dataVencimento: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   status: z.enum(obligationStatuses),
   responsavelId: z.string().optional(),
@@ -103,6 +103,9 @@ export function ObligationDetailsDialog({
   const { toast } = useToast();
   const { user, profile } = useUser();
 
+  const [competenceInput, setCompetenceInput] = useState(obligation.periodo);
+
+
   const usersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'users');
@@ -121,6 +124,16 @@ export function ObligationDetailsDialog({
       responsavelId: obligation.responsavelId || user?.uid,
     },
   });
+
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+    form.setValue('periodo', value);
+  };
+
 
   const handleDelete = () => {
     if (!firestore || !user) {
@@ -256,7 +269,14 @@ export function ObligationDetailsDialog({
                     <FormItem>
                     <FormLabel>Competência</FormLabel>
                     <FormControl>
-                        <Input type="month" {...field} disabled={!canEdit}/>
+                        <Input 
+                            placeholder="MM/AAAA"
+                            value={competenceInput}
+                            onChange={handleCompetenceChange}
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                            maxLength={7}
+                            disabled={!canEdit}
+                        />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
