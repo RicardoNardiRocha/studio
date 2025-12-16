@@ -1,137 +1,114 @@
-
 'use client';
+
 import {
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
-import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
   BarChartBig,
-  Layers,
   Building,
   Briefcase,
-  ShieldCheck,
-  FolderOpen,
-  FileCog,
   Workflow,
-  User,
+  ShieldCheck,
+  FileCog,
+  FolderOpen,
   Landmark,
-  PanelLeft,
+  User,
+  Layers,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useUser, useFirebase } from '@/firebase';
+import { useUser } from '@/firebase';
 import type { UserProfile } from '@/firebase/provider';
-
+import { useSidebar } from '@/components/ui/sidebar';
 
 const allMenuItems = [
-  { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
-  { id: 'empresas', href: '/empresas', label: 'Empresas', icon: Building },
-  { id: 'societario', href: '/societario', label: 'Societário', icon: Briefcase },
-  { id: 'processos', href: '/processos', label: 'Processos', icon: Workflow },
-  { id: 'obrigacoes', href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
-  { id: 'fiscal', href: '/fiscal', label: 'Fiscal', icon: FileCog },
-  { id: 'documentos', href: '/documentos', label: 'Documentos', icon: FolderOpen },
-  { id: 'financeiro', href: '/financeiro', label: 'Financeiro', icon: Landmark },
-];
-
-const secondaryMenuItems = [
+    { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
+    { id: 'empresas', href: '/empresas', label: 'Empresas', icon: Building },
+    { id: 'societario', href: '/societario', label: 'Societário', icon: Briefcase },
+    { id: 'processos', href: '/processos', label: 'Processos', icon: Workflow },
+    { id: 'obrigacoes', href: '/obrigacoes', label: 'Obrigações', icon: ShieldCheck },
+    { id: 'fiscal', href: '/fiscal', label: 'Fiscal', icon: FileCog },
+    { id: 'documentos', href: '/documentos', label: 'Documentos', icon: FolderOpen },
+    { id: 'financeiro', href: '/financeiro', label: 'Financeiro', icon: Landmark },
     { id: 'perfil', href: '/perfil', label: 'Perfil', icon: User },
 ];
 
 const hasAccess = (itemId: string, profile: UserProfile | null): boolean => {
     if (!profile || !profile.permissions) return false;
-    
     if (itemId === 'dashboard' || itemId === 'perfil') return true;
-
-    // Adapta o nome do item do menu para corresponder à chave de permissão
-    const moduleKey = itemId === 'societario' ? 'societario' : itemId;
-    const module = moduleKey as keyof UserProfile['permissions'];
-    
-    // Verifica se o módulo existe nas permissões e se a leitura é permitida
-    return profile.permissions[module] && profile.permissions[module]?.read === true;
+    const moduleKey = itemId as keyof UserProfile['permissions'];
+    return profile.permissions[moduleKey]?.read === true;
 };
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, profile } = useUser();
-  const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar-1');
+  const { isCollapsed, toggleSidebar } = useSidebar();
 
   const visibleMenuItems = allMenuItems.filter(item => hasAccess(item.id, profile));
-  const visibleSecondaryMenuItems = secondaryMenuItems.filter(item => hasAccess(item.id, profile));
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="flex items-center justify-between p-2">
-        <div className="flex items-center gap-2 p-2">
-          <Layers className="text-primary h-8 w-8 shrink-0" />
-          <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
-        </div>
-        <div className="group-data-[collapsible=icon]:hidden">
-            <SidebarTrigger>
-                <PanelLeft />
-            </SidebarTrigger>
-        </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarMenu>
+    <>
+      <aside
+        className={`group fixed top-0 left-0 h-full z-30 flex flex-col bg-gray-900 text-white transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'w-16' : 'w-56'
+        }`}
+      >
+        <header className="flex h-16 shrink-0 items-center border-b border-gray-800 px-4">
+            <div className={`flex items-center gap-2 ${isCollapsed ? 'w-full justify-center' : ''}`}>
+                <Layers className="h-7 w-7 text-primary" />
+                {!isCollapsed && <h1 className="text-xl font-bold">ContabilX</h1>}
+            </div>
+        </header>
+
+        <nav className="flex-grow space-y-1 p-2">
           {visibleMenuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith(item.href)}
-                  tooltip={item.label}
-                  className="justify-start"
-                >
-                  <span className="flex items-center gap-2">
-                    <item.icon />
-                    <span className="text-base group-data-[collapsible=icon]:hidden">{item.label}</span>
-                  </span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
+            <Link href={item.href} key={item.href}>
+              <div
+                className={`flex h-10 items-center gap-3 rounded-md p-2 text-sm font-medium transition-colors hover:bg-gray-700 ${
+                  pathname.startsWith(item.href) ? 'bg-gray-800' : ''
+                } ${isCollapsed ? 'justify-center' : ''}`}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!isCollapsed && <span>{item.label}</span>}
+              </div>
+            </Link>
           ))}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-         <SidebarMenu>
-          {profile?.permissions?.usuarios?.read && visibleSecondaryMenuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith(item.href)}
-                  tooltip={item.label}
-                  className="justify-start"
-                >
-                  <span className="flex items-center gap-2">
-                    <item.icon />
-                    <span className="text-base group-data-[collapsible=icon]:hidden">{item.label}</span>
-                  </span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-        <div className="flex items-center gap-3 p-3 border-t border-sidebar-border overflow-hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:gap-0">
-          <Avatar className="h-10 w-10 shrink-0">
-            <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt="User avatar" data-ai-hint={userAvatar?.imageHint} />
-            <AvatarFallback>{user?.displayName?.substring(0, 2).toUpperCase() || 'AD'}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
-            <span className="font-semibold text-sidebar-foreground truncate">{user?.displayName || 'Admin'}</span>
-            <span className="text-xs text-muted-foreground truncate">{user?.email || 'admin@contabilx.com'}</span>
-          </div>
+        </nav>
+
+        <footer className="shrink-0 border-t border-gray-800 p-2">
+            <div className={`flex items-center gap-3 rounded-md p-2 ${isCollapsed ? 'justify-center' : ''}`}>
+                <Avatar className="h-9 w-9 shrink-0">
+                    <AvatarImage src={user?.photoURL || ''} alt="User avatar" />
+                    <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                    <div className="overflow-hidden">
+                        <p className="truncate font-semibold text-sm">{user?.displayName || 'Usuário'}</p>
+                        <p className="truncate text-xs text-gray-400">{user?.email || 'email@exemplo.com'}</p>
+                    </div>
+                )}
+            </div>
+        </footer>
+      </aside>
+
+      {/* Botão de Controle Unificado e "Colado" */}
+      <button
+        onClick={toggleSidebar}
+        className={`fixed top-1/2 z-40 flex h-24 w-2 -translate-y-1/2 items-center justify-center rounded-r-lg bg-gray-800/60 text-white backdrop-blur-sm transition-all duration-300 ease-in-out hover:bg-primary/80 hover:w-6 ${
+            isCollapsed ? 'left-16' : 'left-56'
+        }`}
+        aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+      >
+        <div className="h-full w-full flex items-center justify-center">
+         {isCollapsed ? (
+          <ArrowRightToLine className="h-5 w-5" />
+        ) : (
+          <ArrowLeftToLine className="h-5 w-5" />
+        )}
         </div>
-      </SidebarFooter>
-    </Sidebar>
+      </button>
+    </>
   );
 }

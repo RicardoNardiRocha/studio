@@ -1,6 +1,5 @@
 'use client';
 
-import { AppHeader } from '@/components/layout/header';
 import { ObligationsClient } from '@/components/obrigacoes/obligations-client';
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,7 +7,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function ObligationsPage() {
   return (
     <>
-      <AppHeader pageTitle="Central de Obrigações" />
       <main className="flex flex-col flex-1 p-4 sm:px-6 sm:py-0 space-y-4">
         <Suspense fallback={<Skeleton className="h-[calc(100vh-8rem)] w-full" />}>
           <ObligationsClient />

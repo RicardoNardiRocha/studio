@@ -1,6 +1,5 @@
 'use client';
 
-import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -9,7 +8,6 @@ import { Building } from 'lucide-react';
 export default function DocumentsPage() {
   return (
     <>
-      <AppHeader pageTitle="Módulo de Documentos" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <div className="flex items-center justify-center h-[60vh]">
           <Card className="w-full max-w-lg text-center">

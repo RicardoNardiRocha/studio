@@ -1,4 +1,3 @@
-import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DocumentProcessor } from '@/components/fiscal/document-processor';
@@ -6,7 +5,6 @@ import { DocumentProcessor } from '@/components/fiscal/document-processor';
 export default function FiscalPage() {
   return (
     <>
-      <AppHeader pageTitle="Módulo Fiscal" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <Tabs defaultValue="processing">
           <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
@@ -43,7 +41,7 @@ export default function FiscalPage() {
               <CardHeader>
                 <CardTitle className='font-headline'>Certificados Digitais</CardTitle>
                 <CardDescription>Controle os certificados A1 e A3 de seus clientes.</CardDescription>
-              </CardHeader>
+              </header>
               <CardContent>
                 <p className="text-muted-foreground">Em breve: Listagem de certificados com datas de vencimento.</p>
               </CardContent>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { AppHeader } from '@/components/layout/header';
 import {
   Card,
   CardContent,
@@ -203,7 +202,6 @@ export default function SocietarioPage() {
         />
       )}
 
-      <AppHeader pageTitle="Módulo Societário" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <Card>
           <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -332,7 +330,7 @@ export default function SocietarioPage() {
                                   {certStatus.text}
                                 </Badge>
                                 <div className="text-xs text-muted-foreground">{certStatus.dateText}</div>
-                               </>
+                                </>
                              ) : (
                                 <span className="text-muted-foreground">N/A</span>
                              )}

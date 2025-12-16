@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { ClientProviders } from './providers';
 import { AuthHandler } from '@/components/layout/auth-handler';
+import { ThemeProvider } from './theme-provider';
 
 const fontPoppins = Poppins({
   subsets: ['latin'],
@@ -33,12 +34,18 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={cn('font-body antialiased', fontPoppins.variable, fontInter.variable)}>
-        <ClientProviders>
-          <AuthHandler>{children}</AuthHandler>
-          <Toaster />
-        </ClientProviders>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ClientProviders>
+            <AuthHandler>{children}</AuthHandler>
+            <Toaster />
+          </ClientProviders>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
-

@@ -1,5 +1,4 @@
 'use client';
-import { AppHeader } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
@@ -15,7 +14,6 @@ import { AlertsTable } from '@/components/dashboard/alerts-table';
 export default function DashboardPage() {
   return (
     <>
-      <AppHeader pageTitle="Dashboard" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
            <KpiCards />
