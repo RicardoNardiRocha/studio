@@ -1,7 +1,7 @@
 
 'use client';
 
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { ReactNode } from 'react';
 import { useUser } from '@/firebase';
@@ -48,9 +48,6 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
                             {children}
                         </div>
                     </SidebarInset>
-                </div>
-                <div className="absolute top-4 left-4 z-20">
-                     <SidebarTrigger className="md:hidden" />
                 </div>
             </div>
         </SidebarProvider>

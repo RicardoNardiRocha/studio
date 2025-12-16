@@ -64,13 +64,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="flex items-center justify-between p-2">
-        <div className="flex items-center gap-2 flex-1 overflow-hidden">
-          <Layers className="text-primary h-8 w-8 shrink-0" />
-          <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
-        </div>
-        <SidebarTrigger className="hidden md:flex" />
+       <SidebarHeader className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
+        <Layers className="text-primary h-8 w-8 shrink-0" />
+        <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
       </SidebarHeader>
+      <div className="p-2 group-data-[collapsible=icon]:px-1.5">
+          <SidebarTrigger className="w-full hidden md:flex" />
+      </div>
       <SidebarContent>
         <SidebarMenu>
           {visibleMenuItems.map((item) => (
@@ -112,7 +112,7 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
-        <div className="flex items-center gap-3 p-3 border-t border-sidebar-border overflow-hidden">
+        <div className="flex items-center gap-3 p-3 border-t border-sidebar-border overflow-hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:gap-0">
           <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt="User avatar" data-ai-hint={userAvatar?.imageHint} />
             <AvatarFallback>{user?.displayName?.substring(0, 2).toUpperCase() || 'AD'}</AvatarFallback>
