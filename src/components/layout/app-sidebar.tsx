@@ -51,13 +51,13 @@ export function AppSidebar() {
   return (
     <>
       <aside
-        className={`group fixed top-0 left-0 h-full z-30 flex flex-col bg-gray-900 text-white transition-all duration-300 ease-in-out ${
+        className={`group fixed top-0 left-0 h-full z-30 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-16' : 'w-56'
         }`}
       >
-        <header className="flex h-16 shrink-0 items-center border-b border-gray-800 px-4">
+        <header className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-4">
             <div className={`flex items-center gap-2 ${isCollapsed ? 'w-full justify-center' : ''}`}>
-                <Layers className="h-7 w-7 text-primary" />
+                <Layers className="h-7 w-7 text-sidebar-primary" />
                 {!isCollapsed && <h1 className="text-xl font-bold">ContabilX</h1>}
             </div>
         </header>
@@ -66,8 +66,8 @@ export function AppSidebar() {
           {visibleMenuItems.map((item) => (
             <Link href={item.href} key={item.href}>
               <div
-                className={`flex h-10 items-center gap-3 rounded-md p-2 text-sm font-medium transition-colors hover:bg-gray-700 ${
-                  pathname.startsWith(item.href) ? 'bg-gray-800' : ''
+                className={`flex h-10 items-center gap-3 rounded-md p-2 text-sm font-medium transition-colors hover:bg-sidebar-accent ${
+                  pathname.startsWith(item.href) ? 'bg-sidebar-accent' : ''
                 } ${isCollapsed ? 'justify-center' : ''}`}
                 title={isCollapsed ? item.label : undefined}
               >
@@ -78,7 +78,7 @@ export function AppSidebar() {
           ))}
         </nav>
 
-        <footer className="shrink-0 border-t border-gray-800 p-2">
+        <footer className="shrink-0 border-t border-sidebar-border p-2">
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-end'} mb-2`}>
                 <ThemeToggle />
             </div>
