@@ -20,6 +20,7 @@ import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
 import { KpiCard } from '../dashboard/kpi-card';
 import { startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada';
 
@@ -111,11 +112,15 @@ export function ObligationsClient() {
   };
 
   useEffect(() => {
-    fetchAllObligations();
-  }, [companies, isLoadingCompanies, firestore]);
+    if (companies && !isLoadingCompanies) {
+      fetchAllObligations();
+    }
+  }, [companies, isLoadingCompanies]);
   
   const forceRefetch = () => {
-    fetchAllObligations();
+    if (companies && !isLoadingCompanies) {
+      fetchAllObligations();
+    }
   };
 
   const handleAction = () => {
@@ -193,7 +198,7 @@ export function ObligationsClient() {
       <div className="space-y-4">
         {/* KPI Header */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <KpiCard title="Obrigações do Mês" value={String(kpis.total)} icon="CalendarClock" description={format(selectedDate, "MMMM 'de' yyyy", { locale: pt.BR })} href="#" />
+          <KpiCard title="Obrigações do Mês" value={String(kpis.total)} icon="CalendarClock" description={format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })} href="#" />
           <KpiCard title="Entregues" value={String(kpis.entregue)} icon="CheckCircle2" description={`${kpis.percentualEntregue.toFixed(0)}% concluído`} href="#" />
           <KpiCard title="Pendentes" value={String(kpis.pendente)} icon="Clock" description="Aguardando ação" href="#" />
           <KpiCard title="Atrasadas" value={String(kpis.atrasada)} icon="AlertTriangle" description="Exigem atenção imediata" href="#" />
