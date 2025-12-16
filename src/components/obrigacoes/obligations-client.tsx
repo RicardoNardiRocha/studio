@@ -15,18 +15,19 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
 import { KpiCard } from '../dashboard/kpi-card';
-import { startOfMonth, endOfMonth, isWithinInterval, format, isPast, startOfDay, parse } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format, isPast, startOfDay, parse, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ObligationCard } from './obligation-card';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 export type ObligationStatus = 'Pendente' | 'Em Andamento' | 'Entregue' | 'Atrasada' | 'Cancelada';
 
@@ -87,13 +88,12 @@ export function ObligationsClient() {
   }, [firestore]);
   const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
-  const fetchAllObligations = async () => {
-    if (!firestore) return;
-    if (!companies) {
-        setIsLoading(false);
-        setAllObligations([]);
-        return;
-    };
+ const fetchAllObligations = async () => {
+    if (!firestore || !companies || companies.length === 0) {
+      setAllObligations([]);
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     let collectedObligations: TaxObligation[] = [];
@@ -121,13 +121,13 @@ export function ObligationsClient() {
   };
 
   useEffect(() => {
-    if (!isLoadingCompanies) {
+    if (!isLoadingCompanies && companies) {
       fetchAllObligations();
     }
-  }, [isLoadingCompanies]);
+  }, [companies, isLoadingCompanies, firestore]);
   
   const forceRefetch = () => {
-    if (!isLoadingCompanies) {
+    if (!isLoadingCompanies && companies) {
       fetchAllObligations();
     }
   };
@@ -168,6 +168,20 @@ export function ObligationsClient() {
         });
   }, [allObligations, searchTerm, selectedDate, statusFilter]);
   
+  const upcomingObligations = useMemo(() => {
+    if (!allObligations) return [];
+    
+    const today = startOfDay(new Date());
+    const tenDaysFromNow = addDays(today, 10);
+    
+    return allObligations.filter(o => {
+      const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
+      const isUpcoming = differenceInDays(dueDate, today) >= 0 && differenceInDays(dueDate, today) <= 10;
+      const isActive = o.status === 'Pendente' || o.status === 'Em Andamento' || o.status === 'Atrasada';
+      return isUpcoming && isActive;
+    });
+  }, [allObligations]);
+
   const kpis = useMemo(() => {
     const obligationsInMonth = allObligations.filter(o => {
       const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
@@ -239,6 +253,16 @@ export function ObligationsClient() {
       )}
       
       <div className="space-y-4">
+        {upcomingObligations.length > 0 && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Atenção: Vencimentos Próximos!</AlertTitle>
+            <AlertDescription>
+              Você possui <strong>{upcomingObligations.length}</strong> obrigações vencendo nos próximos 10 dias.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div onClick={() => setStatusFilter('Todos')} className={statusFilter !== 'Todos' ? 'opacity-50' : ''}>
                 <KpiCard title="Obrigações do Mês" value={String(kpis.total)} icon="CalendarClock" description={format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })} href="#" />
