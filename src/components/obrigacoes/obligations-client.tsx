@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -109,7 +108,7 @@ export function ObligationsClient() {
                 collectedObligations.push({ id: doc.id, ...doc.data() } as TaxObligation);
             });
         }
-        collectedObligations.sort((a, b) => (b.dataVencimento as Timestamp).toMillis() - (a.dataVencimento as Timestamp).toMillis());
+        collectedObligations.sort((a, b) => ((b.dataVencimento as Timestamp)?.toMillis() || 0) - ((a.dataVencimento as Timestamp)?.toMillis() || 0));
         setAllObligations(collectedObligations);
     } catch (error) {
         console.error("Error fetching all obligations: ", error);

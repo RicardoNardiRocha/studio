@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -113,7 +112,7 @@ export function CorporateProcessesClient() {
                 collectedProcesses.push({ id: doc.id, ...doc.data() } as CorporateProcess);
             });
         }
-        collectedProcesses.sort((a, b) => (b.startDate as Timestamp).toMillis() - (a.startDate as Timestamp).toMillis());
+        collectedProcesses.sort((a, b) => ((b.startDate as Timestamp)?.toMillis() || 0) - ((a.startDate as Timestamp)?.toMillis() || 0));
         setAllProcesses(collectedProcesses);
     } catch (error) {
         console.error("Error fetching all processes: ", error);
