@@ -21,7 +21,7 @@ export function useInProgressProcesses() {
         const processPromises = companiesSnapshot.docs.map(async (companyDoc) => {
           const processesQuery = query(
             collection(firestore, 'companies', companyDoc.id, 'corporateProcesses'),
-            where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão'])
+            where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Em Andamento'])
           );
           const processesSnapshot = await getDocs(processesQuery);
           return processesSnapshot.size;
