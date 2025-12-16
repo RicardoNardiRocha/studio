@@ -1,7 +1,7 @@
 
 'use client';
 
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { ReactNode } from 'react';
 import { useUser } from '@/firebase';
@@ -14,9 +14,6 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
     const auth = useAuth();
     
-    // O AuthHandler no layout raiz agora cuida do redirecionamento.
-    // Este layout apenas protege o conteúdo do dashboard.
-
     if (isUserLoading) {
         return (
             <div className="flex h-screen w-full flex-col items-center justify-center gap-4">
@@ -37,20 +34,25 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
         )
     }
 
-    // Se o usuário não estiver logado ou o perfil não for carregado, o AuthHandler já terá redirecionionado.
-    // Se ainda assim chegar aqui, não renderiza nada para evitar piscar de tela ou erros de permissão no logout.
     if (!user || !profile) {
         return null;
     }
 
     return (
         <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-                <div className="flex min-h-screen w-full flex-col">
-                    {children}
+            <div className="relative flex">
+                <AppSidebar />
+                <div className="flex-1">
+                    <SidebarInset>
+                        <div className="flex min-h-screen w-full flex-col">
+                            {children}
+                        </div>
+                    </SidebarInset>
                 </div>
-            </SidebarInset>
+                <div className="absolute top-4 left-4 z-20">
+                     <SidebarTrigger className="md:hidden" />
+                </div>
+            </div>
         </SidebarProvider>
     );
 }
