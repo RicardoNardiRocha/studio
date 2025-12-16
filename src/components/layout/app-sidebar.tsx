@@ -79,7 +79,7 @@ export function AppSidebar() {
         </nav>
 
         <footer className="shrink-0 border-t border-sidebar-border p-2">
-            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-end'} mb-2`}>
+            <div className={`flex items-center mb-2 ${isCollapsed ? 'justify-center' : 'justify-start'}`}>
                 <ThemeToggle />
             </div>
             <div className={`flex items-center gap-3 rounded-md p-2 ${isCollapsed ? 'justify-center' : ''}`}>
