@@ -10,37 +10,35 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Get the user's profile from the /users collection
-    function getUserProfile(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    
+
     function hasPermission(module, permissionType) {
-      // permissionType must be 'read', 'create', 'update', or 'delete'
-      // Use ?. to safely access nested properties that might not exist
-      return getUserProfile(request.auth.uid).permissions[module][permissionType] == true;
+      let profile = getUserProfile();
+      // Use ?. para acessar propriedades aninhadas que podem não existir de forma segura
+      // O '|| false' garante que se o caminho não existir, o resultado seja falso.
+      return (profile.permissions[module][permissionType] || false) == true;
     }
 
     // =========================================================================
     // Collection Rules
     // =========================================================================
 
-    // --- User Profiles ---
     match /users/{userId} {
-      // Allow a user to read their own profile, or if they have 'read' permission for the 'usuarios' module.
+      // LEITURA: Um usuário pode ler seu próprio perfil OU se tiver permissão para ler o módulo de usuários.
       allow read: if request.auth.uid == userId || hasPermission('usuarios', 'read');
       
-      // Allow a user to update their own profile OR if they have 'update' permission for 'usuarios'.
+      // CRIAÇÃO: Permite a criação de um perfil SE o UID do usuário que está sendo criado é o mesmo do usuário autenticado (primeiro login).
+      allow create: if request.auth.uid == userId;
+
+      // ATUALIZAÇÃO: Um usuário pode atualizar seu próprio perfil OU se tiver permissão para editar usuários.
       allow update: if request.auth.uid == userId || hasPermission('usuarios', 'update');
       
-      // Allow creating a user profile if the user has 'create' permission.
-      allow create: if hasPermission('usuarios', 'create');
-
-      // Allow deleting a user if the user has 'delete' permission.
-      allow delete: if hasPermission('usuarios', 'delete');
+      // EXCLUSÃO: Apenas quem tem permissão para deletar usuários pode fazê-lo, e não pode deletar a si mesmo.
+      allow delete: if hasPermission('usuarios', 'delete') && request.auth.uid != userId;
     }
 
-    // --- Companies ---
     match /companies/{companyId} {
       allow read: if hasPermission('empresas', 'read');
       allow create: if hasPermission('empresas', 'create');
@@ -48,7 +46,37 @@ service cloud.firestore {
       allow delete: if hasPermission('empresas', 'delete');
     }
 
-    // --- Partners ---
+    match /companies/{companyId}/taxObligations/{obligationId} {
+        allow read: if hasPermission('obrigacoes', 'read');
+        allow create: if hasPermission('obrigacoes', 'create');
+        allow update: if hasPermission('obrigacoes', 'update');
+        allow delete: if hasPermission('obrigacoes', 'delete');
+
+        match /attachments/{attachmentId} {
+            allow read, write: if hasPermission('obrigacoes', 'update');
+        }
+    }
+
+    match /companies/{companyId}/corporateProcesses/{processId} {
+        allow read: if hasPermission('processos', 'read');
+        allow create: if hasPermission('processos', 'create');
+        allow update: if hasPermission('processos', 'update');
+        allow delete: if hasPermission('processos', 'delete');
+         match /history/{historyId} {
+            allow read, write: if hasPermission('processos', 'update');
+        }
+        match /attachments/{attachmentId} {
+            allow read, write: if hasPermission('processos', 'update');
+        }
+    }
+    
+    match /companies/{companyId}/documents/{documentId} {
+        allow read: if hasPermission('documentos', 'read');
+        allow create: if hasPermission('documentos', 'create');
+        allow update: if hasPermission('documentos', 'update');
+        allow delete: if hasPermission('documentos', 'delete');
+    }
+
     match /partners/{partnerId} {
       allow read: if hasPermission('societario', 'read');
       allow create: if hasPermission('societario', 'create');
@@ -56,49 +84,16 @@ service cloud.firestore {
       allow delete: if hasPermission('societario', 'delete');
     }
 
-    // --- Invoices ---
     match /invoices/{invoiceId} {
       allow read: if hasPermission('financeiro', 'read');
       allow create: if hasPermission('financeiro', 'create');
       allow update: if hasPermission('financeiro', 'update');
       allow delete: if hasPermission('financeiro', 'delete');
     }
-
-    // --- Tax Obligations ---
-    match /taxObligations/{taxObligationId} {
-      allow read: if hasPermission('obrigacoes', 'read');
-      allow create: if hasPermission('obrigacoes', 'create');
-      allow update: if hasPermission('obrigacoes', 'update');
-      allow delete: if hasPermission('obrigacoes', 'delete');
-
-      match /{subcollection}/{subDocId} {
-        allow read, write: if hasPermission('obrigacoes', 'update');
-      }
-    }
     
-    // --- Corporate Processes ---
-    match /corporateProcesses/{processId} {
-      allow read: if hasPermission('processos', 'read');
-      allow create: if hasPermission('processos', 'create');
-      allow update: if hasPermission('processos', 'update');
-      allow delete: if hasPermission('processos', 'delete');
-
-      match /{subcollection}/{subDocId} {
-        allow read, write: if hasPermission('processos', 'update'); 
-      }
-    }
-
-    // --- Documents within a Company ---
-    match /companies/{companyId}/documents/{documentId} {
-       allow read: if hasPermission('documentos', 'read');
-       // Combine create/update/delete into a single 'write' permission check for simplicity
-       allow write: if hasPermission('documentos', 'update') || hasPermission('documentos', 'create') || hasPermission('documentos', 'delete');
-    }
-
-    // --- Activity Log ---
     match /activities/{activityId} {
       allow read, create: if isSignedIn();
-      allow update, delete: if false; // Immutable log
+      allow update, delete: if false; // Log imutável
     }
   }
 }
