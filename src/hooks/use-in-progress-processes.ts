@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collectionGroup, query, where, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export function useInProgressProcesses() {
   const [count, setCount] = useState(0);
@@ -16,12 +15,22 @@ export function useInProgressProcesses() {
 
       setIsLoading(true);
       try {
-        const processesQuery = query(
-          collectionGroup(firestore, 'corporateProcesses'),
-          where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão'])
-        );
-        const snapshot = await getCountFromServer(processesQuery);
-        setCount(snapshot.data().count);
+        let totalCount = 0;
+        const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
+        
+        const processPromises = companiesSnapshot.docs.map(async (companyDoc) => {
+          const processesQuery = query(
+            collection(firestore, 'companies', companyDoc.id, 'corporateProcesses'),
+            where('status', 'in', ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão'])
+          );
+          const processesSnapshot = await getDocs(processesQuery);
+          return processesSnapshot.size;
+        });
+
+        const counts = await Promise.all(processPromises);
+        totalCount = counts.reduce((acc, current) => acc + current, 0);
+
+        setCount(totalCount);
       } catch (error) {
         console.error('Error fetching in-progress processes:', error);
       } finally {

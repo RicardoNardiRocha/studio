@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
-import { collectionGroup, query, where, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export function usePendingObligations() {
   const [count, setCount] = useState(0);
@@ -16,12 +15,22 @@ export function usePendingObligations() {
 
       setIsLoading(true);
       try {
-        const obligationsQuery = query(
-          collectionGroup(firestore, 'taxObligations'),
-          where('status', 'in', ['Pendente', 'Atrasada'])
-        );
-        const snapshot = await getCountFromServer(obligationsQuery);
-        setCount(snapshot.data().count);
+        let totalCount = 0;
+        const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
+
+        const obligationPromises = companiesSnapshot.docs.map(async (companyDoc) => {
+          const obligationsQuery = query(
+            collection(firestore, 'companies', companyDoc.id, 'taxObligations'),
+            where('status', 'in', ['Pendente', 'Atrasada'])
+          );
+          const obligationsSnapshot = await getDocs(obligationsQuery);
+          return obligationsSnapshot.size;
+        });
+
+        const counts = await Promise.all(obligationPromises);
+        totalCount = counts.reduce((acc, current) => acc + current, 0);
+        
+        setCount(totalCount);
       } catch (error) {
         console.error('Error fetching pending obligations:', error);
       } finally {
