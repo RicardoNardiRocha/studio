@@ -8,6 +8,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import {
   BarChartBig,
@@ -20,6 +21,7 @@ import {
   Workflow,
   User,
   Landmark,
+  PanelLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -63,11 +65,16 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-       <SidebarHeader className="p-2">
-        <div className="flex items-center gap-2">
-          <Layers className="text-primary h-8 w-8 shrink-0" />
-          <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
+      <SidebarHeader className="p-2 flex flex-col items-center text-center">
+        <div className="p-2 flex items-center justify-between w-full group-data-[collapsible=icon]:justify-center">
+            <Layers className="text-primary h-8 w-8 shrink-0" />
+            <div className="group-data-[collapsible=icon]:hidden">
+                 <SidebarTrigger>
+                    <PanelLeft />
+                </SidebarTrigger>
+            </div>
         </div>
+        <h1 className="text-xl font-bold font-headline text-sidebar-foreground truncate group-data-[collapsible=icon]:hidden">ContabilX</h1>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
