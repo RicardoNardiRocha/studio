@@ -16,7 +16,6 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { AppSidebar } from './app-sidebar';
-import { ThemeToggle } from './theme-toggle';
 
 export function AppHeader({ pageTitle }: { pageTitle: string }) {
   const auth = useAuth();
@@ -55,8 +54,6 @@ export function AppHeader({ pageTitle }: { pageTitle: string }) {
           className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
         />
       </div>
-
-      <ThemeToggle />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

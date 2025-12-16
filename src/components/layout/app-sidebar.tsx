@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useUser } from '@/firebase';
 import type { UserProfile } from '@/firebase/provider';
 import { useSidebar } from '@/components/ui/sidebar';
+import { ThemeToggle } from './theme-toggle';
 
 const allMenuItems = [
     { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
@@ -78,6 +79,9 @@ export function AppSidebar() {
         </nav>
 
         <footer className="shrink-0 border-t border-gray-800 p-2">
+            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-end'} mb-2`}>
+                <ThemeToggle />
+            </div>
             <div className={`flex items-center gap-3 rounded-md p-2 ${isCollapsed ? 'justify-center' : ''}`}>
                 <Avatar className="h-9 w-9 shrink-0">
                     <AvatarImage src={user?.photoURL || ''} alt="User avatar" />
