@@ -97,19 +97,32 @@ export function ObligationsClient() {
   const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
   const fetchAllObligations = async () => {
-    if (!firestore || !companies) return;
+    if (!firestore || !companies || companies.length === 0) {
+      // If there are no companies, there are no obligations to fetch.
+      setAllObligations([]);
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     let collectedObligations: TaxObligation[] = [];
     try {
-        for (const company of companies) {
+        const promises = companies.map(company => {
             const obligationsRef = collection(firestore, 'companies', company.id, 'taxObligations');
-            const obligationsSnap = await getDocs(obligationsRef);
-            obligationsSnap.forEach(doc => {
+            return getDocs(obligationsRef);
+        });
+
+        const snapshots = await Promise.all(promises);
+
+        snapshots.forEach(snapshot => {
+            snapshot.forEach(doc => {
                 collectedObligations.push({ id: doc.id, ...doc.data() } as TaxObligation);
             });
-        }
+        });
+        
         collectedObligations.sort((a, b) => ((b.dataVencimento as Timestamp)?.toMillis() || 0) - ((a.dataVencimento as Timestamp)?.toMillis() || 0));
         setAllObligations(collectedObligations);
+
     } catch (error) {
         console.error("Error fetching all obligations: ", error);
         toast({ title: "Erro ao buscar obrigações", description: "Não foi possível carregar os dados de todas as empresas.", variant: "destructive" });
@@ -119,12 +132,20 @@ export function ObligationsClient() {
   };
 
   useEffect(() => {
-    if (companies) {
+    // Only run fetchAllObligations when companies are loaded
+    if (!isLoadingCompanies && companies) {
       fetchAllObligations();
     }
-  }, [companies, firestore]);
+  }, [companies, isLoadingCompanies, firestore]);
   
-  const forceRefetch = () => fetchAllObligations();
+  const forceRefetch = () => {
+    // This will trigger the useEffect above since isLoadingCompanies will change
+    // and then companies will be refetched by its own hook if needed.
+    // Or simply call the fetch function again if companies are already loaded.
+    if (!isLoadingCompanies && companies) {
+      fetchAllObligations();
+    }
+  }
 
   const handleAction = () => {
     forceRefetch();

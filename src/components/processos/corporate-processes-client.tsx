@@ -101,17 +101,26 @@ export function CorporateProcessesClient() {
   const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
 
   const fetchAllProcesses = async () => {
-    if (!firestore || !companies) return;
+    if (!firestore || !companies || companies.length === 0) {
+      setAllProcesses([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     let collectedProcesses: CorporateProcess[] = [];
     try {
-        for (const company of companies) {
+        const promises = companies.map(company => {
             const processesRef = collection(firestore, 'companies', company.id, 'corporateProcesses');
-            const processesSnap = await getDocs(processesRef);
-            processesSnap.forEach(doc => {
+            return getDocs(processesRef);
+        });
+
+        const snapshots = await Promise.all(promises);
+        snapshots.forEach(snapshot => {
+            snapshot.forEach(doc => {
                 collectedProcesses.push({ id: doc.id, ...doc.data() } as CorporateProcess);
             });
-        }
+        });
+        
         collectedProcesses.sort((a, b) => ((b.startDate as Timestamp)?.toMillis() || 0) - ((a.startDate as Timestamp)?.toMillis() || 0));
         setAllProcesses(collectedProcesses);
     } catch (error) {
@@ -123,12 +132,16 @@ export function CorporateProcessesClient() {
   };
 
   useEffect(() => {
-    if (companies) {
-      fetchAllProcesses();
+    if (!isLoadingCompanies && companies) {
+        fetchAllProcesses();
     }
-  }, [companies, firestore]);
+  }, [companies, isLoadingCompanies, firestore]);
 
-  const forceRefetch = () => fetchAllProcesses();
+  const forceRefetch = () => {
+      if (!isLoadingCompanies && companies) {
+        fetchAllProcesses();
+      }
+  };
 
   const handleProcessAction = () => {
     forceRefetch();
