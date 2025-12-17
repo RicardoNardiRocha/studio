@@ -14,6 +14,17 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function hasCompanyAccess(permission) {
+      let p = getUserProfile().permissions;
+      return p.empresas[permission] == true ||
+             p.societario[permission] == true ||
+             p.processos[permission] == true ||
+             p.obrigacoes[permission] == true ||
+             p.documentos[permission] == true ||
+             p.fiscal[permission] == true;
+    }
+
+
     // =========================================================================
     // Collection Rules
     // =========================================================================
@@ -26,7 +37,8 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if getUserProfile().permissions.empresas.read == true;
+      allow get: if hasCompanyAccess('read');
+      allow list: if getUserProfile().permissions.empresas.read == true;
       allow create: if getUserProfile().permissions.empresas.create == true;
       allow update: if getUserProfile().permissions.empresas.update == true;
       allow delete: if getUserProfile().permissions.empresas.delete == true;
