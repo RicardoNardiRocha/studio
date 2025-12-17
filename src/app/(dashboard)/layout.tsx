@@ -3,7 +3,7 @@
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { ReactNode } from 'react';
 import { useUser } from '@/firebase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowRightToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
@@ -28,6 +28,26 @@ function AppContent({ children }: { children: ReactNode }) {
         </main>
     );
 }
+
+function SidebarTrigger() {
+    const { isCollapsed, toggleSidebar } = useSidebar();
+    const isMobile = useIsMobile();
+
+    if (isMobile || !isCollapsed) {
+        return null;
+    }
+
+    return (
+        <button
+            onClick={toggleSidebar}
+            className="group fixed top-1/2 left-14 z-40 flex h-24 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg bg-sidebar/40 text-sidebar-foreground backdrop-blur-sm transition-all duration-300 ease-in-out hover:bg-sidebar/80 hover:w-8"
+            aria-label="Expandir menu"
+        >
+            <ArrowRightToLine className="h-5 w-5 opacity-70 transition-opacity group-hover:opacity-100" />
+        </button>
+    );
+}
+
 
 export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
@@ -62,6 +82,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
         <SidebarProvider isMobile={isMobile}>
             <div className="text-foreground bg-background">
                 <AppSidebar />
+                <SidebarTrigger />
                 <AppContent>{children}</AppContent>
             </div>
         </SidebarProvider>
