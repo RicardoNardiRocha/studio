@@ -91,13 +91,13 @@ service cloud.firestore {
     
     // As consultas de grupo de coleção exigem uma regra que se aplica a todos os caminhos.
     match /{path=**}/attachments/{attachmentId} {
-        allow read: if getUserProfile().permissions.documentos.read == true;
+        allow read: if isSignedIn();
     }
      match /{path=**}/documents/{documentId} {
-        allow read: if getUserProfile().permissions.documentos.read == true;
+        allow read: if isSignedIn();
     }
      match /{path=**}/fiscalDocuments/{documentId} {
-        allow read: if getUserProfile().permissions.fiscal.read == true;
+        allow read: if isSignedIn();
     }
   }
 }
