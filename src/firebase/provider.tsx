@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, {
@@ -11,7 +10,7 @@ import React, {
 } from 'react';
 
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp, collection, getDocs, limit, query } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -22,6 +21,8 @@ export interface ModulePermissions {
   update: boolean;
   delete: boolean;
 }
+
+const allPermissions: ModulePermissions = { read: true, create: true, update: true, delete: true };
 
 export interface UserProfile {
   uid: string;
@@ -46,6 +47,19 @@ const defaultPermissions = {
   financeiro: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
 };
+
+const adminPermissions = {
+  dashboard: allPermissions,
+  empresas: allPermissions,
+  societario: allPermissions,
+  processos: allPermissions,
+  obrigacoes: allPermissions,
+  fiscal: allPermissions,
+  documentos: allPermissions,
+  financeiro: allPermissions,
+  usuarios: allPermissions,
+};
+
 
 interface FirebaseContextState {
   areServicesAvailable: boolean;
@@ -120,11 +134,17 @@ export function FirebaseProvider({
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
+          // Verifica se existem outros usuários para determinar se este é o primeiro
+          const usersQuery = query(collection(firestore, 'users'), limit(1));
+          const existingUsersSnap = await getDocs(usersQuery);
+          const isFirstUser = existingUsersSnap.empty;
+
           const newUserProfile: UserProfile = {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Novo Usuário',
             email: firebaseUser.email || '',
-            permissions: defaultPermissions,
+            // Se for o primeiro usuário, concede permissões de admin, senão, as padrão.
+            permissions: isFirstUser ? adminPermissions : defaultPermissions,
             photoURL: firebaseUser.photoURL || '',
           };
           
