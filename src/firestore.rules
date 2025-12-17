@@ -13,9 +13,17 @@ service cloud.firestore {
 
     function hasPermission(module, permissionType) {
       let profile = getUserProfile();
-      // Use ?. para acessar propriedades aninhadas que podem não existir de forma segura
-      // O '|| false' garante que se o caminho não existir, o resultado seja falso.
-      return (profile.permissions[module][permissionType] || false) == true;
+      // Acessa o mapa de permissões de forma segura.
+      // O acesso dinâmico com colchetes (ex: profile.permissions[module]) não funciona como esperado em regras.
+      // Usamos acessos diretos e verificações de existência.
+      let permissions = profile.permissions;
+      if (module in permissions) {
+        let modulePermissions = permissions[module];
+        if (permissionType in modulePermissions) {
+          return modulePermissions[permissionType] == true;
+        }
+      }
+      return false;
     }
 
     match /users/{userId} {
