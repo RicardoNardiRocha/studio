@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -65,6 +64,13 @@ service cloud.firestore {
         allow update: if hasPermission('documentos', 'update');
         allow delete: if hasPermission('documentos', 'delete');
        }
+    }
+
+    match /obligations/{obligationId} {
+      allow read: if hasPermission('obrigacoes', 'read');
+      allow create: if hasPermission('obrigacoes', 'create');
+      allow update: if hasPermission('obrigacoes', 'update');
+      allow delete: if hasPermission('obrigacoes', 'delete');
     }
 
     match /partners/{partnerId} {

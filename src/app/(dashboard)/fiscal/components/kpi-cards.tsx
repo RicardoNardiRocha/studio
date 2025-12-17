@@ -1,15 +1,29 @@
 
-import { KpiCard } from "@/components/dashboard/kpi-card";
+import { KpiCard, KpiCardSkeleton } from "@/components/dashboard/kpi-card";
 import { AlertCircle, CheckCircle, Clock, Package } from "lucide-react";
 
-export function KpiCards() {
-  // Mock data - replace with actual data fetching
-  const kpis = {
-    total: 120,
-    delivered: 85,
-    pending: 25,
-    overdue: 10,
+interface KpiCardsProps {
+  kpis: {
+    total: number;
+    delivered: number;
+    pending: number;
+    overdue: number;
   };
+  isLoading: boolean;
+}
+
+export function KpiCards({ kpis, isLoading }: KpiCardsProps) {
+
+  if (isLoading) {
+    return (
+       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <KpiCardSkeleton />
+        <KpiCardSkeleton />
+        <KpiCardSkeleton />
+        <KpiCardSkeleton />
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">

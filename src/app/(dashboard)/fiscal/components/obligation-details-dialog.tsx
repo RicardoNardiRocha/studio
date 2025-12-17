@@ -1,32 +1,25 @@
 'use client';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UploadButton } from "@/lib/storage/upload";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRef } from "react";
+import type { Obligation } from "./obligations-table"; // Importando o tipo
 
-// Mock Data - Replace with props
-const obligation = {
-    id: '1', 
-    name: 'DAS', 
-    dueDate: '15/07/2024', 
-    status: 'delivered', 
-    company: 'Empresa A', 
-    responsible: 'João', 
-    periodicity: 'Mensal',
-    history: [
-        { user: 'Mariana', date: '14/07/2024', action: 'Status alterado para Em Andamento'},
-        { user: 'João', date: '15/07/2024', action: 'Documento anexo: guia_das.pdf'},
-        { user: 'João', date: '15/07/2024', action: 'Status alterado para Entregue'}
-    ],
-    documents: [
-        { name: 'guia_das.pdf', user: 'João', date: '15/07/2024', url: '#'},
-        { name: 'comprovante.pdf', user: 'João', date: '15/07/2024', url: '#'}
-    ]
-};
+// Dados de exemplo para histórico e documentos, que ainda serão buscados no futuro
+const mockHistory = [
+    { user: 'Mariana', date: '14/07/2024', action: 'Status alterado para Em Andamento'},
+    { user: 'João', date: '15/07/2024', action: 'Documento anexo: guia_das.pdf'},
+    { user: 'João', date: '15/07/2024', action: 'Status alterado para Entregue'}
+];
+const mockDocuments = [
+    { name: 'guia_das.pdf', user: 'João', date: '15/07/2024', url: '#'},
+    { name: 'comprovante.pdf', user: 'João', date: '15/07/2024', url: '#'}
+];
 
 const statusVariant = {
   delivered: 'success',
@@ -34,7 +27,29 @@ const statusVariant = {
   overdue: 'destructive',
 } as const;
 
-export function ObligationDetailsDialog() {
+interface ObligationDetailsDialogProps {
+  obligation: Obligation; // A obrigação é agora uma propriedade obrigatória
+}
+
+export function ObligationDetailsDialog({ obligation }: ObligationDetailsDialogProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttachFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      console.log("Nenhum arquivo selecionado.");
+      return;
+    }
+
+    console.log("Arquivo selecionado:", file.name);
+    // A lógica de upload real será implementada aqui
+    alert(`Upload do arquivo ${file.name} ainda não implementado.`);
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -55,7 +70,13 @@ export function ObligationDetailsDialog() {
                     <TabsContent value="documents">
                          <div className="flex items-center justify-between mt-4 mb-2">
                             <h4 className="font-semibold">Documentos Anexados</h4>
-                            <UploadButton onUpload={() => {}} />
+                            <Button size="sm" onClick={handleAttachFileClick}>Anexar Arquivo</Button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileSelected}
+                                className="hidden"
+                            />
                         </div>
                         <Table>
                             <TableHeader>
@@ -67,7 +88,7 @@ export function ObligationDetailsDialog() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {obligation.documents.map(doc => (
+                                {mockDocuments.map(doc => (
                                     <TableRow key={doc.name}>
                                         <TableCell>{doc.name}</TableCell>
                                         <TableCell>{doc.user}</TableCell>
@@ -88,7 +109,7 @@ export function ObligationDetailsDialog() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {obligation.history.map(entry => (
+                                {mockHistory.map(entry => (
                                     <TableRow key={entry.date + entry.action}>
                                         <TableCell>{entry.user}</TableCell>
                                         <TableCell>{entry.date}</TableCell>
@@ -108,12 +129,12 @@ export function ObligationDetailsDialog() {
             </div>
             <div className="space-y-4">
                  <h4 className="font-semibold">Informações Gerais</h4>
-                 <p><strong>Empresa:</strong> {obligation.company}</p>
-                 <p><strong>Responsável:</strong> {obligation.responsible}</p>
-                 <p><strong>Periodicidade:</strong> {obligation.periodicity}</p>
+                 <p><strong>Empresa:</strong> {obligation.companyName}</p>
+                 <p><strong>Responsável:</strong> {obligation.responsibleName}</p>
+                 <p><strong>Periodicidade:</strong> Mensal</p> {/* TODO: Adicionar campo no Firestore */}
                  <p><strong>Vencimento:</strong> {obligation.dueDate}</p>
                  <div className="flex items-center gap-2">
-                    <strong>Status:</strong> <Badge variant={statusVariant[obligation.status as keyof typeof statusVariant]}>{obligation.status}</Badge>
+                    <strong>Status:</strong> <Badge variant={statusVariant[obligation.status]}>{obligation.status}</Badge>
                  </div>
                  <Select defaultValue={obligation.status}>
                     <SelectTrigger>

@@ -1,20 +1,49 @@
+'use client';
 
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from "firebase/firestore";
+import type { Company } from "@/components/empresas/company-details-dialog";
+import { useMemo } from "react";
 
-export function FiscalFilters() {
+interface FiscalFiltersProps {
+  selectedCompany: string | null;
+  onCompanyChange: (companyId: string | null) => void;
+  // Adicione outras props de filtro conforme necessário
+}
+
+export function FiscalFilters({ selectedCompany, onCompanyChange }: FiscalFiltersProps) {
+  const firestore = useFirestore();
+  const companiesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
+  }, [firestore]);
+  
+  const { data: companies, isLoading: isLoadingCompanies } = useCollection<Company>(companiesQuery);
+
   return (
     <div className="flex items-center space-x-4">
-      <Select>
-        <SelectTrigger className="w-[180px]">
+      <Select 
+        value={selectedCompany || 'all'} 
+        onValueChange={value => onCompanyChange(value === 'all' ? null : value)}
+      >
+        <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Empresa" />
         </SelectTrigger>
         <SelectContent>
-          {/* Populate with companies */}
-          <SelectItem value="company-a">Empresa A</SelectItem>
-          <SelectItem value="company-b">Empresa B</SelectItem>
+          <SelectItem value="all">Todas as Empresas</SelectItem>
+          {isLoadingCompanies ? (
+            <SelectItem value="loading" disabled>Carregando...</SelectItem>
+          ) : (
+            companies?.map(company => (
+              <SelectItem key={company.id} value={company.id}>{
+                company.name
+              }</SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
 
