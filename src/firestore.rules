@@ -1,7 +1,7 @@
 rules_version = '2';
 
 service cloud.firestore {
-match /databases/{database}/documents {
+  match /databases/{database}/documents {
 
     // =========================================================================
     // Helper Functions
@@ -14,14 +14,9 @@ match /databases/{database}/documents {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function hasCompanyAccess(permission) {
-      let p = getUserProfile().permissions;
-      return p.empresas[permission] == true ||
-             p.societario[permission] == true ||
-             p.processos[permission] == true ||
-             p.obrigacoes[permission] == true ||
-             p.documentos[permission] == true ||
-             p.fiscal[permission] == true;
+    // Verifica se o usuário é membro da empresa através do mapa 'members'
+    function isCompanyMember(companyId) {
+      return exists(/databases/$(database)/documents/companies/$(companyId)/members/$(request.auth.uid));
     }
 
 
@@ -37,38 +32,40 @@ match /databases/{database}/documents {
     }
 
     match /companies/{companyId} {
-      allow get: if hasCompanyAccess('read');
+      // Qualquer membro da empresa pode ler os dados da empresa.
+      // E qualquer pessoa com permissão de leitura no módulo de empresas pode listar todas.
+      allow read: if isCompanyMember(companyId) || getUserProfile().permissions.empresas.read == true;
       allow list: if getUserProfile().permissions.empresas.read == true;
       allow create: if getUserProfile().permissions.empresas.create == true;
       allow update: if getUserProfile().permissions.empresas.update == true;
       allow delete: if getUserProfile().permissions.empresas.delete == true;
 
       // Subcollection Rules
+      // Agora, as regras das subcoleções verificam se o usuário é membro da empresa pai.
       match /taxObligations/{obligationId} {
-        allow read: if getUserProfile().permissions.obrigacoes.read == true;
-        allow create: if getUserProfile().permissions.obrigacoes.create == true;
-        allow update: if getUserProfile().permissions.obrigacoes.update == true;
-        allow delete: if getUserProfile().permissions.obrigacoes.delete == true;
+        allow read, write: if isCompanyMember(companyId) && getUserProfile().permissions.obrigacoes.read == true;
+        allow create, update, delete: if isCompanyMember(companyId) && (getUserProfile().permissions.obrigacoes.create == true || getUserProfile().permissions.obrigacoes.update == true || getUserProfile().permissions.obrigacoes.delete == true);
       }
 
       match /corporateProcesses/{processId} {
-        allow read: if getUserProfile().permissions.processos.read == true;
-        allow create: if getUserProfile().permissions.processos.create == true;
-        allow update: if getUserProfile().permissions.processos.update == true;
-        allow delete: if getUserProfile().permissions.processos.delete == true;
+        allow read, write: if isCompanyMember(companyId) && getUserProfile().permissions.processos.read == true;
+        allow create, update, delete: if isCompanyMember(companyId) && (getUserProfile().permissions.processos.create == true || getUserProfile().permissions.processos.update == true || getUserProfile().permissions.processos.delete == true);
 
         match /history/{historyId} {
-          allow read, write: if getUserProfile().permissions.processos.update == true;
+          allow read, write: if isCompanyMember(companyId) && getUserProfile().permissions.processos.update == true;
         }
         match /attachments/{attachmentId} {
-          allow read, write: if getUserProfile().permissions.processos.update == true;
+          allow read, write: if isCompanyMember(companyId) && getUserProfile().permissions.processos.update == true;
         }
       }
        match /documents/{documentId} {
-        allow read: if getUserProfile().permissions.documentos.read == true;
-        allow create: if getUserProfile().permissions.documentos.create == true;
-        allow update: if getUserProfile().permissions.documentos.update == true;
-        allow delete: if getUserProfile().permissions.documentos.delete == true;
+        allow read, write: if isCompanyMember(companyId) && getUserProfile().permissions.documentos.read == true;
+        allow create, update, delete: if isCompanyMember(companyId) && (getUserProfile().permissions.documentos.create == true || getUserProfile().permissions.documentos.update == true || getUserProfile().permissions.documentos.delete == true);
+       }
+       
+       // Coleção para mapear membros para regras de segurança
+       match /members/{userId} {
+         allow read, write: if request.auth.uid == userId;
        }
     }
 
