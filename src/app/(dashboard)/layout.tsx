@@ -40,7 +40,7 @@ function SidebarTrigger() {
     return (
         <button
             onClick={toggleSidebar}
-            className="group fixed top-1/2 left-14 z-40 flex h-24 w-4 -translate-y-1/2 items-center justify-center rounded-r-lg bg-sidebar/40 text-sidebar-foreground transition-all duration-300 ease-in-out hover:bg-sidebar/80 hover:w-6"
+            className="group fixed top-1/2 left-14 z-40 flex h-24 w-4 -translate-y-1/2 items-center justify-center rounded-r-lg bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out hover:bg-sidebar/90 hover:w-6"
             aria-label="Expandir menu"
         >
             <ArrowRightToLine className="h-5 w-5 opacity-70 transition-opacity group-hover:opacity-100" />
@@ -79,7 +79,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <SidebarProvider isMobile={isMobile}>
+        <SidebarProvider>
             <div className="text-foreground bg-background">
                 <AppSidebar />
                 <SidebarTrigger />
