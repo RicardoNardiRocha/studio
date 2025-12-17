@@ -108,5 +108,8 @@ service cloud.firestore {
      match /{path=**}/documents/{documentId} {
         allow read: if getUserProfile().permissions.documentos.read == true;
     }
+     match /{path=**}/fiscalDocuments/{documentId} {
+        allow read: if getUserProfile().permissions.fiscal.read == true;
+    }
   }
 }
