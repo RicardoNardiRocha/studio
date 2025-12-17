@@ -14,86 +14,91 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function hasPermission(module, permissionType) {
-      let profile = getUserProfile();
-      // Use ?. para acessar propriedades aninhadas que podem não existir de forma segura
-      // O '|| false' garante que se o caminho não existir, o resultado seja falso.
-      return (profile.permissions[module][permissionType] || false) == true;
+    function hasCompanyAccess(permission) {
+      let p = getUserProfile().permissions;
+      return p.empresas[permission] == true ||
+             p.societario[permission] == true ||
+             p.processos[permission] == true ||
+             p.obrigacoes[permission] == true ||
+             p.documentos[permission] == true ||
+             p.fiscal[permission] == true;
     }
+
 
     // =========================================================================
     // Collection Rules
     // =========================================================================
 
     match /users/{userId} {
-      // LEITURA: Um usuário pode ler seu próprio perfil OU se tiver permissão para ler o módulo de usuários.
-      allow read: if request.auth.uid == userId || hasPermission('usuarios', 'read');
-      
-      // CRIAÇÃO: Permite a criação de um perfil SE o UID do usuário que está sendo criado é o mesmo do usuário autenticado (primeiro login).
+      allow read: if request.auth.uid == userId || getUserProfile().permissions.usuarios.read == true;
       allow create: if request.auth.uid == userId;
-
-      // ATUALIZAÇÃO: Um usuário pode atualizar seu próprio perfil OU se tiver permissão para editar usuários.
-      allow update: if request.auth.uid == userId || hasPermission('usuarios', 'update');
-      
-      // EXCLUSÃO: Apenas quem tem permissão para deletar usuários pode fazê-lo, e não pode deletar a si mesmo.
-      allow delete: if hasPermission('usuarios', 'delete') && request.auth.uid != userId;
+      allow update: if request.auth.uid == userId || getUserProfile().permissions.usuarios.update == true;
+      allow delete: if getUserProfile().permissions.usuarios.delete == true && request.auth.uid != userId;
     }
 
     match /companies/{companyId} {
-      allow read: if hasPermission('empresas', 'read');
-      allow create: if hasPermission('empresas', 'create');
-      allow update: if hasPermission('empresas', 'update');
-      allow delete: if hasPermission('empresas', 'delete');
-    }
+      allow get: if hasCompanyAccess('read');
+      allow list: if getUserProfile().permissions.empresas.read == true;
+      allow create: if getUserProfile().permissions.empresas.create == true;
+      allow update: if getUserProfile().permissions.empresas.update == true;
+      allow delete: if getUserProfile().permissions.empresas.delete == true;
 
-    match /companies/{companyId}/taxObligations/{obligationId} {
-        allow read: if hasPermission('obrigacoes', 'read');
-        allow create: if hasPermission('obrigacoes', 'create');
-        allow update: if hasPermission('obrigacoes', 'update');
-        allow delete: if hasPermission('obrigacoes', 'delete');
+      // Subcollection Rules
+      match /taxObligations/{obligationId} {
+        allow read: if getUserProfile().permissions.obrigacoes.read == true;
+        allow create: if getUserProfile().permissions.obrigacoes.create == true;
+        allow update: if getUserProfile().permissions.obrigacoes.update == true;
+        allow delete: if getUserProfile().permissions.obrigacoes.delete == true;
+      }
 
-        match /attachments/{attachmentId} {
-            allow read, write: if hasPermission('obrigacoes', 'update');
-        }
-    }
+      match /corporateProcesses/{processId} {
+        allow read: if getUserProfile().permissions.processos.read == true;
+        allow create: if getUserProfile().permissions.processos.create == true;
+        allow update: if getUserProfile().permissions.processos.update == true;
+        allow delete: if getUserProfile().permissions.processos.delete == true;
 
-    match /companies/{companyId}/corporateProcesses/{processId} {
-        allow read: if hasPermission('processos', 'read');
-        allow create: if hasPermission('processos', 'create');
-        allow update: if hasPermission('processos', 'update');
-        allow delete: if hasPermission('processos', 'delete');
-         match /history/{historyId} {
-            allow read, write: if hasPermission('processos', 'update');
+        match /history/{historyId} {
+          allow read, write: if getUserProfile().permissions.processos.update == true;
         }
         match /attachments/{attachmentId} {
-            allow read, write: if hasPermission('processos', 'update');
+          allow read, write: if getUserProfile().permissions.processos.update == true;
         }
-    }
-    
-    match /companies/{companyId}/documents/{documentId} {
-        allow read: if hasPermission('documentos', 'read');
-        allow create: if hasPermission('documentos', 'create');
-        allow update: if hasPermission('documentos', 'update');
-        allow delete: if hasPermission('documentos', 'delete');
+      }
+       match /documents/{documentId} {
+        allow read: if getUserProfile().permissions.documentos.read == true;
+        allow create: if getUserProfile().permissions.documentos.create == true;
+        allow update: if getUserProfile().permissions.documentos.update == true;
+        allow delete: if getUserProfile().permissions.documentos.delete == true;
+       }
     }
 
     match /partners/{partnerId} {
-      allow read: if hasPermission('societario', 'read');
-      allow create: if hasPermission('societario', 'create');
-      allow update: if hasPermission('societario', 'update');
-      allow delete: if hasPermission('societario', 'delete');
+      allow read: if getUserProfile().permissions.societario.read == true;
+      allow create: if getUserProfile().permissions.societario.create == true;
+      allow update: if getUserProfile().permissions.societario.update == true;
+      allow delete: if getUserProfile().permissions.societario.delete == true;
     }
 
     match /invoices/{invoiceId} {
-      allow read: if hasPermission('financeiro', 'read');
-      allow create: if hasPermission('financeiro', 'create');
-      allow update: if hasPermission('financeiro', 'update');
-      allow delete: if hasPermission('financeiro', 'delete');
+      allow read: if getUserProfile().permissions.financeiro.read == true;
+      allow create: if getUserProfile().permissions.financeiro.create == true;
+      allow update: if getUserProfile().permissions.financeiro.update == true;
+      allow delete: if getUserProfile().permissions.financeiro.delete == true;
+    }
+
+    match /fiscalDocuments/{documentId} {
+      allow read: if getUserProfile().permissions.fiscal.read == true;
+      allow create, update, delete: if getUserProfile().permissions.fiscal.create == true || getUserProfile().permissions.fiscal.update == true || getUserProfile().permissions.fiscal.delete == true;
+    }
+
+    match /xmlStatus/{statusId} {
+      allow read: if getUserProfile().permissions.fiscal.read == true;
+      allow create, update, delete: if getUserProfile().permissions.fiscal.create == true || getUserProfile().permissions.fiscal.update == true || getUserProfile().permissions.fiscal.delete == true;
     }
     
     match /activities/{activityId} {
       allow read, create: if isSignedIn();
-      allow update, delete: if false; // Log imutável
+      allow update, delete: if false; // Immutable log
     }
   }
 }

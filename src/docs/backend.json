@@ -24,6 +24,7 @@
           "type": "object",
           "description": "A map of granular, module-based permissions.",
           "properties": {
+            "dashboard": { "$ref": "#/entities/ModulePermissions" },
             "empresas": { "$ref": "#/entities/ModulePermissions" },
             "societario": { "$ref": "#/entities/ModulePermissions" },
             "processos": { "$ref": "#/entities/ModulePermissions" },

@@ -43,6 +43,7 @@ interface EditUserDialogProps {
 }
 
 const modules: Array<keyof UserProfile['permissions']> = [
+  'dashboard',
   'empresas',
   'societario',
   'processos',
@@ -62,6 +63,7 @@ const permissionSchema = z.object({
 
 const formSchema = z.object({
   permissions: z.object({
+    dashboard: permissionSchema,
     empresas: permissionSchema,
     societario: permissionSchema,
     processos: permissionSchema,
@@ -74,6 +76,7 @@ const formSchema = z.object({
 });
 
 const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], ModulePermissions> => ({
+  dashboard: { read: true, create: false, update: false, delete: false },
   empresas: { read: false, create: false, update: false, delete: false },
   societario: { read: false, create: false, update: false, delete: false },
   processos: { read: false, create: false, update: false, delete: false },
@@ -194,6 +197,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                 <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-2">
                     {modules.map((moduleName) => {
                         const isFinance = moduleName === 'financeiro';
+                        const isDashboard = moduleName === 'dashboard';
                         return (
                             <div key={moduleName} className={`flex items-center p-4 rounded-lg border bg-card shadow-sm ${isFinance ? 'border-amber-500/50' : ''}`}>
                                 <div className="flex-1">
@@ -205,7 +209,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                                 <div className="w-20 flex justify-center">
                                      <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon">
+                                          <Button variant="ghost" size="icon" disabled={isDashboard}>
                                             <Settings className="h-4 w-4" />
                                           </Button>
                                         </DropdownMenuTrigger>
@@ -234,12 +238,13 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                                                              <Switch
                                                                 checked={field.value}
                                                                 onCheckedChange={field.onChange}
+                                                                disabled={isDashboard}
                                                             />
                                                         ) : (
                                                             <Checkbox
                                                                 checked={field.value}
                                                                 onCheckedChange={field.onChange}
-                                                                disabled={!form.watch(`permissions.${moduleName}.read`)}
+                                                                disabled={!form.watch(`permissions.${moduleName}.read`) || isDashboard}
                                                             />
                                                         )}
                                                     </FormControl>
