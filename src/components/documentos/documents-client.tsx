@@ -63,20 +63,25 @@ export function DocumentsClient() {
 
   useEffect(() => {
     const fetchAllDocuments = async () => {
-      if (!firestore) return;
+      if (!firestore || !profile) return;
       setIsLoading(true);
 
       const collectedDocs: UnifiedDocument[] = [];
+      const userPermissions = profile.permissions;
 
       try {
-        const queries = [
-            // Docs da empresa
-            { q: query(collectionGroup(firestore, 'documents')), module: 'Empresa', nameField: 'fileName', dateField: 'uploadDate', relatedToField: 'companyName' },
-            // Anexos de processos
-            { q: query(collectionGroup(firestore, 'attachments')), module: 'Processo', nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' },
-            // Docs fiscais
-            { q: query(collectionGroup(firestore, 'fiscalDocuments')), module: 'Fiscal', nameField: 'documentType', dateField: 'uploadedAt', relatedToField: 'companyName', competenceField: 'competencia' },
-        ];
+        const queries = [];
+        // Só busca os documentos se o usuário tiver permissão
+        if (userPermissions.empresas?.read) {
+          queries.push({ q: query(collectionGroup(firestore, 'documents')), module: 'Empresa', nameField: 'fileName', dateField: 'uploadDate', relatedToField: 'companyName' });
+        }
+        if (userPermissions.processos?.read) {
+          queries.push({ q: query(collectionGroup(firestore, 'attachments')), module: 'Processo', nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' });
+        }
+        if (userPermissions.fiscal?.read) {
+           queries.push({ q: query(collectionGroup(firestore, 'fiscalDocuments')), module: 'Fiscal', nameField: 'documentType', dateField: 'uploadedAt', relatedToField: 'companyName', competenceField: 'competencia' });
+        }
+       
         
         for (const { q, module, nameField, dateField, relatedToField, competenceField } of queries) {
             const snapshot = await getDocs(q);
@@ -87,28 +92,20 @@ export function DocumentsClient() {
 
                 // Diferencia anexos de processos e obrigações
                 if (module === 'Processo') {
-                    if (pathSegments.includes('taxObligations')) currentModule = 'Obrigação';
-                    else if (!pathSegments.includes('corporateProcesses')) return; // Ignora se não for de processo
+                    if (pathSegments.includes('taxObligations')) {
+                      if (!userPermissions.obrigacoes?.read) return; // Checa permissão de obrigação
+                      currentModule = 'Obrigação';
+                    } else if (pathSegments.includes('corporateProcesses')) {
+                       if (!userPermissions.processos?.read) return; // Checa permissão de processo
+                       currentModule = 'Processo';
+                    } else {
+                       return; // Ignora se não for de processo ou obrigação
+                    }
                 }
 
                 // Certificados de Empresa
                 if (nameField === 'fileName' && data.fileName === 'certificate.pfx') {
                   currentModule = 'Empresa';
-                }
-                
-                // Certificados de Sócio (e-CPF)
-                if (data.ecpfUrl && data.cpf) { // Identifica um sócio
-                    collectedDocs.push({
-                        id: data.id + '_ecpf',
-                        name: `e-CPF de ${data.name}.pfx`,
-                        url: data.ecpfUrl,
-                        uploadedAt: new Date(), // A data de upload não existe no modelo do sócio, usamos a data atual
-                        uploadedBy: 'Sistema',
-                        module: 'Sócio',
-                        relatedTo: data.name,
-                        fileType: 'Certificado',
-                        competencia: data.ecpfValidity ? format(new Date(data.ecpfValidity + 'T00:00:00'), 'MM/yyyy') : undefined,
-                    });
                 }
                 
                 let name = data[nameField] || data.name || 'Nome Desconhecido';
@@ -117,7 +114,7 @@ export function DocumentsClient() {
                 const uploadedAt = data[dateField] ? (data[dateField] instanceof Timestamp ? data[dateField].toDate() : new Date(data[dateField])) : new Date();
 
                 let relatedTo = data[relatedToField] || 'N/A';
-                if(module === 'Processo') relatedTo = `Processo para ${data.companyName}`;
+                if(module === 'Processo' && currentModule === 'Processo') relatedTo = `Processo para ${data.companyName}`;
                 if(currentModule === 'Obrigação') relatedTo = `Obrigação para ${data.companyName}`;
 
 
@@ -135,27 +132,29 @@ export function DocumentsClient() {
             });
         }
 
-        // Adiciona e-CPFs da coleção de sócios
-        const partnersSnap = await getDocs(query(collectionGroup(firestore, 'partners')));
-        partnersSnap.forEach(doc => {
-            const data = doc.data();
-            if (data.ecpfUrl) {
-                const alreadyExists = collectedDocs.some(d => d.url === data.ecpfUrl);
-                if (!alreadyExists) {
-                     collectedDocs.push({
-                        id: doc.id + '_ecpf',
-                        name: `e-CPF de ${data.name}.pfx`,
-                        url: data.ecpfUrl,
-                        uploadedAt: new Date(), 
-                        uploadedBy: 'Sistema',
-                        module: 'Sócio',
-                        relatedTo: data.name,
-                        fileType: 'Certificado',
-                        competencia: data.ecpfValidity ? format(new Date(data.ecpfValidity + 'T00:00:00'), 'MM/yyyy') : undefined,
-                    });
+        // Adiciona e-CPFs da coleção de sócios se tiver permissão
+         if (userPermissions.societario?.read) {
+            const partnersSnap = await getDocs(query(collectionGroup(firestore, 'partners')));
+            partnersSnap.forEach(doc => {
+                const data = doc.data();
+                if (data.ecpfUrl) {
+                    const alreadyExists = collectedDocs.some(d => d.url === data.ecpfUrl);
+                    if (!alreadyExists) {
+                        collectedDocs.push({
+                            id: doc.id + '_ecpf',
+                            name: `e-CPF de ${data.name}.pfx`,
+                            url: data.ecpfUrl,
+                            uploadedAt: new Date(), 
+                            uploadedBy: 'Sistema',
+                            module: 'Sócio',
+                            relatedTo: data.name,
+                            fileType: 'Certificado',
+                            competencia: data.ecpfValidity ? format(new Date(data.ecpfValidity + 'T00:00:00'), 'MM/yyyy') : undefined,
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
 
 
         collectedDocs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
@@ -170,7 +169,7 @@ export function DocumentsClient() {
     };
 
     fetchAllDocuments();
-  }, [firestore, toast]);
+  }, [firestore, toast, profile]);
 
   const fileTypes = useMemo(() => {
     if (!allDocuments) return [];
