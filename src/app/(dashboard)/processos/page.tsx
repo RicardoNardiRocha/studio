@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function CorporateProcessesPage() {
   return (
     <>
-      <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
+      <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
          <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
             <CorporateProcessesClient />
         </Suspense>
