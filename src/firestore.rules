@@ -13,15 +13,15 @@ service cloud.firestore {
     function getUserProfile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
-    function hasCompanyAccess(permission) {
+    
+    function hasGeneralCompanyAccess() {
       let p = getUserProfile().permissions;
-      return p.empresas[permission] == true ||
-             p.societario[permission] == true ||
-             p.processos[permission] == true ||
-             p.obrigacoes[permission] == true ||
-             p.documentos[permission] == true ||
-             p.fiscal[permission] == true;
+      return p.empresas.read == true ||
+             p.societario.read == true ||
+             p.processos.read == true ||
+             p.obrigacoes.read == true ||
+             p.documentos.read == true ||
+             p.fiscal.read == true;
     }
 
 
@@ -37,7 +37,7 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow get: if hasCompanyAccess('read');
+      allow get: if hasGeneralCompanyAccess();
       allow list: if getUserProfile().permissions.empresas.read == true;
       allow create: if getUserProfile().permissions.empresas.create == true;
       allow update: if getUserProfile().permissions.empresas.update == true;

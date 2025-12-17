@@ -77,7 +77,6 @@ export interface Company {
     legalNature?: string;
     porte?: string;
     qsa?: RawPartnerFromApi[]; // Usamos a interface de dados brutos aqui
-    members?: { [key: string]: 'admin' | 'viewer' };
     certificateA1Validity?: string;
     certificateA1Url?: string;
 }

@@ -160,7 +160,6 @@ export function BulkAddCompaniesDialog({ open, onOpenChange, onImportCompleted }
           legalNature: data.natureza_juridica || '',
           porte: data.porte || '',
           qsa: data.qsa || [],
-          members: { [user.uid]: true },
         };
         
         const companyRef = doc(firestore, 'companies', newCompany.id);

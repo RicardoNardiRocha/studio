@@ -8,13 +8,10 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is a member of the company.
-    // This requires a Firestore read, which is billed.
-    function isCompanyMember(companyId) {
-      // Allow read/write access to company data if the user is an admin or a member of the company.
-      // Note: `get()` is a billable operation.
-      let companyDoc = get(/databases/(default)/documents/companies/$(companyId));
-      return request.auth.uid in companyDoc.data.members;
+    // Helper function to get user's specific module permission.
+    // This is more efficient than fetching the whole profile.
+    function canUser(module, permission) {
+      return get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions[module][permission] == true;
     }
     
     // Profile pictures: Users can only write to their own folder.
@@ -24,22 +21,30 @@ service firebase.storage {
       allow read: if true;
     }
 
-    // Company certificates: Only members of the company can read or write documents.
+    // Company certificates: Only users with 'empresas' update permission can manage certificates.
     match /companies/{companyId}/certificate.pfx {
-      allow read, write: if isSignedIn() && isCompanyMember(companyId);
+      allow read, write: if isSignedIn() && canUser('empresas', 'update');
     }
     
-    // Partner certificates: Only authenticated users can write. Let's assume only admins manage this.
-    function isAdmin() {
-      return exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
-    }
+    // Partner certificates: Only users with 'societario' update permission can manage certificates.
     match /partners/{partnerId}/certificate.pfx {
-      allow read, write: if isSignedIn(); // Simplified for now, could be restricted to admins
+      allow read, write: if isSignedIn() && canUser('societario', 'update');
     }
 
-    // Company documents: Only members of the company can read or write documents.
+    // Company documents: Only users with 'documentos' create/read permission can manage documents for any company.
     match /companies/{companyId}/documents/{fileName} {
-      allow read, write: if isSignedIn() && isCompanyMember(companyId);
+      allow read: if isSignedIn() && canUser('documentos', 'read');
+      allow write: if isSignedIn() && canUser('documentos', 'create');
+    }
+    
+    // Process attachments: Only users with 'processos' update permission can manage attachments.
+    match /processes/{processId}/{fileName} {
+        allow write: if isSignedIn() && canUser('processos', 'update');
+    }
+    
+    // Obligation attachments: Only users with 'obrigacoes' update permission can manage attachments.
+    match /obligations/{obligationId}/{fileName} {
+        allow write: if isSignedIn() && canUser('obrigacoes', 'update');
     }
 
     // Fallback rule: Deny all other read/write operations for security.

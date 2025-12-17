@@ -35,16 +35,6 @@ export function AuthHandler({ children }: { children: ReactNode }) {
         }
         return;
       }
-
-      // Proteção de módulo financeiro
-      if (pathname.startsWith('/financeiro') && !profile.permissions?.financeiro?.read) {
-        toast({
-          title: 'Acesso Negado',
-          description: "Você não tem permissão para acessar o módulo financeiro.",
-          variant: 'destructive',
-        });
-        router.replace('/dashboard');
-      }
     } 
     // Cenário 2: Usuário não está logado.
     else if (!user) {

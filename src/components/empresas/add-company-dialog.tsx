@@ -169,7 +169,6 @@ export function AddCompanyDialog({ open, onOpenChange, onCompanyAdded }: AddComp
         legalNature: data.natureza_juridica || '',
         porte: data.porte || '',
         qsa: data.qsa || [],
-        members: { [user.uid]: true } // Adiciona o criador como membro
       };
       
       await setDoc(companyRef, newCompany);
