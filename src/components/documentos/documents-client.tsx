@@ -5,12 +5,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Download, FileText } from 'lucide-react';
+import { Search, Download, FileText, Calendar as CalendarIcon, FilterX } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { collectionGroup, query, getDocs, Timestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+type Module = 'Empresa' | 'Processo' | 'Obrigação' | 'Fiscal' | 'Sócio';
+const modules: Module[] = ['Empresa', 'Processo', 'Obrigação', 'Fiscal', 'Sócio'];
 
 interface UnifiedDocument {
   id: string;
@@ -18,18 +27,39 @@ interface UnifiedDocument {
   url: string;
   uploadedAt: Date;
   uploadedBy?: string;
-  module: 'Empresa' | 'Processo' | 'Obrigação' | 'Fiscal';
+  module: Module;
   relatedTo: string; // e.g., Company Name, Process Type
+  fileType: string;
+  competencia?: string; // MM/YYYY
 }
 
 export function DocumentsClient() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('Todos');
+  const [fileTypeFilter, setFileTypeFilter] = useState('Todos');
+  const [competenceFilter, setCompetenceFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>();
+  
   const [allDocuments, setAllDocuments] = useState<UnifiedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const firestore = useFirestore();
   const { toast } = useToast();
   const { profile } = useUser();
+
+  const getFileType = (fileName: string): string => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return 'PDF';
+      case 'xml': return 'XML';
+      case 'doc':
+      case 'docx': return 'Word';
+      case 'xls':
+      case 'xlsx': return 'Excel';
+      case 'pfx': return 'Certificado';
+      default: return extension?.toUpperCase() || 'Outro';
+    }
+  };
 
   useEffect(() => {
     const fetchAllDocuments = async () => {
@@ -39,70 +69,95 @@ export function DocumentsClient() {
       const collectedDocs: UnifiedDocument[] = [];
 
       try {
-        // Query 1: Documents from companies/{companyId}/documents
-        const companyDocsQuery = query(collectionGroup(firestore, 'documents'));
-        const companyDocsSnap = await getDocs(companyDocsQuery);
-        companyDocsSnap.forEach(doc => {
-          const data = doc.data();
-          collectedDocs.push({
-            id: doc.id,
-            name: data.fileName || data.name,
-            url: data.fileUrl,
-            uploadedAt: data.uploadDate instanceof Timestamp ? data.uploadDate.toDate() : new Date(data.uploadDate),
-            uploadedBy: data.responsibleUserName,
-            module: 'Empresa',
-            relatedTo: data.companyName,
-          });
-        });
+        const queries = [
+            // Docs da empresa
+            { q: query(collectionGroup(firestore, 'documents')), module: 'Empresa', nameField: 'fileName', dateField: 'uploadDate', relatedToField: 'companyName' },
+            // Anexos de processos
+            { q: query(collectionGroup(firestore, 'attachments')), module: 'Processo', nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' },
+            // Docs fiscais
+            { q: query(collectionGroup(firestore, 'fiscalDocuments')), module: 'Fiscal', nameField: 'documentType', dateField: 'uploadedAt', relatedToField: 'companyName', competenceField: 'competencia' },
+        ];
+        
+        for (const { q, module, nameField, dateField, relatedToField, competenceField } of queries) {
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const pathSegments = doc.ref.path.split('/');
+                let currentModule: Module = module;
 
-        // Query 2: Attachments from corporateProcesses
-        const processAttachmentsQuery = query(collectionGroup(firestore, 'attachments'));
-        const processAttachmentsSnap = await getDocs(processAttachmentsQuery);
-        processAttachmentsSnap.forEach(doc => {
-           const data = doc.data();
-           const pathSegments = doc.ref.path.split('/');
-           // Ensure it's a process attachment
-           if (pathSegments.includes('corporateProcesses')) {
+                // Diferencia anexos de processos e obrigações
+                if (module === 'Processo') {
+                    if (pathSegments.includes('taxObligations')) currentModule = 'Obrigação';
+                    else if (!pathSegments.includes('corporateProcesses')) return; // Ignora se não for de processo
+                }
+
+                // Certificados de Empresa
+                if (nameField === 'fileName' && data.fileName === 'certificate.pfx') {
+                  currentModule = 'Empresa';
+                }
+                
+                // Certificados de Sócio (e-CPF)
+                if (data.ecpfUrl && data.cpf) { // Identifica um sócio
+                    collectedDocs.push({
+                        id: data.id + '_ecpf',
+                        name: `e-CPF de ${data.name}.pfx`,
+                        url: data.ecpfUrl,
+                        uploadedAt: new Date(), // A data de upload não existe no modelo do sócio, usamos a data atual
+                        uploadedBy: 'Sistema',
+                        module: 'Sócio',
+                        relatedTo: data.name,
+                        fileType: 'Certificado',
+                        competencia: data.ecpfValidity ? format(new Date(data.ecpfValidity + 'T00:00:00'), 'MM/yyyy') : undefined,
+                    });
+                }
+                
+                let name = data[nameField] || data.name || 'Nome Desconhecido';
+                if(module === 'Fiscal') name = `${data.documentType} - ${data.competencia}`;
+
+                const uploadedAt = data[dateField] ? (data[dateField] instanceof Timestamp ? data[dateField].toDate() : new Date(data[dateField])) : new Date();
+
+                let relatedTo = data[relatedToField] || 'N/A';
+                if(module === 'Processo') relatedTo = `Processo para ${data.companyName}`;
+                if(currentModule === 'Obrigação') relatedTo = `Obrigação para ${data.companyName}`;
+
+
                 collectedDocs.push({
                     id: doc.id,
-                    name: data.name,
-                    url: data.url,
-                    uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
-                    uploadedBy: data.uploadedBy,
-                    module: 'Processo',
-                    relatedTo: `Processo ID: ${pathSegments[pathSegments.indexOf('corporateProcesses') + 1]}`,
+                    name: name,
+                    url: data.fileUrl || data.url,
+                    uploadedAt: uploadedAt,
+                    uploadedBy: data.responsibleUserName || data.uploadedBy || 'Sistema',
+                    module: currentModule,
+                    relatedTo: relatedTo,
+                    fileType: getFileType(name),
+                    competencia: competenceField && data[competenceField] ? data[competenceField] : undefined,
                 });
-           }
-            if (pathSegments.includes('taxObligations')) {
-                 collectedDocs.push({
-                    id: doc.id,
-                    name: data.name,
-                    url: data.url,
-                    uploadedAt: data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : new Date(data.uploadedAt),
-                    uploadedBy: data.uploadedBy,
-                    module: 'Obrigação',
-                    relatedTo: `Obrigação ID: ${pathSegments[pathSegments.indexOf('taxObligations') + 1]}`,
-                });
-           }
-        });
-        
-        // Query 3: fiscalDocuments (root collection)
-        const fiscalDocsQuery = query(collectionGroup(firestore, 'fiscalDocuments'));
-        const fiscalDocsSnap = await getDocs(fiscalDocsQuery);
-        fiscalDocsSnap.forEach(doc => {
-            const data = doc.data();
-             collectedDocs.push({
-                id: doc.id,
-                name: `${data.documentType} - ${data.competencia}.xml`,
-                url: data.fileUrl,
-                uploadedAt: new Date(data.uploadedAt),
-                uploadedBy: 'Sistema',
-                module: 'Fiscal',
-                relatedTo: data.companyName,
-             });
-        })
+            });
+        }
 
-        // Sort all documents by date, most recent first
+        // Adiciona e-CPFs da coleção de sócios
+        const partnersSnap = await getDocs(query(collectionGroup(firestore, 'partners')));
+        partnersSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.ecpfUrl) {
+                const alreadyExists = collectedDocs.some(d => d.url === data.ecpfUrl);
+                if (!alreadyExists) {
+                     collectedDocs.push({
+                        id: doc.id + '_ecpf',
+                        name: `e-CPF de ${data.name}.pfx`,
+                        url: data.ecpfUrl,
+                        uploadedAt: new Date(), 
+                        uploadedBy: 'Sistema',
+                        module: 'Sócio',
+                        relatedTo: data.name,
+                        fileType: 'Certificado',
+                        competencia: data.ecpfValidity ? format(new Date(data.ecpfValidity + 'T00:00:00'), 'MM/yyyy') : undefined,
+                    });
+                }
+            }
+        });
+
+
         collectedDocs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
         setAllDocuments(collectedDocs);
 
@@ -116,21 +171,41 @@ export function DocumentsClient() {
 
     fetchAllDocuments();
   }, [firestore, toast]);
+
+  const fileTypes = useMemo(() => {
+    if (!allDocuments) return [];
+    const types = new Set(allDocuments.map(doc => doc.fileType));
+    return ['Todos', ...Array.from(types)];
+  }, [allDocuments]);
   
 
   const filteredDocuments = useMemo(() => {
     if (!allDocuments) return [];
-    return allDocuments.filter(doc =>
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.relatedTo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.module.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [allDocuments, searchTerm]);
+    return allDocuments.filter(doc => {
+        const searchMatch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            doc.relatedTo.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const moduleMatch = moduleFilter === 'Todos' || doc.module === moduleFilter;
+        const fileTypeMatch = fileTypeFilter === 'Todos' || doc.fileType === fileTypeFilter;
+        const competenceMatch = !competenceFilter || (doc.competencia && doc.competencia.includes(competenceFilter));
+        const dateMatch = !dateFilter || format(doc.uploadedAt, 'yyyy-MM-dd') === format(dateFilter, 'yyyy-MM-dd');
+        
+        return searchMatch && moduleMatch && fileTypeMatch && competenceMatch && dateMatch;
+    });
+  }, [allDocuments, searchTerm, moduleFilter, fileTypeFilter, competenceFilter, dateFilter]);
 
   const formatDate = (date: Date): string => {
     if (!date || isNaN(date.getTime())) return 'N/A';
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+  
+  const clearFilters = () => {
+    setSearchTerm('');
+    setModuleFilter('Todos');
+    setFileTypeFilter('Todos');
+    setCompetenceFilter('');
+    setDateFilter(undefined);
+  }
   
   if (!profile?.permissions.documentos.read) {
     return (
@@ -154,16 +229,50 @@ export function DocumentsClient() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-          <div className="relative w-full flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome do arquivo, módulo ou entidade relacionada..."
-              className="pl-8 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        <div className="flex flex-col gap-4 mb-4">
+            <div className="relative w-full">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                placeholder="Buscar por nome do arquivo, empresa, sócio relacionado..."
+                className="pl-8 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="flex flex-col md:flex-row items-center gap-2">
+                <Select value={moduleFilter} onValueChange={setModuleFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filtrar por Módulo" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Todos">Todos os Módulos</SelectItem>
+                        {modules.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Select value={fileTypeFilter} onValueChange={setFileTypeFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filtrar por Tipo" /></SelectTrigger>
+                    <SelectContent>
+                        {fileTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Input
+                    placeholder="Competência (MM/AAAA)"
+                    className="w-full md:w-[200px]"
+                    value={competenceFilter}
+                    onChange={(e) => setCompetenceFilter(e.target.value)}
+                    maxLength={7}
+                />
+                 <Popover>
+                    <PopoverTrigger asChild>
+                    <Button variant={'outline'} className={cn('w-full md:w-auto justify-start text-left font-normal', !dateFilter && 'text-muted-foreground')}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFilter ? format(dateFilter, 'PPP', { locale: ptBR }) : <span>Filtrar por Data</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dateFilter} onSelect={setDateFilter} initialFocus /></PopoverContent>
+                </Popover>
+                <Button variant="ghost" onClick={clearFilters} className="w-full md:w-auto">
+                    <FilterX className="mr-2 h-4 w-4" /> Limpar Filtros
+                </Button>
+            </div>
         </div>
 
         <div className="border rounded-md">
@@ -211,7 +320,7 @@ export function DocumentsClient() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    Nenhum documento encontrado no sistema.
+                    Nenhum documento encontrado com os filtros aplicados.
                   </TableCell>
                 </TableRow>
               )}
