@@ -28,9 +28,10 @@ const getStatusVariant = (status: FiscalDocument['status']): 'default' | 'second
 type FiscalDocumentsTableProps = {
   documents: FiscalDocument[];
   isLoading: boolean;
+  onSelectDocument: (doc: FiscalDocument) => void;
 };
 
-export function FiscalDocumentsTable({ documents, isLoading }: FiscalDocumentsTableProps) {
+export function FiscalDocumentsTable({ documents, isLoading, onSelectDocument }: FiscalDocumentsTableProps) {
   return (
     <div className="border rounded-md mt-4">
       <Table>
@@ -69,7 +70,7 @@ export function FiscalDocumentsTable({ documents, isLoading }: FiscalDocumentsTa
                 </TableCell>
                 <TableCell>{new Date(doc.uploadedAt).toLocaleDateString('pt-BR')}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="icon" onClick={() => alert('Detalhes a ser implementado')}>
+                  <Button variant="outline" size="icon" onClick={() => onSelectDocument(doc)}>
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="sr-only">Ver Detalhes</span>
                   </Button>

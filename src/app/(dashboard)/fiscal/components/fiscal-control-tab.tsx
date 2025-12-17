@@ -138,7 +138,7 @@ export function FiscalControlTab() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <Button className="w-full md:w-auto" onClick={() => alert('Adicionar notas a ser implementado')}>
+        <Button className="w-full md:w-auto" disabled>
           <PlusCircle className="mr-2 h-4 w-4" />
           Adicionar Notas
         </Button>

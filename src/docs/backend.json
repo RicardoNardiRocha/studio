@@ -246,6 +246,38 @@
         "status": { "type": "string", "enum": ["Pendente", "Paga", "Atrasada", "Cancelada"] }
       },
       "required": ["id", "companyId", "companyName", "referencePeriod", "amount", "dueDate", "status"]
+    },
+    "FiscalDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FiscalDocument",
+      "type": "object",
+      "description": "Represents a fiscal document like an invoice or tax ledger.",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "companyCnpj": { "type": "string" },
+        "documentType": { "type": "string", "enum": ["Livro de Entrada", "Livro de Saída", "Nota Fiscal"] },
+        "status": { "type": "string", "enum": ["Ativa", "Cancelada", "Inutilizada", "Denegada", "Rejeitada"] },
+        "uploadedAt": { "type": "string", "format": "date-time" },
+        "fileUrl": { "type": "string", "format": "uri" },
+        "competencia": { "type": "string" }
+      },
+      "required": ["id", "companyId", "companyName", "documentType", "status", "uploadedAt", "fileUrl", "competencia"]
+    },
+    "XmlStatus": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "XmlStatus",
+      "type": "object",
+      "description": "Tracks the XML submission status for a company for a given month/year.",
+      "properties": {
+        "id": { "type": "string", "description": "Composite key: {companyId}_{month}_{year}" },
+        "companyId": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendente", "Aguardando Reenvio", "Enviado"] }
+      },
+      "required": ["id", "companyId", "month", "year", "status"]
     }
   },
   "auth": {
@@ -309,6 +341,22 @@
           "entityName": "Invoice",
           "schema": { "$ref": "#/entities/Invoice" },
           "description": "Collection for all financial invoices."
+        }
+      },
+      {
+        "path": "/fiscalDocuments/{documentId}",
+        "definition": {
+          "entityName": "FiscalDocument",
+          "schema": { "$ref": "#/entities/FiscalDocument" },
+          "description": "Collection for all fiscal documents."
+        }
+      },
+      {
+        "path": "/xmlStatus/{statusId}",
+        "definition": {
+          "entityName": "XmlStatus",
+          "schema": { "$ref": "#/entities/XmlStatus" },
+          "description": "Collection to track XML submission status."
         }
       }
     ]
