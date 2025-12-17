@@ -11,6 +11,9 @@ import { useAuth } from '@/firebase';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+// Importa o script de desenvolvimento para que ele seja carregado no ambiente do cliente.
+import '@/lib/dev/set-admin';
+
 
 function AppContent({ children }: { children: ReactNode }) {
     const { isCollapsed } = useSidebar();
