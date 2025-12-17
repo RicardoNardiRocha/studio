@@ -42,14 +42,11 @@ const settingsMenuItems = [
 const hasAccess = (itemId: string, profile: UserProfile | null): boolean => {
     if (!profile || !profile.permissions) return false;
 
-    // Dashboard is a special case, almost everyone should see it.
     if (itemId === 'dashboard') return profile.permissions.dashboard?.read === true;
 
-    // Check for module key
     const moduleKey = itemId as keyof UserProfile['permissions'];
     const permission = profile.permissions[moduleKey];
     
-    // Check if the permission object and the read property exist and are true
     return !!permission && permission.read === true;
 };
 
@@ -77,7 +74,6 @@ export function AppSidebar() {
   const visibleSettingsMenuItems = settingsMenuItems.filter(item => hasAccess(item.id, profile));
 
   return (
-    <>
       <aside
         className={`group fixed top-0 left-0 h-full z-30 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-16' : 'w-56'
@@ -89,11 +85,9 @@ export function AppSidebar() {
                 <Layers className="h-7 w-7 text-sidebar-primary" />
                 {!isCollapsed && <h1 className="text-xl font-bold">ContabilX</h1>}
             </Link>
-             {!isCollapsed && (
-                <button onClick={toggleSidebar} className="p-1 text-sidebar-foreground/70 hover:text-sidebar-foreground">
-                    <ArrowLeftToLine className="h-5 w-5" />
-                </button>
-            )}
+             <button onClick={toggleSidebar} className={`p-1 text-sidebar-foreground/70 hover:text-sidebar-foreground group-data-[state=collapsed]:hidden`}>
+                <ArrowLeftToLine className="h-5 w-5" />
+            </button>
         </header>
 
         <nav className="flex-grow space-y-1 p-2">
@@ -111,9 +105,11 @@ export function AppSidebar() {
 
             <Separator className='bg-sidebar-border' />
 
-            <div className={`flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
+            <div className={`flex items-center ${isCollapsed ? 'justify-start' : 'justify-start'}`}>
                 <ThemeToggle />
             </div>
+            
+            <Separator className='bg-sidebar-border' />
 
             <Link href="/perfil">
                 <div className={`flex items-center gap-3 rounded-md p-2 ${isCollapsed ? 'justify-center' : ''}`}>
@@ -131,16 +127,5 @@ export function AppSidebar() {
             </Link>
         </footer>
       </aside>
-
-      {isCollapsed && (
-        <button
-            onClick={toggleSidebar}
-            className="fixed top-1/2 left-12 z-40 flex h-24 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg bg-gray-800/60 text-white backdrop-blur-sm transition-all duration-300 ease-in-out hover:bg-primary/80 hover:w-8"
-            aria-label="Expandir menu"
-        >
-            <ArrowRightToLine className="h-5 w-5" />
-        </button>
-      )}
-    </>
   );
 }
