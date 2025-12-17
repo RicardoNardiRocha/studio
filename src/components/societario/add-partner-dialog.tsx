@@ -60,6 +60,15 @@ type CompanyOption = {
   label: string;
 }
 
+const cpfMask = (value: string) => {
+  if (!value) return "";
+  const onlyDigits = value.replace(/\D/g, '').slice(0, 11);
+  return onlyDigits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+};
+
 export function AddPartnerDialog({
   open,
   onOpenChange,
@@ -176,7 +185,11 @@ export function AddPartnerDialog({
                 <FormItem>
                   <FormLabel>CPF</FormLabel>
                   <FormControl>
-                    <Input placeholder="000.000.000-00" {...field} />
+                    <Input 
+                      placeholder="000.000.000-00" 
+                      {...field} 
+                      onChange={(e) => field.onChange(cpfMask(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

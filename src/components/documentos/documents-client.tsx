@@ -68,72 +68,79 @@ export function DocumentsClient() {
 
       const collectedDocs: UnifiedDocument[] = [];
       const userPermissions = profile.permissions;
+      let hasErrors = false;
 
       try {
         const queries = [];
-        // Só busca os documentos se o usuário tiver permissão
         if (userPermissions.empresas?.read) {
-          queries.push({ q: query(collectionGroup(firestore, 'documents')), module: 'Empresa', nameField: 'fileName', dateField: 'uploadDate', relatedToField: 'companyName' });
+          queries.push({ q: query(collectionGroup(firestore, 'documents')), module: 'Empresa' as Module, nameField: 'fileName', dateField: 'uploadDate', relatedToField: 'companyName' });
         }
         if (userPermissions.processos?.read) {
-          queries.push({ q: query(collectionGroup(firestore, 'attachments')), module: 'Processo', nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' });
+          queries.push({ q: query(collectionGroup(firestore, 'attachments')), module: 'Processo' as Module, nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' });
         }
         if (userPermissions.fiscal?.read) {
-           queries.push({ q: query(collectionGroup(firestore, 'fiscalDocuments')), module: 'Fiscal', nameField: 'documentType', dateField: 'uploadedAt', relatedToField: 'companyName', competenceField: 'competencia' });
+           queries.push({ q: query(collectionGroup(firestore, 'fiscalDocuments')), module: 'Fiscal' as Module, nameField: 'documentType', dateField: 'uploadedAt', relatedToField: 'companyName', competenceField: 'competencia' });
         }
-       
-        
-        for (const { q, module, nameField, dateField, relatedToField, competenceField } of queries) {
-            const snapshot = await getDocs(q);
+
+        const promises = queries.map(q => getDocs(q.q));
+        const results = await Promise.allSettled(promises);
+
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const snapshot = result.value;
+            const { module, nameField, dateField, relatedToField, competenceField } = queries[index];
+
             snapshot.forEach(doc => {
-                const data = doc.data();
-                const pathSegments = doc.ref.path.split('/');
-                let currentModule: Module = module;
+              const data = doc.data();
+              const pathSegments = doc.ref.path.split('/');
+              let currentModule: Module = module;
 
-                // Diferencia anexos de processos e obrigações
-                if (module === 'Processo') {
-                    if (pathSegments.includes('taxObligations')) {
-                      if (!userPermissions.obrigacoes?.read) return; // Checa permissão de obrigação
-                      currentModule = 'Obrigação';
-                    } else if (pathSegments.includes('corporateProcesses')) {
-                       if (!userPermissions.processos?.read) return; // Checa permissão de processo
-                       currentModule = 'Processo';
-                    } else {
-                       return; // Ignora se não for de processo ou obrigação
-                    }
-                }
+              if (module === 'Processo') {
+                  if (pathSegments.includes('taxObligations')) {
+                    if (!userPermissions.obrigacoes?.read) return;
+                    currentModule = 'Obrigação';
+                  } else if (pathSegments.includes('corporateProcesses')) {
+                     if (!userPermissions.processos?.read) return;
+                     currentModule = 'Processo';
+                  } else {
+                     return;
+                  }
+              }
 
-                // Certificados de Empresa
-                if (nameField === 'fileName' && data.fileName === 'certificate.pfx') {
-                  currentModule = 'Empresa';
-                }
-                
-                let name = data[nameField] || data.name || 'Nome Desconhecido';
-                if(module === 'Fiscal') name = `${data.documentType} - ${data.competencia}`;
+              if (nameField === 'fileName' && data.fileName === 'certificate.pfx') {
+                currentModule = 'Empresa';
+              }
+              
+              let name = data[nameField] || data.name || 'Nome Desconhecido';
+              if(module === 'Fiscal') name = `${data.documentType} - ${data.competencia}`;
 
-                const uploadedAt = data[dateField] ? (data[dateField] instanceof Timestamp ? data[dateField].toDate() : new Date(data[dateField])) : new Date();
+              const uploadedAt = data[dateField] ? (data[dateField] instanceof Timestamp ? data[dateField].toDate() : new Date(data[dateField])) : new Date();
 
-                let relatedTo = data[relatedToField] || 'N/A';
-                if(module === 'Processo' && currentModule === 'Processo') relatedTo = `Processo para ${data.companyName}`;
-                if(currentModule === 'Obrigação') relatedTo = `Obrigação para ${data.companyName}`;
+              let relatedTo = data[relatedToField] || 'N/A';
+              if(module === 'Processo' && currentModule === 'Processo') relatedTo = `Processo para ${data.companyName}`;
+              if(currentModule === 'Obrigação') relatedTo = `Obrigação para ${data.companyName}`;
 
-
-                collectedDocs.push({
-                    id: doc.id,
-                    name: name,
-                    url: data.fileUrl || data.url,
-                    uploadedAt: uploadedAt,
-                    uploadedBy: data.responsibleUserName || data.uploadedBy || 'Sistema',
-                    module: currentModule,
-                    relatedTo: relatedTo,
-                    fileType: getFileType(name),
-                    competencia: competenceField && data[competenceField] ? data[competenceField] : undefined,
-                });
+              collectedDocs.push({
+                  id: doc.id,
+                  name: name,
+                  url: data.fileUrl || data.url,
+                  uploadedAt: uploadedAt,
+                  uploadedBy: data.responsibleUserName || data.uploadedBy || 'Sistema',
+                  module: currentModule,
+                  relatedTo: relatedTo,
+                  fileType: getFileType(name),
+                  competencia: competenceField && data[competenceField] ? data[competenceField] : undefined,
+              });
             });
-        }
+          } else {
+            console.error(`Error fetching documents for module ${queries[index].module}:`, result.reason);
+            hasErrors = true;
+          }
+        });
 
         // Adiciona e-CPFs da coleção de sócios se tiver permissão
-         if (userPermissions.societario?.read) {
+        if (userPermissions.societario?.read) {
+          try {
             const partnersSnap = await getDocs(query(collectionGroup(firestore, 'partners')));
             partnersSnap.forEach(doc => {
                 const data = doc.data();
@@ -154,15 +161,22 @@ export function DocumentsClient() {
                     }
                 }
             });
+          } catch (error) {
+            console.error("Error fetching partner documents:", error);
+            hasErrors = true;
+          }
         }
-
 
         collectedDocs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
         setAllDocuments(collectedDocs);
 
+        if (hasErrors) {
+          toast({ title: "Atenção", description: "Não foi possível carregar os arquivos de todos os módulos. Alguns documentos podem não estar listados.", variant: "default" });
+        }
+
       } catch (error) {
-        console.error("Error fetching all documents:", error);
-        toast({ title: "Erro ao buscar documentos", description: "Não foi possível carregar os arquivos de todos os módulos.", variant: "destructive" });
+        console.error("An unexpected error occurred:", error);
+        toast({ title: "Erro Inesperado", description: "Ocorreu um erro inesperado ao processar sua solicitação.", variant: "destructive" });
       } finally {
         setIsLoading(false);
       }

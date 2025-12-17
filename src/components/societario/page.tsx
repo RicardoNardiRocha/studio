@@ -70,6 +70,15 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
   }
 };
 
+const cpfMask = (value: string) => {
+  const onlyDigits = (value || '').replace(/\D/g, '');
+  if (onlyDigits.length === 0) return '';
+  return onlyDigits
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+};
 
 export default function SocietarioPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -95,15 +104,30 @@ export default function SocietarioPage() {
     if (!partners) return [];
     return partners.filter(partner => {
       const searchTermLower = searchTerm.toLowerCase();
-      const searchMatch = partner.name.toLowerCase().includes(searchTermLower) || partner.cpf.includes(searchTerm);
+      const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
 
+      const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
+      const cpfMatch = partner.cpf.includes(searchTerm) || (cleanSearchTerm && partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm));
+      const companyMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower));
+
+      const searchMatch = nameMatch || cpfMatch || companyMatch;
       const ecpfMatch = ecpfFilter === 'Todos' || (ecpfFilter === 'Sim' && partner.hasECPF) || (ecpfFilter === 'Não' && !partner.hasECPF);
-
       const validityMatch = validityFilter === 'Todos' || getCertificateStatusInfo(partner.ecpfValidity).status === validityFilter;
 
       return searchMatch && ecpfMatch && validityMatch;
     });
   }, [partners, searchTerm, ecpfFilter, validityFilter]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    const hasLetters = /[a-zA-Z]/.test(value);
+
+    if (!hasLetters) {
+      setSearchTerm(cpfMask(value));
+    } else {
+      setSearchTerm(value);
+    }
+  };
 
   const handleSyncPartners = async () => {
     if (!firestore) {
@@ -111,7 +135,7 @@ export default function SocietarioPage() {
       return;
     }
     setIsSyncing(true);
-    toast({ title: "Iniciando sincronização...", description: "Buscando sócios das empresas cadastradas." });
+    toast({ title: "Iniciando Vinculação...", description: "Lendo empresas para vincular sócios. Isso pode levar um minuto." });
 
     let partnersCreated = 0;
     let partnersUpdated = 0;
@@ -122,10 +146,13 @@ export default function SocietarioPage() {
 
       for (const companyDoc of companiesSnapshot.docs) {
         const companyData = companyDoc.data();
+        const companyName = companyData.name;
+
+        if (!companyName) continue;
+
         if (companyData.qsa && Array.isArray(companyData.qsa)) {
           for (const socio of companyData.qsa) {
-            const socioCpfCnpjRaw = socio.cnpj_cpf_do_socio || '';
-            const socioCpfCnpj = socioCpfCnpjRaw.replace(/[^\d]/g, '');
+            const socioCpfCnpj = (socio.cnpj_cpf_do_socio || '').replace(/[^\d]/g, '');
             const socioNome = socio.nome_socio;
 
             if (!socioCpfCnpj || !socioNome) continue;
@@ -136,8 +163,8 @@ export default function SocietarioPage() {
             if (partnerSnap.exists()) {
               const partnerData = partnerSnap.data();
               const associatedCompanies = partnerData.associatedCompanies || [];
-              if (!associatedCompanies.includes(companyData.name)) {
-                const updatedCompanies = [...associatedCompanies, companyData.name];
+              if (!associatedCompanies.includes(companyName)) {
+                const updatedCompanies = [...associatedCompanies, companyName];
                 await updateDoc(partnerRef, { associatedCompanies: updatedCompanies });
                 partnersUpdated++;
               }
@@ -145,13 +172,13 @@ export default function SocietarioPage() {
               const newPartner = {
                 id: socioCpfCnpj,
                 name: socioNome,
-                cpf: socioCpfCnpj.length === 11 ? `${socioCpfCnpj.slice(0,3)}.${socioCpfCnpj.slice(3,6)}.${socioCpfCnpj.slice(6,9)}-${socioCpfCnpj.slice(9)}` : socioCpfCnpj,
+                cpf: socioCpfCnpj.length === 11 ? cpfMask(socioCpfCnpj) : socioCpfCnpj,
                 qualification: socio.qualificacao_socio,
                 hasECPF: false,
                 ecpfValidity: '',
                 govBrLogin: '',
                 govBrPassword: '',
-                associatedCompanies: [companyData.name],
+                associatedCompanies: [companyName],
                 otherData: '',
               };
               await setDoc(partnerRef, newPartner);
@@ -161,14 +188,14 @@ export default function SocietarioPage() {
         }
       }
       toast({
-        title: "Sincronização Concluída!",
-        description: `${partnersCreated} sócios criados, ${partnersUpdated} sócios atualizados.`
+        title: "Vinculação Concluída!",
+        description: `${partnersCreated} sócios criados e ${partnersUpdated} sócios atualizados no banco de dados.`
       });
       forceRefetch();
 
-    } catch (error) {
-      console.error("Erro ao sincronizar sócios: ", error);
-      toast({ title: "Erro na sincronização", description: "Não foi possível completar a sincronização.", variant: "destructive"});
+    } catch (error: any) {
+      console.error("Erro ao vincular sócios: ", error);
+      toast({ title: "Erro na Vinculação", description: "Ocorreu um erro inesperado. Tente novamente.", variant: "destructive"});
     } finally {
       setIsSyncing(false);
     }
@@ -213,7 +240,7 @@ export default function SocietarioPage() {
                 <CardTitle className="font-headline">
                     Cadastro de Sócios e Administradores
                 </CardTitle>
-                {filteredPartners && (
+                {!isLoading && (
                     <Badge variant="secondary">{filteredPartners.length}</Badge>
                 )}
               </div>
@@ -229,7 +256,7 @@ export default function SocietarioPage() {
                     ) : (
                       <RefreshCw className="mr-2 h-4 w-4" />
                     )}
-                    Sincronizar Sócios via QSA
+                    Vincular Sócios às Empresas
                   </Button>
                   <Button onClick={() => setIsAddDialogOpen(true)}>
                       <PlusCircle className="mr-2 h-4 w-4" />
@@ -243,10 +270,10 @@ export default function SocietarioPage() {
               <div className="relative w-full md:flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome ou CPF..."
+                  placeholder="Buscar por sócio, CPF ou empresa..."
                   className="pl-8 w-full"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={handleSearchChange}
                 />
               </div>
               <div className="w-full md:w-auto md:min-w-[180px]">
@@ -282,7 +309,7 @@ export default function SocietarioPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome do Sócio</TableHead>
+                  <TableHead>Sócio e Empresa</TableHead>
                   <TableHead>CPF</TableHead>
                   <TableHead>E-CPF Ativo?</TableHead>
                   <TableHead>Validade do E-CPF</TableHead>
@@ -293,23 +320,13 @@ export default function SocietarioPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  Array.from({ length: 3 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell>
-                        <Skeleton className="h-5 w-48" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-32" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-24" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-28" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Skeleton className="h-8 w-8" />
-                      </TableCell>
+                      <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-28" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
                 ) : filteredPartners && filteredPartners.length > 0 ? (
@@ -318,7 +335,10 @@ export default function SocietarioPage() {
                     return (
                       <TableRow key={partner.id}>
                         <TableCell className="font-medium">
-                          {partner.name}
+                           <div className="text-xs text-muted-foreground">
+                            {partner.associatedCompanies?.join(', ')}
+                          </div>
+                          <div>{partner.name}</div>
                         </TableCell>
                         <TableCell>{partner.cpf}</TableCell>
                         <TableCell>
@@ -353,7 +373,7 @@ export default function SocietarioPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                      Nenhum sócio encontrado. Adicione um ou sincronize para começar.
+                      Nenhum sócio encontrado. Clique em "Vincular Sócios às Empresas" para popular a lista.
                     </TableCell>
                   </TableRow>
                 )}
