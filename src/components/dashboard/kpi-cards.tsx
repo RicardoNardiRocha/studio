@@ -6,6 +6,7 @@ import { usePendingObligations } from '@/hooks/use-pending-obligations';
 import { useActiveCompanies } from '@/hooks/use-active-companies';
 import { useInProgressProcesses } from '@/hooks/use-in-progress-processes';
 import { useFinancialsSummary } from '@/hooks/use-financials-summary';
+import { useFiscalSummary } from '@/hooks/use-fiscal-summary'; // Importando o novo hook
 import { format } from 'date-fns';
 
 const formatCurrency = (value: number) => {
@@ -17,6 +18,7 @@ export function KpiCards() {
   const { count: pendingObligations, isLoading: isLoadingObligations } = usePendingObligations();
   const { count: inProgressProcesses, isLoading: isLoadingProcesses } = useInProgressProcesses();
   const { receivedAmount, isLoading: isLoadingFinancials } = useFinancialsSummary();
+  const { inDay, withPendencies, monthDocuments, isLoading: isLoadingFiscal } = useFiscalSummary(); // Usando o novo hook
 
   const kpis = [
      {
@@ -50,6 +52,31 @@ export function KpiCards() {
       description: `Faturas pagas em ${format(new Date(), 'MMMM')}`,
       isLoading: isLoadingFinancials,
       href: '/financeiro'
+    },
+    // Novos KPIs Fiscais
+    {
+      title: 'Fiscal em Dia',
+      value: inDay,
+      icon: 'CheckCircle2',
+      description: 'Empresas com o fiscal em dia',
+      isLoading: isLoadingFiscal,
+      href: '/fiscal'
+    },
+    {
+      title: 'Fiscal com Pendências',
+      value: withPendencies,
+      icon: 'AlertTriangle',
+      description: 'Empresas com pendências fiscais',
+      isLoading: isLoadingFiscal,
+      href: '/fiscal'
+    },
+    {
+      title: 'Documentos Fiscais',
+      value: monthDocuments,
+      icon: 'FileText',
+      description: 'Documentos fiscais do mês',
+      isLoading: isLoadingFiscal,
+      href: '/fiscal'
     },
   ];
 

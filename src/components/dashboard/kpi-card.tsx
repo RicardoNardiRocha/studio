@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import Link from 'next/link';
@@ -43,5 +44,20 @@ export function KpiCard({ title, value, icon, change, changeType, description, h
         </CardContent>
       </Card>
     </Link>
+  );
+}
+
+export function KpiCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-4" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-7 w-16 mb-1" />
+        <Skeleton className="h-3 w-full" />
+      </CardContent>
+    </Card>
   );
 }

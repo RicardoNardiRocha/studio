@@ -86,6 +86,20 @@ service cloud.firestore {
       allow update: if hasPermission('financeiro', 'update');
       allow delete: if hasPermission('financeiro', 'delete');
     }
+
+    match /fiscalDocuments/{documentId} {
+      allow read: if hasPermission('fiscal', 'read');
+      allow create: if hasPermission('fiscal', 'create');
+      allow update: if hasPermission('fiscal', 'update');
+      allow delete: if hasPermission('fiscal', 'delete');
+    }
+
+    match /xmlStatus/{statusId} {
+      allow read: if hasPermission('fiscal', 'read');
+      allow create: if hasPermission('fiscal', 'create');
+      allow update: if hasPermission('fiscal', 'update');
+      allow delete: if hasPermission('fiscal', 'delete');
+    }
     
     match /activities/{activityId} {
       allow read, create: if isSignedIn();

@@ -8,14 +8,20 @@ import { Button } from '@/components/ui/button';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 function AppContent({ children }: { children: ReactNode }) {
     const { isCollapsed } = useSidebar();
+    const isMobile = useIsMobile();
+
+    const mainClass = cn(
+      "transition-all duration-300 ease-in-out",
+      isMobile ? 'ml-0' : (isCollapsed ? 'ml-16' : 'ml-56')
+    )
 
     return (
-        <main 
-            className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'ml-16' : 'ml-56'}`}
-        >
+        <main className={mainClass}>
             <div className="min-h-screen w-full">
                 {children}
             </div>
@@ -26,6 +32,7 @@ function AppContent({ children }: { children: ReactNode }) {
 export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
     const auth = useAuth();
+    const isMobile = useIsMobile();
 
     if (isUserLoading) {
         return (
@@ -52,11 +59,15 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <SidebarProvider>
-            <div className="text-foreground">
+        <SidebarProvider isMobile={isMobile}>
+            <div className="text-foreground bg-background">
                 <AppSidebar />
                 <AppContent>{children}</AppContent>
             </div>
         </SidebarProvider>
     );
+}
+
+function cn(...classes: (string | boolean | undefined)[]): string {
+  return classes.filter(Boolean).join(' ');
 }

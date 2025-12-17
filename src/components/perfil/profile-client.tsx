@@ -197,12 +197,8 @@ export function ProfileClient() {
     )
   }
 
-  const isAdminOrOwner = profile?.isAdmin || profile?.roleId === 'owner';
-
   return (
     <div className="space-y-6">
-       {isAdminOrOwner && <UserManagement />}
-
        <Card>
         <CardHeader>
           <CardTitle>Foto de Perfil</CardTitle>
