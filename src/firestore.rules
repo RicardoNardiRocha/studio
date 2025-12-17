@@ -100,5 +100,13 @@ service cloud.firestore {
       allow read, create: if isSignedIn();
       allow update, delete: if false; // Immutable log
     }
+    
+    // As consultas de grupo de coleção exigem uma regra que se aplica a todos os caminhos.
+    match /{path=**}/attachments/{attachmentId} {
+        allow read: if getUserProfile().permissions.documentos.read == true;
+    }
+     match /{path=**}/documents/{documentId} {
+        allow read: if getUserProfile().permissions.documentos.read == true;
+    }
   }
 }
