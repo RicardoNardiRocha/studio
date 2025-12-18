@@ -34,14 +34,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { differenceInDays, parseISO, isValid, startOfDay } from 'date-fns';
+import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { AppHeader } from '@/components/layout/header';
 
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
 const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
 
-type ValidityStatus = 'Válido' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
-const validityStatusOptions: Array<'Todos' | ValidityStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
+type ValidityStatus = 'Válido' | 'Vencendo em 60 dias' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
+const validityStatusOptions: Array<'Todos' | ValidityStatus> = ['Todos', 'Válido', 'Vencendo em 60 dias', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
 
 const cpfMask = (value: string) => {
     if (!value) return ""
@@ -52,14 +53,14 @@ const cpfMask = (value: string) => {
     return value.slice(0, 14)
 }
 
-const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
+const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; variant: 'default' | 'destructive' | 'secondary' | 'warning'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
   if (!validity) {
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
     const [year, month, day] = validity.split('-').map(Number);
-    const validityDate = new Date(year, month - 1, day);
-    if (!isValid(validityDate)) {
+    const validityDate = startOfDay(new Date(year, month - 1, day));
+     if (!isValid(validityDate)) {
         return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
     }
 
@@ -72,6 +73,9 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
     }
     if (daysLeft <= 30) {
       return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck, dateText };
+    }
+    if (daysLeft <= 60) {
+      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 60 dias', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
     }
     return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck, dateText };
   } catch (e) {
@@ -241,7 +245,7 @@ export default function SocietarioPage() {
           onPartnerDeleted={handleAction}
         />
       )}
-
+      <AppHeader pageTitle="Módulo Societário" />
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
         <Card>
           <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
