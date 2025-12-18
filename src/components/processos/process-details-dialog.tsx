@@ -106,10 +106,10 @@ export function ProcessDetailsDialog({
   const { toast } = useToast();
   const { user, profile } = useUser();
 
-  const attachmentsQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id]);
+  const attachmentsQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id, process.companyId]);
   const { data: attachments, isLoading: isLoadingAttachments } = useCollection(attachmentsQuery);
 
-  const historyQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/history`), orderBy('timestamp', 'desc')), [firestore, process.id]);
+  const historyQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/history`), orderBy('timestamp', 'desc')), [firestore, process.id, process.companyId]);
   const { data: history, isLoading: isLoadingHistory } = useCollection(historyQuery);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -209,7 +209,7 @@ export function ProcessDetailsDialog({
         priority: values.priority,
         startDate: values.startDate,
         protocolDate: values.protocolDate,
-        notes: values.notes,
+        notes: values.notes || '', // Garantir que notes não seja undefined
       };
 
       batch.update(processRef, updatedData);
