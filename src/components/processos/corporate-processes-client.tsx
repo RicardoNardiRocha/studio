@@ -59,23 +59,24 @@ const processTypes = ['Todos', 'Abertura', 'Alteração', 'Baixa', 'Certidão', 
 const processPriorities: Array<'Todos' | ProcessPriority> = ['Todos', 'Baixa', 'Média', 'Alta'];
 
 
-const getStatusBadgeVariant = (status: ProcessStatus): 'default' | 'secondary' | 'destructive' | 'outline' | 'info' | 'warning' => {
+const getStatusBadgeVariant = (status: ProcessStatus): 'success' | 'info' | 'cyan' | 'warning' | 'destructive' | 'outline' | 'secondary' => {
   switch (status) {
     case 'Concluído':
-      return 'default'; // Verde
+      return 'success';
     case 'Em Análise':
-    case 'Em Preenchimento':
     case 'Protocolado':
+      return 'info';
+    case 'Em Preenchimento':
     case 'Em Andamento Externo':
-      return 'info'; // Azul
+      return 'cyan';
     case 'Aguardando Documentação':
     case 'Aguardando Cliente':
     case 'Aguardando Órgão':
-      return 'warning'; // Amarelo
+      return 'warning';
     case 'Cancelado':
-      return 'outline'; // Cinza
+      return 'outline';
     default:
-      return 'secondary'; // Cor padrão
+      return 'secondary';
   }
 };
 

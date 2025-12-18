@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -69,6 +68,27 @@ const toDate = (date: any): Date | undefined => {
     if (typeof date === 'string') return parseISO(date);
     return undefined;
 }
+
+const getStatusBadgeVariant = (status: ProcessStatus): 'success' | 'info' | 'cyan' | 'warning' | 'destructive' | 'outline' | 'secondary' => {
+  switch (status) {
+    case 'Concluído':
+      return 'success';
+    case 'Em Análise':
+    case 'Protocolado':
+      return 'info';
+    case 'Em Preenchimento':
+    case 'Em Andamento Externo':
+      return 'cyan';
+    case 'Aguardando Documentação':
+    case 'Aguardando Cliente':
+    case 'Aguardando Órgão':
+      return 'warning';
+    case 'Cancelado':
+      return 'outline';
+    default:
+      return 'secondary';
+  }
+};
 
 
 export function ProcessDetailsDialog({
@@ -249,7 +269,32 @@ export function ProcessDetailsDialog({
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
                         <div className='grid grid-cols-2 gap-4'>
                          <FormField control={form.control} name="processType" render={({ field }) => (<FormItem><FormLabel>Tipo de Processo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl><SelectContent>{processTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
-                         <FormField control={form.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger></FormControl><SelectContent>{processStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                         <FormField 
+                            control={form.control} 
+                            name="status" 
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Status</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue asChild>
+                                             <Badge variant={getStatusBadgeVariant(field.value)} className="font-medium">{field.value}</Badge>
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {processStatuses.map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                             <Badge variant={getStatusBadgeVariant(status)} className="border-none shadow-none font-medium">{status}</Badge>
+                                        </SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                            <FormField control={form.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Prioridade</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}><FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl><SelectContent>{processPriorities.map((p) => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
