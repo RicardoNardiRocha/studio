@@ -42,6 +42,15 @@ const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
 type ValidityStatus = 'Válido' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
 const validityStatusOptions: Array<'Todos' | ValidityStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
 
+const cpfMask = (value: string) => {
+    if (!value) return ""
+    value = value.replace(/\D/g,'')
+    value = value.replace(/(\d{3})(\d)/,"$1.$2")
+    value = value.replace(/(\d{3})(\d)/,"$1.$2")
+    value = value.replace(/(\d{3})(\d{1,2})$/,"$1-$2")
+    return value.slice(0, 14)
+}
+
 const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
   if (!validity) {
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
@@ -241,7 +250,7 @@ export default function SocietarioPage() {
                   placeholder="Buscar por nome ou CPF..."
                   className="pl-8 w-full"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => setSearchTerm(cpfMask(e.target.value))}
                 />
               </div>
               <div className="w-full md:w-auto md:min-w-[180px]">
@@ -277,8 +286,7 @@ export default function SocietarioPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome do Sócio</TableHead>
-                  <TableHead>CPF</TableHead>
+                  <TableHead>Nome do Sócio</TableHead>                  <TableHead>CPF</TableHead>
                   <TableHead>E-CPF Ativo?</TableHead>
                   <TableHead>Validade do E-CPF</TableHead>
                   <TableHead>
@@ -313,6 +321,9 @@ export default function SocietarioPage() {
                     return (
                       <TableRow key={partner.id}>
                         <TableCell className="font-medium">
+                          <div className="text-xs text-muted-foreground">
+                            {partner.associatedCompanies?.join(', ')}
+                          </div>
                           {partner.name}
                         </TableCell>
                         <TableCell>{partner.cpf}</TableCell>
