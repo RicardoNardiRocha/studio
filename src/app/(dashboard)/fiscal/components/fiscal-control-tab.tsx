@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Search } from 'lucide-react';
 
 // --- Tipos --- //
 
@@ -52,8 +52,8 @@ export function FiscalControlTab() {
   const companiesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'companies') : null, [firestore]);
   const xmlStatusQuery = useMemoFirebase(() => firestore ? collection(firestore, 'xmlStatus') : null, [firestore]);
 
-  const { data: companies, isLoading: loadingCompanies } = useCollection<Company>(companiesQuery);
-  const { data: xmlStatuses, isLoading: loadingXmlStatuses, forceRefetch } = useCollection<XmlStatus>(xmlStatusQuery);
+  const { data: companies, isLoading: loadingCompanies, forceRefetch: refetchCompanies } = useCollection<Company>(companiesQuery);
+  const { data: xmlStatuses, isLoading: loadingXmlStatuses, forceRefetch: refetchStatuses } = useCollection<XmlStatus>(xmlStatusQuery);
 
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
@@ -119,7 +119,7 @@ export function FiscalControlTab() {
   
       await batch.commit();
       toast.success('Status alterado com sucesso!', { id: toastId });
-      forceRefetch(); // Atualiza a UI
+      refetchStatuses(); // Atualiza a UI
     } catch (error) {
       console.error("Erro ao alterar status: ", error);
       toast.error('Erro ao alterar status.', { id: toastId });
@@ -132,16 +132,15 @@ export function FiscalControlTab() {
   return (
     <div>
       <div className="flex flex-col md:flex-row items-center gap-4 my-4">
-        <Input
-            placeholder="Buscar por empresa ou CNPJ..."
-            className="pl-8 w-full md:flex-1"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Button className="w-full md:w-auto" disabled>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Adicionar Notas
-        </Button>
+        <div className="relative w-full md:flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+                placeholder="Buscar por empresa ou CNPJ..."
+                className="pl-8 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
       </div>
       <div className="border rounded-md">
         <Table>
@@ -186,7 +185,9 @@ export function FiscalControlTab() {
             ) : (
               <TableRow>
                 <TableCell colSpan={3} className="h-24 text-center">
-                  Nenhuma empresa configurada para receber XML.
+                  Nenhuma empresa configurada para o controle de XML.
+                  <br/>
+                  <span className="text-sm text-muted-foreground">Clique em "Configurar Empresas" para começar.</span>
                 </TableCell>
               </TableRow>
             )}

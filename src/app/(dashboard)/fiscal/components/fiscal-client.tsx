@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, Search } from 'lucide-react';
+import { Upload, Search, Settings } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,6 +26,7 @@ import { FiscalControlTab } from './fiscal-control-tab';
 import { Badge } from '@/components/ui/badge';
 import { UploadFiscalDocumentDialog } from '@/components/fiscal/upload-fiscal-document-dialog';
 import { FiscalDocumentDetailsDialog } from '@/components/fiscal/fiscal-document-details-dialog';
+import { ConfigureXmlCompaniesDialog } from './configure-xml-companies-dialog';
 
 // Define the shape of a fiscal document
 export type FiscalDocument = {
@@ -40,12 +41,14 @@ export type FiscalDocument = {
 };
 
 const documentStatuses: Array<'Todos' | FiscalDocument['status']> = ['Todos', 'Ativa', 'Cancelada', 'Inutilizada', 'Denegada', 'Rejeitada'];
+const rejectedStatuses: FiscalDocument['status'][] = ['Cancelada', 'Denegada', 'Inutilizada', 'Rejeitada'];
 
 export function FiscalClient() {
   const [activeTab, setActiveTab] = useState('controle');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isConfigureOpen, setIsConfigureOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<FiscalDocument | null>(null);
 
   const firestore = useFirestore();
@@ -69,19 +72,43 @@ export function FiscalClient() {
   const entradaDocuments = useMemo(() => filteredDocuments.filter(doc => doc.documentType === 'Livro de Entrada'), [filteredDocuments]);
   const saidaDocuments = useMemo(() => filteredDocuments.filter(doc => doc.documentType === 'Livro de Saída'), [filteredDocuments]);
 
-  const cardDescription = activeTab === 'controle'
-    ? 'Monitore o envio de arquivos XML para a geração dos livros de saída.'
-    : 'Gerencie os livros de entrada, saída e notas fiscais.';
+  // Documentos para a nova aba de Notas com pendência
+  const rejectedSaidaNotes = useMemo(() => {
+      if (!documents) return [];
+      return documents.filter(doc => doc.documentType === 'Nota Fiscal' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
+  }, [documents, searchTerm]);
+  
+  const rejectedEntradaNotes = useMemo(() => {
+       if (!documents) return [];
+      return documents.filter(doc => doc.documentType === 'Nota Fiscal' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
+  }, [documents, searchTerm]);
+
+
+  const getCardDescription = () => {
+    switch (activeTab) {
+      case 'controle':
+        return 'Monitore o envio de arquivos XML para a geração dos livros de saída.';
+      case 'saida':
+      case 'entrada':
+        return 'Gerencie os livros de entrada, saída e notas fiscais.';
+      case 'notas':
+        return 'Visualize notas fiscais com status de Cancelada, Denegada, Inutilizada ou Rejeitada.';
+      default:
+        return '';
+    }
+  };
 
   const handleAction = () => {
     forceRefetch();
     setIsUploadOpen(false);
+    setIsConfigureOpen(false);
     setSelectedDocument(null);
   };
 
   return (
     <>
       <UploadFiscalDocumentDialog open={isUploadOpen} onOpenChange={setIsUploadOpen} onUploadComplete={handleAction} />
+      <ConfigureXmlCompaniesDialog open={isConfigureOpen} onOpenChange={setIsConfigureOpen} onSave={handleAction} />
       {selectedDocument && (
         <FiscalDocumentDetailsDialog document={selectedDocument} open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)} />
       )}
@@ -94,23 +121,28 @@ export function FiscalClient() {
                     <Badge variant="secondary">{documents.length}</Badge>
                   )}
               </div>
-            <CardDescription>{cardDescription}</CardDescription>
+            <CardDescription>{getCardDescription()}</CardDescription>
           </div>
-          {activeTab !== 'controle' && (
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              <Button onClick={() => setIsUploadOpen(true)} className="w-full sm:w-auto">
-                <Upload className="mr-2 h-4 w-4" />
-                Enviar Documento
-              </Button>
-            </div>
-          )}
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+             {activeTab === 'controle' && (
+                <Button onClick={() => setIsConfigureOpen(true)} variant="outline">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurar Empresas
+                </Button>
+            )}
+            <Button onClick={() => setIsUploadOpen(true)} className="w-full sm:w-auto">
+              <Upload className="mr-2 h-4 w-4" />
+              Enviar Documento
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="controle" onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="controle">Controle</TabsTrigger>
-              <TabsTrigger value="saida">Saída</TabsTrigger>
-              <TabsTrigger value="entrada">Entrada</TabsTrigger>
+              <TabsTrigger value="saida">Livros de Saída</TabsTrigger>
+              <TabsTrigger value="entrada">Livros de Entrada</TabsTrigger>
+              <TabsTrigger value="notas">Notas Fiscais</TabsTrigger>
             </TabsList>
 
             {activeTab !== 'controle' && (
@@ -124,18 +156,20 @@ export function FiscalClient() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="w-full md:w-auto md:min-w-[200px]">
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Filtrar por status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {documentStatuses.map(status => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {activeTab !== 'notas' && (
+                  <div className="w-full md:w-auto md:min-w-[200px]">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Filtrar por status..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {documentStatuses.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -148,6 +182,20 @@ export function FiscalClient() {
             <TabsContent value="entrada">
               <FiscalDocumentsTable documents={entradaDocuments} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
             </TabsContent>
+             <TabsContent value="notas">
+                <Tabs defaultValue="saida_notas" className="mt-4">
+                    <TabsList>
+                        <TabsTrigger value="saida_notas">Notas de Saída</TabsTrigger>
+                        <TabsTrigger value="entrada_notas">Notas de Entrada</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="saida_notas">
+                         <FiscalDocumentsTable documents={rejectedSaidaNotes} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
+                    </TabsContent>
+                     <TabsContent value="entrada_notas">
+                         <FiscalDocumentsTable documents={rejectedEntradaNotes} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
+                    </TabsContent>
+                </Tabs>
+             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
