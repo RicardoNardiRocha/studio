@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp, collection, getDocs, limit, query } from 'firebase/firestore';
+import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp, collection, getDocs, limit, query, writeBatch } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -134,29 +134,33 @@ export function FirebaseProvider({
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-          // Check if any other user exists to determine if this is the first user
-          const usersQuery = query(collection(firestore, 'users'), limit(2)); // Check for more than 1 document
-          const existingUsersSnap = await getDocs(usersQuery);
           
-          // isFirstUser is true if there are no other documents or only this user's (which is not created yet)
-          const isFirstUser = existingUsersSnap.docs.filter(d => d.id !== firebaseUser.uid).length === 0;
-
-          const newUserProfile: UserProfile = {
+          const defaultUserProfile: UserProfile = {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Novo Usuário',
             email: firebaseUser.email || '',
-            // If first user, grant admin permissions, otherwise default permissions.
-            permissions: isFirstUser ? adminPermissions : defaultPermissions,
+            permissions: defaultPermissions,
             photoURL: firebaseUser.photoURL || '',
           };
-          
+
           try {
-            await setDoc(userRef, newUserProfile);
-          } catch(e) {
-             console.error("Error creating user profile: ", e);
-             signOut(auth);
-             setState({ user: null, profile: null, isUserLoading: false, userError: e as Error });
-             return;
+            const batch = writeBatch(firestore);
+            batch.set(userRef, defaultUserProfile);
+            await batch.commit();
+
+            const usersQuery = query(collection(firestore, 'users'), limit(2));
+            const existingUsersSnap = await getDocs(usersQuery);
+            const isFirstUser = existingUsersSnap.docs.length === 1 && existingUsersSnap.docs[0].id === firebaseUser.uid;
+
+            if (isFirstUser) {
+              await setDoc(userRef, { permissions: adminPermissions }, { merge: true });
+            }
+
+          } catch (e) {
+            console.error("Error creating user profile:", e);
+            signOut(auth);
+            setState({ user: null, profile: null, isUserLoading: false, userError: e as Error });
+            return;
           }
         }
         
