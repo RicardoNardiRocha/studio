@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { Loader2, Trash2, ShieldCheck, UploadCloud, Download } from 'lucide-react';
+import { Loader2, Trash2, ShieldCheck, UploadCloud, Download, MessageSquare, Phone, Mail } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc } from 'firebase/firestore';
@@ -49,7 +49,6 @@ interface RawPartnerFromApi {
   data_entrada_sociedade: string;
   cnpj_cpf_do_socio?: string;
   percentual_capital_social?: number;
-  // Adicione outros campos brutos conforme necessário
 }
 
 // Interface para os dados normalizados que usaremos no app
@@ -79,6 +78,9 @@ export interface Company {
     qsa?: RawPartnerFromApi[]; // Usamos a interface de dados brutos aqui
     certificateA1Validity?: string;
     certificateA1Url?: string;
+    internalEmail?: string;
+    internalPhone?: string;
+    whatsappGroup?: string;
 }
 
 interface CompanyDetailsDialogProps {
@@ -91,6 +93,9 @@ interface CompanyDetailsDialogProps {
 
 const formSchema = z.object({
   taxRegime: z.string(),
+  internalEmail: z.string().email({ message: "Formato de e-mail inválido." }).optional().or(z.literal('')),
+  internalPhone: z.string().optional(),
+  whatsappGroup: z.string().optional(),
 });
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
@@ -142,6 +147,9 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
     resolver: zodResolver(formSchema),
     defaultValues: {
       taxRegime: company.taxRegime,
+      internalEmail: company.internalEmail || '',
+      internalPhone: company.internalPhone || '',
+      whatsappGroup: company.whatsappGroup || '',
     },
   });
 
@@ -187,6 +195,9 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       
       const updatedCompanyData = {
         taxRegime: values.taxRegime,
+        internalEmail: values.internalEmail,
+        internalPhone: values.internalPhone,
+        whatsappGroup: values.whatsappGroup,
       };
 
       setDocumentNonBlocking(companyRef, updatedCompanyData, { merge: true });
@@ -293,17 +304,65 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                             <p className="font-medium">{company.cnae || 'Não informado'}</p>
                         </div>
                       </div>
+                      
+                      <Separator/>
+                      
+                       <div>
+                        <h3 className="font-semibold font-headline mb-4">Contato Interno</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormField
+                              control={form.control}
+                              name="internalEmail"
+                              render={({ field }) => (
+                                  <FormItem>
+                                  <FormLabel className='flex items-center gap-2 text-muted-foreground'><Mail className="h-4 w-4"/> E-mail Interno</FormLabel>
+                                  <FormControl>
+                                      <Input placeholder="email@contato.com" {...field} disabled={!profile?.permissions.empresas.update}/>
+                                  </FormControl>
+                                  <FormMessage />
+                                  </FormItem>
+                              )}
+                          />
+                          <FormField
+                              control={form.control}
+                              name="internalPhone"
+                              render={({ field }) => (
+                                  <FormItem>
+                                  <FormLabel className='flex items-center gap-2 text-muted-foreground'><Phone className="h-4 w-4"/> Contato (Telefone)</FormLabel>
+                                  <FormControl>
+                                      <Input placeholder="(00) 00000-0000" {...field} disabled={!profile?.permissions.empresas.update}/>
+                                  </FormControl>
+                                  <FormMessage />
+                                  </FormItem>
+                              )}
+                          />
+                           <FormField
+                              control={form.control}
+                              name="whatsappGroup"
+                              render={({ field }) => (
+                                  <FormItem>
+                                  <FormLabel className='flex items-center gap-2 text-muted-foreground'><MessageSquare className="h-4 w-4"/> Grupo de WhatsApp</FormLabel>
+                                  <FormControl>
+                                      <Input placeholder="Link ou nome do grupo" {...field} disabled={!profile?.permissions.empresas.update}/>
+                                  </FormControl>
+                                  <FormMessage />
+                                  </FormItem>
+                              )}
+                          />
+                        </div>
+                      </div>
+
                     </Form>
 
                     <Separator/>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className='space-y-2'>
-                          <h3 className="font-semibold font-headline">Endereço</h3>
+                          <h3 className="font-semibold font-headline">Endereço Cadastrado</h3>
                           <p className="text-sm text-muted-foreground">{company.address || 'Não informado'}</p>
                       </div>
                       <div className='space-y-2'>
-                          <h3 className="font-semibold font-headline">Contato</h3>
+                          <h3 className="font-semibold font-headline">Contato Cadastrado</h3>
                           <p className="text-sm text-muted-foreground">
                           Telefone: {company.phone || 'Não informado'} <br/>
                           Email: {company.email || 'Não informado'}

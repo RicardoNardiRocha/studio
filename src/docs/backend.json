@@ -116,6 +116,19 @@
         "members": {
           "type": "object",
           "description": "Map of user UIDs to their roles within this company for access control. Example: { 'uid1': 'admin', 'uid2': 'viewer' }."
+        },
+        "internalEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Internal contact email for the company."
+        },
+        "internalPhone": {
+          "type": "string",
+          "description": "Internal contact phone number for the company."
+        },
+        "whatsappGroup": {
+          "type": "string",
+          "description": "Internal contact for the company's WhatsApp group."
         }
       },
       "required": [
