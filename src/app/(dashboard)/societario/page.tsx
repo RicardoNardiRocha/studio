@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -19,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,8 +33,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
+import { differenceInDays, isValid, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
 const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
@@ -93,6 +93,7 @@ export default function SocietarioPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
   const { profile } = useUser();
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
 
   const firestore = useFirestore();
 
@@ -113,6 +114,14 @@ export default function SocietarioPage() {
       setSearchTerm(value);
     }
   };
+  
+  const expiringCertificates = useMemo(() => {
+    if (!partners) return [];
+    return partners.filter(p => {
+      const statusInfo = getCertificateStatusInfo(p.ecpfValidity);
+      return statusInfo.status === 'Vencido' || statusInfo.status === 'Vencendo em 30 dias' || statusInfo.status === 'Vencendo em 60 dias';
+    });
+  }, [partners]);
 
   const filteredPartners = useMemo(() => {
     if (!partners) return [];
@@ -245,6 +254,23 @@ export default function SocietarioPage() {
         />
       )}
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
+        <div className="mb-4">
+        {!isAlertDismissed && expiringCertificates.length > 0 && (
+            <Alert variant="destructive" className="relative">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Atenção: e-CPFs Vencendo!</AlertTitle>
+            <AlertDescription>
+                Você possui <strong>{expiringCertificates.length}</strong> certificados de sócios vencidos ou vencendo nos próximos 60 dias.
+            </AlertDescription>
+            <button
+                onClick={() => setIsAlertDismissed(true)}
+                className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+            >
+                <X className="h-4 w-4" />
+            </button>
+            </Alert>
+        )}
+        </div>
         <Card>
           <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
@@ -346,8 +372,15 @@ export default function SocietarioPage() {
                 ) : filteredPartners && filteredPartners.length > 0 ? (
                   filteredPartners.map((partner) => {
                     const certStatus = getCertificateStatusInfo(partner.ecpfValidity);
+                    let rowVariant: 'destructive' | 'warning' | undefined = undefined;
+                    if (certStatus.status === 'Vencido' || certStatus.status === 'Vencendo em 30 dias') {
+                        rowVariant = 'destructive';
+                    } else if (certStatus.status === 'Vencendo em 60 dias') {
+                        rowVariant = 'warning';
+                    }
+
                     return (
-                      <TableRow key={partner.id}>
+                      <TableRow key={partner.id} className={rowVariant === 'destructive' ? 'bg-destructive/10' : rowVariant === 'warning' ? 'bg-yellow-500/10' : ''}>
                         <TableCell className="font-medium">
                           <div className="text-xs text-muted-foreground">
                             {partner.associatedCompanies?.join(', ')}
