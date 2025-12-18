@@ -19,7 +19,9 @@ service cloud.firestore {
     }
     
     function hasPermission(module, permission) {
-        return getUserProfile(request.auth.uid).permissions[module][permission] == true;
+        // Verifica se o caminho do perfil existe antes de tentar acessar
+        return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+               && getUserProfile(request.auth.uid).permissions[module][permission] == true;
     }
 
     // =========================================================================
@@ -34,8 +36,10 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
+      // Qualquer usuário logado pode criar uma empresa, pois essa é uma ação primária do sistema.
+      // Leitura, atualização e exclusão permanecem protegidas por permissões.
+      allow create: if isSignedIn();
       allow read: if hasPermission('empresas', 'read');
-      allow create: if hasPermission('empresas', 'create');
       allow update: if hasPermission('empresas', 'update');
       allow delete: if hasPermission('empresas', 'delete');
 
