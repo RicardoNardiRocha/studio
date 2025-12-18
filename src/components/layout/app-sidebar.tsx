@@ -41,14 +41,16 @@ const settingsMenuItems = [
 
 const hasAccess = (itemId: string, profile: UserProfile | null): boolean => {
     if (!profile || !profile.permissions) return false;
-
+    
+    // O dashboard é especial e sempre visível se a permissão de leitura existir.
     if (itemId === 'dashboard') return profile.permissions.dashboard?.read === true;
 
     const moduleKey = itemId as keyof UserProfile['permissions'];
     const permission = profile.permissions[moduleKey];
     
-    return !!permission && permission.read === true;
+    return !!permission?.read;
 };
+
 
 const NavLink = ({ href, label, icon: Icon, isCollapsed, pathname }: { href: string, label: string, icon: React.ElementType, isCollapsed: boolean, pathname: string }) => (
     <Link href={href}>
