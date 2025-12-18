@@ -23,6 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
@@ -92,6 +102,8 @@ const getPriorityIcon = (priority: ProcessPriority) => {
 export function CorporateProcessesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [alertCallback, setAlertCallback] = useState<{ onConfirm: () => void } | null>(null);
   const [selectedProcess, setSelectedProcess] = useState<CorporateProcess | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
@@ -163,14 +175,24 @@ export function CorporateProcessesClient() {
   
   const handleStatusChange = async (process: CorporateProcess, newStatus: ProcessStatus) => {
     if (!firestore) return;
-    const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
-    try {
-        await updateDoc(processRef, { status: newStatus });
-        forceRefetch();
-        toast({ title: "Status atualizado com sucesso!" });
-    } catch (error) {
-        console.error("Failed to update status:", error);
-        toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    
+    const changeAction = async () => {
+        const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
+        try {
+            await updateDoc(processRef, { status: newStatus });
+            forceRefetch();
+            toast({ title: "Status atualizado com sucesso!" });
+        } catch (error) {
+            console.error("Failed to update status:", error);
+            toast({ title: "Erro ao atualizar status", variant: "destructive" });
+        }
+    };
+
+    if ((process.status === 'Concluído' || process.status === 'Cancelado') && newStatus !== process.status) {
+        setAlertCallback({ onConfirm: changeAction });
+        setIsAlertOpen(true);
+    } else {
+        changeAction();
     }
   };
 
@@ -217,6 +239,23 @@ export function CorporateProcessesClient() {
 
   return (
     <>
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este processo já está marcado como finalizado. Reabri-lo irá alterar seu status. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => alertCallback?.onConfirm()}>
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {profile?.permissions.processos.create && (
         <AddProcessDialog
           open={isAddDialogOpen}
