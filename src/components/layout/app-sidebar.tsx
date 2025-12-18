@@ -45,9 +45,6 @@ const hasAccess = (itemId: string, profile: UserProfile | null): boolean => {
     const moduleKey = itemId as keyof UserProfile['permissions'];
     const permission = profile.permissions[moduleKey];
     
-    // O dashboard é especial e sempre visível se a permissão de leitura existir.
-    if (itemId === 'dashboard') return permission?.read === true;
-    
     return !!permission?.read;
 };
 
