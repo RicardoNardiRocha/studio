@@ -99,17 +99,39 @@ export default function SocietarioPage() {
 
   const { data: partners, isLoading, forceRefetch } = useCollection<Partner>(partnersCollection);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const onlyNumbers = /^\d*$/.test(value.replace(/[.\-/]/g, ''));
+    
+    if (onlyNumbers) {
+      setSearchTerm(cpfMask(value));
+    } else {
+      setSearchTerm(value);
+    }
+  };
+
   const filteredPartners = useMemo(() => {
     if (!partners) return [];
+
+    const searchTermLower = searchTerm.toLowerCase();
+    const hasLetters = /[a-zA-Z]/.test(searchTerm);
+    const hasNumbers = /[0-9]/.test(searchTerm);
+    
     return partners.filter(partner => {
-      const searchTermLower = searchTerm.toLowerCase();
-      const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
+      let searchMatch = false;
 
-      const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
-      const cpfMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : false;
-      const companyMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower));
-
-      const searchMatch = nameMatch || cpfMatch || companyMatch;
+      // Logic based on search term content
+      if (hasLetters && hasNumbers) { // Search only company names
+        searchMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower)) ?? false;
+      } else if (hasLetters) { // Search partner name or company name
+        const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
+        const companyMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower)) ?? false;
+        searchMatch = nameMatch || companyMatch;
+      } else { // Search only CPF (hasNumbers is implied)
+        const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
+        searchMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : true; // show all if empty
+      }
+      
       const ecpfMatch = ecpfFilter === 'Todos' || (ecpfFilter === 'Sim' && partner.hasECPF) || (ecpfFilter === 'Não' && !partner.hasECPF);
       const validityMatch = validityFilter === 'Todos' || getCertificateStatusInfo(partner.ecpfValidity).status === validityFilter;
 
@@ -117,19 +139,6 @@ export default function SocietarioPage() {
     });
   }, [partners, searchTerm, ecpfFilter, validityFilter]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    // Check if input value contains any letters.
-    const hasLetters = /[a-zA-Z]/.test(value);
-
-    // If it has letters, it's a name search, so set the term directly.
-    // Otherwise, it's a CPF search, so apply the mask.
-    if (hasLetters) {
-      setSearchTerm(value);
-    } else {
-      setSearchTerm(cpfMask(value));
-    }
-  };
 
   const handleSyncPartners = async () => {
     if (!firestore) {
