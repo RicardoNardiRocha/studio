@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { logActivity } from '@/lib/activity-log';
+import { Input } from '../ui/input';
 
 interface AddProcessDialogProps {
   open: boolean;
@@ -56,12 +57,21 @@ const processPriorities: Array<'Baixa' | 'Média' | 'Alta'> = ['Baixa', 'Média'
 
 
 const formSchema = z.object({
-  companyId: z.string({ required_error: 'Selecione uma empresa.' }),
   processType: z.string({ required_error: 'Selecione o tipo de processo.' }),
+  companyId: z.string().optional(),
+  companyName: z.string().optional(),
   status: z.enum(processStatuses),
   priority: z.enum(processPriorities),
   startDate: z.date({ required_error: 'A data de início é obrigatória.' }),
   protocolDate: z.date().optional().nullable(),
+}).refine(data => {
+    if (data.processType === 'Abertura') {
+        return !!data.companyName && data.companyName.length > 0;
+    }
+    return !!data.companyId;
+}, {
+    message: 'Selecione uma empresa ou, para "Abertura", digite o nome da nova empresa.',
+    path: ['companyId'], // A mensagem de erro será associada a este campo
 });
 
 
@@ -96,7 +106,20 @@ export function AddProcessDialog({
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const processType = form.watch('processType');
+  const isOpeningProcess = processType === 'Abertura';
+
+  useEffect(() => {
+    // Limpa o campo oposto quando o tipo de processo muda
+    if (isOpeningProcess) {
+        form.setValue('companyId', undefined);
+    } else {
+        form.setValue('companyName', undefined);
+    }
+  }, [isOpeningProcess, form]);
+
+
+  const onSubmit = async (values: z.infer<typeof formSchema>>) => {
     if (!firestore || !user) {
       toast({
         title: 'Erro',
@@ -107,17 +130,38 @@ export function AddProcessDialog({
     }
     setIsLoading(true);
 
-    try {
-      const company = companies?.find(c => c.id === values.companyId);
-      if (!company) throw new Error("Empresa não encontrada.");
+    const isOpening = values.processType === 'Abertura';
+    let companyId: string;
+    let companyName: string;
 
+    if (isOpening) {
+        if (!values.companyName) {
+            toast({title: 'Erro', description: 'O nome da empresa é obrigatório para processos de abertura.', variant: 'destructive'});
+            setIsLoading(false);
+            return;
+        }
+        // Para abertura, usamos um ID temporário ou o nome da empresa como ID provisório
+        companyId = values.companyName.toLowerCase().replace(/\s+/g, '-');
+        companyName = values.companyName;
+    } else {
+        const company = companies?.find(c => c.id === values.companyId);
+        if (!company) {
+            toast({title: 'Erro', description: 'Empresa selecionada não encontrada.', variant: 'destructive'});
+            setIsLoading(false);
+            return;
+        }
+        companyId = company.id;
+        companyName = company.name;
+    }
+
+    try {
       const batch = writeBatch(firestore);
-      const processDocRef = doc(collection(firestore, 'companies', company.id, 'corporateProcesses'));
+      const processDocRef = doc(collection(firestore, 'companies', companyId, 'corporateProcesses'));
 
       const newProcess = {
         id: processDocRef.id,
-        companyId: values.companyId,
-        companyName: company.name, 
+        companyId: companyId,
+        companyName: companyName,
         processType: values.processType,
         status: values.status,
         priority: values.priority,
@@ -130,7 +174,7 @@ export function AddProcessDialog({
       
       batch.set(processDocRef, newProcess);
       
-      const historyCollectionRef = collection(firestore, `companies/${company.id}/corporateProcesses/${processDocRef.id}/history`);
+      const historyCollectionRef = collection(firestore, `companies/${companyId}/corporateProcesses/${processDocRef.id}/history`);
       const historyDocRef = doc(historyCollectionRef);
       batch.set(historyDocRef, {
         id: historyDocRef.id,
@@ -142,11 +186,11 @@ export function AddProcessDialog({
 
       await batch.commit();
       
-      logActivity(firestore, user, `iniciou o processo de ${values.processType} para ${company.name}.`);
+      logActivity(firestore, user, `iniciou o processo de ${values.processType} para ${companyName}.`);
 
       toast({
         title: 'Processo Adicionado!',
-        description: `O processo de ${values.processType} para ${company.name} foi criado.`,
+        description: `O processo de ${values.processType} para ${companyName} foi criado.`,
       });
 
       onProcessAdded();
@@ -158,8 +202,9 @@ export function AddProcessDialog({
         companyId: undefined,
         processType: undefined,
         protocolDate: undefined,
+        companyName: undefined,
       });
-    } catch (error: any) {
+    } catch (error: any) => {
       console.error(error);
       toast({
         title: 'Erro ao adicionar processo',
@@ -182,18 +227,7 @@ export function AddProcessDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
-            <FormField
-              control={form.control}
-              name="companyId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Empresa</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger></FormControl><SelectContent>{companies?.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent></Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
+             <FormField
               control={form.control}
               name="processType"
               render={({ field }) => (
@@ -205,6 +239,37 @@ export function AddProcessDialog({
               )}
             />
 
+            {isOpeningProcess ? (
+                 <FormField
+                    control={form.control}
+                    name="companyName"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Nome da Nova Empresa</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Digite o nome da empresa a ser aberta" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+            ) : (
+                <FormField
+                control={form.control}
+                name="companyId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Empresa</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!processType}>
+                        <FormControl><SelectTrigger><SelectValue placeholder={!processType ? "Selecione o tipo de processo primeiro" : "Selecione a empresa"} /></SelectTrigger></FormControl>
+                        <SelectContent>{companies?.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
+           
             <div className="grid grid-cols-2 gap-4">
                 <FormField
                     control={form.control}
