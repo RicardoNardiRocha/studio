@@ -14,7 +14,7 @@ import { AlertsTable } from '@/components/dashboard/alerts-table';
 export default function DashboardPage() {
   return (
     <>
-      <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
+      <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
            <KpiCards />
         </div>

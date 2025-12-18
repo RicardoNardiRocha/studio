@@ -6,22 +6,30 @@ import { usePendingObligations } from '@/hooks/use-pending-obligations';
 import { useActiveCompanies } from '@/hooks/use-active-companies';
 import { useInProgressProcesses } from '@/hooks/use-in-progress-processes';
 import { useFinancialsSummary } from '@/hooks/use-financials-summary';
-import { useFiscalSummary } from '@/hooks/use-fiscal-summary'; // Importando o novo hook
-import { format } from 'date-fns';
+import { useFiscalSummary } from '@/hooks/use-fiscal-summary';
+import { format, subMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useUser } from '@/firebase';
 
 const formatCurrency = (value: number) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 export function KpiCards() {
+  const { profile } = useUser();
   const { count: activeCompanies, isLoading: isLoadingCompanies } = useActiveCompanies();
   const { count: pendingObligations, isLoading: isLoadingObligations } = usePendingObligations();
   const { count: inProgressProcesses, isLoading: isLoadingProcesses } = useInProgressProcesses();
   const { receivedAmount, isLoading: isLoadingFinancials } = useFinancialsSummary();
-  const { inDay, withPendencies, monthDocuments, isLoading: isLoadingFiscal } = useFiscalSummary(); // Usando o novo hook
+  const { dasSent, dasPending, isLoading: isLoadingFiscal } = useFiscalSummary();
+
+  const prevMonthName = format(subMonths(new Date(), 1), 'MMMM', { locale: ptBR });
+  const currentMonthName = format(new Date(), 'MMMM', { locale: ptBR });
+
 
   const kpis = [
      {
+      id: 'activeCompanies',
       title: 'Empresas Ativas',
       value: activeCompanies,
       icon: 'Building',
@@ -30,6 +38,7 @@ export function KpiCards() {
       href: '/empresas'
     },
     {
+      id: 'pendingObligations',
       title: 'Obrigações Pendentes',
       value: pendingObligations,
       icon: 'CalendarClock',
@@ -38,6 +47,7 @@ export function KpiCards() {
       href: '/obrigacoes'
     },
     {
+      id: 'inProgressProcesses',
       title: 'Processos em Andamento',
       value: inProgressProcesses,
       icon: 'Workflow',
@@ -46,48 +56,48 @@ export function KpiCards() {
       href: '/processos'
     },
      {
+      id: 'receivedAmount',
       title: 'Recebimentos do Mês',
       value: formatCurrency(receivedAmount),
       icon: 'Landmark',
-      description: `Faturas pagas em ${format(new Date(), 'MMMM')}`,
+      description: `Faturas pagas em ${currentMonthName}`,
       isLoading: isLoadingFinancials,
-      href: '/financeiro'
+      href: '/financeiro',
+      permission: 'financeiro'
     },
-    // Novos KPIs Fiscais
     {
-      title: 'Fiscal em Dia',
-      value: inDay,
+      id: 'dasSent',
+      title: 'DAS Enviados',
+      value: dasSent,
       icon: 'CheckCircle2',
-      description: 'Empresas com o fiscal em dia',
+      description: `Competência: ${prevMonthName}`,
       isLoading: isLoadingFiscal,
       href: '/fiscal'
     },
     {
-      title: 'Fiscal com Pendências',
-      value: withPendencies,
+      id: 'dasPending',
+      title: 'DAS Pendentes',
+      value: dasPending,
       icon: 'AlertTriangle',
-      description: 'Empresas com pendências fiscais',
-      isLoading: isLoadingFiscal,
-      href: '/fiscal'
-    },
-    {
-      title: 'Documentos Fiscais',
-      value: monthDocuments,
-      icon: 'FileText',
-      description: 'Documentos fiscais do mês',
+      description: `Competência: ${prevMonthName}`,
       isLoading: isLoadingFiscal,
       href: '/fiscal'
     },
   ];
 
+  const canShow = (permissionKey?: string) => {
+    if (!permissionKey) return true;
+    return profile?.permissions[permissionKey as keyof typeof profile.permissions]?.read === true;
+  }
+
   return (
     <>
-      {kpis.map((kpi) =>
+      {kpis.filter(kpi => canShow(kpi.permission)).map((kpi) =>
         kpi.isLoading ? (
-          <CardSkeleton key={kpi.title} />
+          <CardSkeleton key={kpi.id} />
         ) : (
           <KpiCard
-            key={kpi.title}
+            key={kpi.id}
             title={kpi.title}
             value={String(kpi.value)}
             icon={kpi.icon as any}

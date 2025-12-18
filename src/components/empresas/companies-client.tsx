@@ -46,21 +46,20 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
   }
 };
 
-type CertificateStatus = 'Válido' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
+type CertificateStatus = 'Válido' | 'Vencendo em 60 dias' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
 
-const getCertificateStatusInfo = (validity?: string): { text: string; status: CertificateStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
+const getCertificateStatusInfo = (validity?: string): { text: string; status: CertificateStatus; variant: 'default' | 'destructive' | 'secondary' | 'warning'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
   if (!validity) {
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
-    // Adiciona o fuso horário para garantir que a data seja interpretada corretamente
     const validityDate = parseISO(validity + 'T00:00:00-03:00');
     if (!isValid(validityDate)) {
         return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas as datas
+    today.setHours(0, 0, 0, 0); 
     const daysLeft = differenceInDays(validityDate, today);
     const dateText = validityDate.toLocaleDateString('pt-BR');
 
@@ -70,6 +69,9 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
     if (daysLeft <= 30) {
       return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck, dateText };
     }
+    if (daysLeft <= 60) {
+      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 60 dias', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
+    }
     return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck, dateText };
   } catch (e) {
     return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
@@ -78,7 +80,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
-const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
+const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 60 dias', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
 const companyStatuses = ['Todos', 'ATIVA', 'INAPTA', 'BAIXADA'];
 
 

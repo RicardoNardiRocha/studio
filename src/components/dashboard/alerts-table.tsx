@@ -1,28 +1,32 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, getDocs, Timestamp, collectionGroup } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { collection, query, where, getDocs, Timestamp, collectionGroup, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, FileWarning, CalendarClock, AlertTriangle } from 'lucide-react';
+import { ArrowRight, FileWarning, CalendarClock, AlertTriangle, ArrowUpDown, Filter } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import { parseISO, isBefore, startOfDay, endOfDay, addDays, formatDistanceToNow } from 'date-fns';
+import { parseISO, isBefore, startOfDay, endOfDay, addDays, formatDistanceToNow, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface Alert {
-  type: 'Certificado Vencido' | 'Obrigação Atrasada' | 'Processo em Exigência' | 'Obrigação Vencendo';
+  type: 'Certificado Vencendo' | 'Certificado Vencido' | 'Obrigação Atrasada' | 'Processo em Exigência' | 'Obrigação Vencendo';
   entityName: string;
   details: string;
   date: Date;
   link: string;
 }
 
+const alertTypes: Alert['type'][] = ['Certificado Vencendo', 'Certificado Vencido', 'Obrigação Atrasada', 'Processo em Exigência', 'Obrigação Vencendo'];
+
 const getAlertInfo = (alertType: Alert['type']) => {
     switch (alertType) {
+        case 'Certificado Vencendo':
+            return { Icon: FileWarning, variant: 'secondary' as const };
         case 'Certificado Vencido':
             return { Icon: FileWarning, variant: 'destructive' as const };
         case 'Obrigação Atrasada':
@@ -39,6 +43,8 @@ const getAlertInfo = (alertType: Alert['type']) => {
 export function AlertsTable() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Alert, direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+  const [filterType, setFilterType] = useState('Todos');
   const firestore = useFirestore();
 
   useEffect(() => {
@@ -53,24 +59,19 @@ export function AlertsTable() {
       try {
         const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
 
-        // Check for expired certificates from companies and partners
         for (const doc of companiesSnapshot.docs) {
           const company = doc.data();
           if (company.certificateA1Validity) {
             try {
               const validityDate = parseISO(company.certificateA1Validity);
-              if (isBefore(validityDate, today)) {
-                identifiedAlerts.push({
-                  type: 'Certificado Vencido',
-                  entityName: company.name,
-                  details: `Certificado A1 da empresa venceu`,
-                  date: validityDate,
-                  link: '/empresas'
-                });
+              const daysLeft = differenceInDays(validityDate, today);
+
+              if (daysLeft < 0) {
+                identifiedAlerts.push({ type: 'Certificado Vencido', entityName: company.name, details: `Certificado A1 venceu`, date: validityDate, link: '/empresas' });
+              } else if (daysLeft <= 60) {
+                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: company.name, details: `Certificado A1 vence em ${daysLeft} dias`, date: validityDate, link: '/empresas' });
               }
-            } catch (e) {
-                console.warn(`Invalid certificate date for company ${company.id}`);
-            }
+            } catch (e) { console.warn(`Invalid certificate date for company ${company.id}`); }
           }
         }
         
@@ -80,70 +81,37 @@ export function AlertsTable() {
           if (partner.ecpfValidity) {
             try {
               const validityDate = parseISO(partner.ecpfValidity);
-              if (isBefore(validityDate, today)) {
-                identifiedAlerts.push({
-                  type: 'Certificado Vencido',
-                  entityName: partner.name,
-                  details: `e-CPF do sócio venceu`,
-                  date: validityDate,
-                  link: '/societario'
-                });
+              const daysLeft = differenceInDays(validityDate, today);
+
+              if (daysLeft < 0) {
+                identifiedAlerts.push({ type: 'Certificado Vencido', entityName: partner.name, details: `e-CPF do sócio venceu`, date: validityDate, link: '/societario' });
+              } else if (daysLeft <= 60) {
+                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: partner.name, details: `e-CPF vence em ${daysLeft} dias`, date: validityDate, link: '/societario' });
               }
-            } catch (e) {
-                console.warn(`Invalid certificate date for partner ${partner.id}`);
-            }
+            } catch (e) { console.warn(`Invalid certificate date for partner ${partner.id}`); }
           }
         }
 
-
-        // Check for overdue and upcoming obligations
-        const obligationsQuery = query(
-          collectionGroup(firestore, `taxObligations`),
-          where('status', 'in', ['Pendente', 'Atrasada'])
-        );
+        const obligationsQuery = query( collectionGroup(firestore, `taxObligations`), where('status', 'in', ['Pendente', 'Atrasada']));
         const obligationsSnapshot = await getDocs(obligationsQuery);
         obligationsSnapshot.forEach(doc => {
             const ob = doc.data();
             const dueDate = (ob.dataVencimento as Timestamp).toDate();
             if(ob.status === 'Atrasada' || isBefore(dueDate, today)) {
-                 identifiedAlerts.push({
-                  type: 'Obrigação Atrasada',
-                  entityName: ob.companyName,
-                  details: ob.nome,
-                  date: dueDate,
-                  link: '/obrigacoes'
-                });
+                 identifiedAlerts.push({ type: 'Obrigação Atrasada', entityName: ob.companyName, details: ob.nome, date: dueDate, link: '/obrigacoes' });
             } else if (isBefore(dueDate, next7days)) {
-                 identifiedAlerts.push({
-                  type: 'Obrigação Vencendo',
-                  entityName: ob.companyName,
-                  details: `${ob.nome} vence ${formatDistanceToNow(dueDate, { locale: ptBR, addSuffix: true })}`,
-                  date: dueDate,
-                  link: '/obrigacoes'
-                });
+                 identifiedAlerts.push({ type: 'Obrigação Vencendo', entityName: ob.companyName, details: `${ob.nome} vence ${formatDistanceToNow(dueDate, { locale: ptBR, addSuffix: true })}`, date: dueDate, link: '/obrigacoes' });
             }
         });
 
-        // Check for processes 'Em Exigência'
-        const processesQuery = query(
-          collectionGroup(firestore, `corporateProcesses`),
-          where('status', '==', 'Em Exigência')
-        );
+        const processesQuery = query( collectionGroup(firestore, `corporateProcesses`), where('status', '==', 'Em Exigência'));
         const processesSnapshot = await getDocs(processesQuery);
         processesSnapshot.forEach(doc => {
             const proc = doc.data();
             const startDate = (proc.startDate as Timestamp).toDate();
-            identifiedAlerts.push({
-                type: 'Processo em Exigência',
-                entityName: proc.companyName,
-                details: proc.processType,
-                date: startDate,
-                link: '/processos'
-            });
+            identifiedAlerts.push({ type: 'Processo em Exigência', entityName: proc.companyName, details: proc.processType, date: startDate, link: '/processos' });
         });
         
-        // Sort alerts by date, most recent first
-        identifiedAlerts.sort((a, b) => b.date.getTime() - a.date.getTime());
         setAlerts(identifiedAlerts);
 
       } catch (error) {
@@ -155,19 +123,61 @@ export function AlertsTable() {
 
     fetchAlerts();
   }, [firestore]);
+  
+  const sortedAndFilteredAlerts = useMemo(() => {
+    let sortableItems = [...alerts];
+    if (filterType !== 'Todos') {
+        sortableItems = sortableItems.filter(alert => alert.type === filterType);
+    }
+    sortableItems.sort((a, b) => {
+        const key = sortConfig.key;
+        if (a[key] < b[key]) {
+            return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[key] > b[key]) {
+            return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+    });
+    return sortableItems;
+  }, [alerts, sortConfig, filterType]);
+
+  const requestSort = (key: keyof Alert) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className='font-headline'>Alertas e Notificações</CardTitle>
         <CardDescription>Itens que necessitam de atenção imediata.</CardDescription>
+        <div className="flex items-center gap-2 pt-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+             <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-full md:w-[220px]">
+                    <SelectValue placeholder="Filtrar por tipo..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Todos">Todos os Tipos</SelectItem>
+                    {alertTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tipo de Alerta</TableHead>
-              <TableHead>Entidade</TableHead>
+              <TableHead onClick={() => requestSort('type')} className="cursor-pointer">
+                <div className="flex items-center gap-2">Tipo <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
+              <TableHead onClick={() => requestSort('entityName')} className="cursor-pointer">
+                 <div className="flex items-center gap-2">Entidade <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
               <TableHead>Detalhes</TableHead>
               <TableHead><span className="sr-only">Ações</span></TableHead>
             </TableRow>
@@ -182,13 +192,20 @@ export function AlertsTable() {
                   <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                 </TableRow>
               ))
-            ) : alerts.length > 0 ? (
-              alerts.map((alert, index) => {
+            ) : sortedAndFilteredAlerts.length > 0 ? (
+              sortedAndFilteredAlerts.map((alert, index) => {
                 const { Icon, variant } = getAlertInfo(alert.type);
+                let badgeVariant = variant;
+                if (alert.type === 'Certificado Vencendo') {
+                    const daysLeft = differenceInDays(alert.date, new Date());
+                    if (daysLeft <= 30) badgeVariant = 'destructive';
+                    else badgeVariant = 'secondary';
+                }
+
                 return (
                     <TableRow key={index}>
                     <TableCell>
-                        <Badge variant={variant} className="gap-1.5 whitespace-nowrap">
+                        <Badge variant={badgeVariant} className="gap-1.5 whitespace-nowrap">
                             <Icon className="h-3 w-3" />
                             {alert.type}
                         </Badge>

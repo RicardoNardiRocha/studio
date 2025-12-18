@@ -40,10 +40,10 @@ import { useToast } from '@/hooks/use-toast';
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
 const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
 
-type ValidityStatus = 'Válido' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
-const validityStatusOptions: Array<'Todos' | ValidityStatus> = ['Todos', 'Válido', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
+type ValidityStatus = 'Válido' | 'Vencendo em 60 dias' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
+const validityStatusOptions: Array<'Todos' | ValidityStatus> = ['Todos', 'Válido', 'Vencendo em 60 dias', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
 
-const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; variant: 'default' | 'destructive' | 'secondary'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
+const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; variant: 'default' | 'destructive' | 'secondary' | 'warning'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
   if (!validity) {
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
@@ -63,6 +63,9 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
     }
     if (daysLeft <= 30) {
       return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck, dateText };
+    }
+    if (daysLeft <= 60) {
+      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 60 dias', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
     }
     return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck, dateText };
   } catch (e) {
@@ -107,8 +110,7 @@ export default function SocietarioPage() {
       const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
 
       const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
-      // Ensure cleanSearchTerm is not empty before attempting partial CPF match
-      const cpfMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : nameMatch; // Fallback to nameMatch if no numbers
+      const cpfMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : nameMatch; 
       const companyMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower));
 
       const searchMatch = nameMatch || cpfMatch || companyMatch;
