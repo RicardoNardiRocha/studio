@@ -45,6 +45,7 @@ const rejectedStatuses: FiscalDocument['status'][] = ['Cancelada', 'Denegada', '
 
 export function FiscalClient() {
   const [activeTab, setActiveTab] = useState('controle');
+  const [activeNotesSubTab, setActiveNotesSubTab] = useState('saida_notas');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -98,9 +99,13 @@ export function FiscalClient() {
     }
   };
 
-  const getDefaultDocumentTypeForUpload = (): 'Livro de Saída' | 'Livro de Entrada' | undefined => {
+  const getDefaultDocumentTypeForUpload = (): FiscalDocument['documentType'] | undefined => {
     if (activeTab === 'saida') return 'Livro de Saída';
     if (activeTab === 'entrada') return 'Livro de Entrada';
+    if (activeTab === 'notas') {
+      if (activeNotesSubTab === 'saida_notas') return 'Nota Fiscal de Saída';
+      if (activeNotesSubTab === 'entrada_notas') return 'Nota Fiscal de Entrada';
+    }
     return undefined;
   };
 
@@ -194,7 +199,7 @@ export function FiscalClient() {
               <FiscalDocumentsTable documents={entradaDocuments} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
             </TabsContent>
              <TabsContent value="notas">
-                <Tabs defaultValue="saida_notas" className="mt-4">
+                <Tabs defaultValue="saida_notas" className="mt-4" onValueChange={setActiveNotesSubTab}>
                     <TabsList>
                         <TabsTrigger value="saida_notas">Notas de Saída</TabsTrigger>
                         <TabsTrigger value="entrada_notas">Notas de Entrada</TabsTrigger>
