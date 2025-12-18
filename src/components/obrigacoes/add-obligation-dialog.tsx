@@ -86,12 +86,6 @@ export function AddObligationDialog({
   }, [firestore]);
   const { data: companies } = useCollection<Company>(companiesCollection);
 
-  const usersCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'users');
-  }, [firestore]);
-  const { data: users } = useCollection<UserProfile>(usersCollection);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -124,7 +118,6 @@ export function AddObligationDialog({
       const company = companies?.find(c => c.id === values.companyId);
       if (!company) throw new Error("Empresa não encontrada.");
       
-      const responsibleUser = users?.find(u => u.uid === values.responsavelId);
       const batch = writeBatch(firestore);
 
       const obligationDocRef = doc(collection(firestore, 'companies', company.id, 'taxObligations'));
@@ -139,8 +132,8 @@ export function AddObligationDialog({
         periodo: values.periodo,
         dataVencimento: values.dataVencimento,
         status: 'Pendente',
-        responsavelId: values.responsavelId || user.uid,
-        responsavelNome: responsibleUser?.displayName || user.displayName || 'Não definido',
+        responsavelId: user.uid,
+        responsavelNome: user.displayName || 'Não definido',
         description: values.description || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -332,26 +325,12 @@ export function AddObligationDialog({
                 />
             </div>
             
-            <FormField
-              control={form.control}
-              name="responsavelId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Responsável</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {users?.map((user) => (
-                        <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormItem>
+                <FormLabel>Responsável</FormLabel>
+                <FormControl>
+                    <Input value={user?.displayName || ''} disabled />
+                </FormControl>
+            </FormItem>
 
             <FormField
               control={form.control}

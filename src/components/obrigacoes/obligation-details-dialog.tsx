@@ -50,7 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Trash2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, query } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -107,9 +107,9 @@ export function ObligationDetailsDialog({
 
 
   const usersCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'users');
-  }, [firestore]);
+    if (!firestore || !profile?.permissions.usuarios.read) return null;
+    return query(collection(firestore, 'users'));
+  }, [firestore, profile]);
   const { data: users } = useCollection<UserProfile>(usersCollection);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -338,16 +338,17 @@ export function ObligationDetailsDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsável</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit || !profile?.permissions.usuarios.read}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Selecione o responsável" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {users?.map((user) => (
+                      {users ? users.map((user) => (
                         <SelectItem key={user.uid} value={user.uid}>{user.displayName}</SelectItem>
-                      ))}
+                      )) : <SelectItem value={obligation.responsavelId || ''} disabled>{obligation.responsavelNome}</SelectItem>}
                     </SelectContent>
                   </Select>
+                  {!profile?.permissions.usuarios.read && <p className='text-xs text-muted-foreground mt-1'>Você não tem permissão para alterar o responsável.</p>}
                   <FormMessage />
                 </FormItem>
               )}
