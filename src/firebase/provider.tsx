@@ -134,27 +134,31 @@ export function FirebaseProvider({
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-          
+          // --- User does not exist, create a new profile ---
           const defaultUserProfile: UserProfile = {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Novo Usuário',
             email: firebaseUser.email || '',
-            permissions: defaultPermissions,
+            permissions: defaultPermissions, // Start with default (non-admin) permissions
             photoURL: firebaseUser.photoURL || '',
           };
 
           try {
-            const batch = writeBatch(firestore);
-            batch.set(userRef, defaultUserProfile);
-            await batch.commit();
+            // Step 1: Create the user profile with default permissions.
+            // This is allowed by our updated security rules.
+            await setDoc(userRef, defaultUserProfile);
 
+            // Step 2: Check if this is the first user in the system.
             const usersQuery = query(collection(firestore, 'users'), limit(2));
             const existingUsersSnap = await getDocs(usersQuery);
-            const isFirstUser = existingUsersSnap.docs.length === 1 && existingUsersSnap.docs[0].id === firebaseUser.uid;
+            const isFirstUser = existingUsersSnap.docs.length <= 1;
 
+            // Step 3: If it's the first user, UPDATE their profile to give them admin rights.
             if (isFirstUser) {
               await setDoc(userRef, { permissions: adminPermissions }, { merge: true });
             }
+            
+            // The onSnapshot listener below will pick up the final state.
 
           } catch (e) {
             console.error("Error creating user profile:", e);
@@ -164,6 +168,7 @@ export function FirebaseProvider({
           }
         }
         
+        // --- Set up the real-time listener for the profile ---
         unsubscribeProfile = onSnapshot(userRef, (snap) => {
           if (snap.exists()) {
              const profileData = snap.data() as UserProfile;
@@ -177,6 +182,7 @@ export function FirebaseProvider({
               userError: null,
             });
           } else {
+             // This can happen if the profile is deleted from another client.
              signOut(auth);
              setState({
                 user: null,
