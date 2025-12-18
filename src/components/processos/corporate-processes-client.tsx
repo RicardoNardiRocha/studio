@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Workflow, Loader2, CheckCircle2, X } from 'lucide-react';
+import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Workflow, Loader2, CheckCircle2, X, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ProcessDetailsDialog } from './process-details-dialog';
 import { differenceInDays, isPast } from 'date-fns';
+import { ProcessCard } from './process-card';
 
 export type ProcessPriority = 'Baixa' | 'Média' | 'Alta';
 export type ProcessStatus = 'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Em Exigência' | 'Concluído' | 'Cancelado';
@@ -71,24 +72,13 @@ const processPriorities: Array<'Todos' | ProcessPriority> = ['Todos', 'Baixa', '
 
 const getStatusBadgeVariant = (status: ProcessStatus): 'success' | 'info' | 'cyan' | 'warning' | 'destructive' | 'outline' | 'secondary' => {
   switch (status) {
-    case 'Concluído':
-      return 'success';
-    case 'Em Análise':
-    case 'Protocolado':
-      return 'info';
-    case 'Em Preenchimento':
-    case 'Em Andamento Externo':
-      return 'cyan';
-    case 'Aguardando Documentação':
-    case 'Aguardando Cliente':
-    case 'Aguardando Órgão':
-      return 'warning';
-    case 'Em Exigência':
-        return 'destructive';
-    case 'Cancelado':
-      return 'outline';
-    default:
-      return 'secondary';
+    case 'Concluído': return 'success';
+    case 'Em Análise': case 'Protocolado': return 'info';
+    case 'Em Preenchimento': case 'Em Andamento Externo': return 'cyan';
+    case 'Aguardando Documentação': case 'Aguardando Cliente': case 'Aguardando Órgão': return 'warning';
+    case 'Em Exigência': return 'destructive';
+    case 'Cancelado': return 'outline';
+    default: return 'secondary';
   }
 };
 
@@ -111,6 +101,7 @@ export function CorporateProcessesClient() {
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState<ProcessStatus | 'Todos' | 'Em Andamento'>('Em Andamento');
   const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
+  const [viewType, setViewType] = useState<'kanban' | 'list'>('list');
 
   const [allProcesses, setAllProcesses] = useState<CorporateProcess[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -343,82 +334,118 @@ export function CorporateProcessesClient() {
                     <SelectContent><SelectItem value="Todos">Todas as Prioridades</SelectItem>{processPriorities.filter(p => p !== 'Todos').map(p => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent>
                 </Select>
             </div>
+            <div className="flex items-center gap-2">
+                <Button variant={viewType === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('list')}><List/></Button>
+                <Button variant={viewType === 'kanban' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('kanban')}><LayoutGrid/></Button>
+            </div>
           </div>
-          <div className="border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className='w-12'></TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Datas</TableHead>
-                  <TableHead className="w-[200px]">Status</TableHead>
-                  <TableHead><span className="sr-only">Ações</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading || isLoadingCompanies ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-5 w-5" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+          
+           {isLoading || isLoadingCompanies ? (
+             <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className='w-12'></TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Datas</TableHead>
+                      <TableHead className="w-[200px]">Status</TableHead>
+                      <TableHead><span className="sr-only">Ações</span></TableHead>
                     </TableRow>
-                  ))
-                ) : filteredProcesses.length > 0 ? (
-                  filteredProcesses.map((process) => {
-                     const isDelayed = process.status !== 'Concluído' && process.status !== 'Cancelado' && differenceInDays(new Date(), (process.startDate as Timestamp).toDate()) > 30;
-                     const isCanceled = process.status === 'Cancelado';
-                     return (
-                        <TableRow key={process.id} className={isCanceled ? 'bg-slate-200 dark:bg-slate-800' : isDelayed && process.status !== 'Em Exigência' ? 'bg-orange-500/10' : ''}>
-                          <TableCell>{getPriorityIcon(process.priority)}</TableCell>
-                          <TableCell className="font-medium">{process.companyName}</TableCell>
-                          <TableCell>{process.processType}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            Início: {formatDate(process.startDate)}<br/>
-                            Protocolo: {formatDate(process.protocolDate)}
-                          </TableCell>
-                          <TableCell>
-                            <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process, newStatus)} disabled={!profile?.permissions.processos.update}>
-                              <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
-                                <SelectValue asChild>
-                                    <Badge variant={getStatusBadgeVariant(process.status)} className="w-full justify-center font-medium">
-                                    {process.status}
-                                    </Badge>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {processStatuses.map((status) => (
-                                  <SelectItem key={status} value={status}>
-                                    <Badge variant={getStatusBadgeVariant(status)} className="border-none shadow-none font-medium">{status}</Badge>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {isDelayed && process.status !== 'Em Exigência' && <AlertTriangle className="h-4 w-4 text-orange-500 inline-block mr-2" title="Processo atrasado"/>}
-                            <Button variant="outline" size="icon" onClick={() => handleOpenDetails(process)}>
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Ver Detalhes</span>
-                            </Button>
-                          </TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell><Skeleton className="h-5 w-5" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                         </TableRow>
-                     )
-                    })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      Nenhum processo encontrado com os filtros aplicados.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      ))}
+                  </TableBody>
+                </Table>
+             </div>
+           ) : viewType === 'list' ? (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className='w-12'></TableHead>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Datas</TableHead>
+                      <TableHead className="w-[200px]">Status</TableHead>
+                      <TableHead><span className="sr-only">Ações</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProcesses.length > 0 ? (
+                      filteredProcesses.map((process) => {
+                         const isDelayed = process.status !== 'Concluído' && process.status !== 'Cancelado' && differenceInDays(new Date(), (process.startDate as Timestamp).toDate()) > 30;
+                         const isCanceled = process.status === 'Cancelado';
+                         return (
+                            <TableRow key={process.id} className={isCanceled ? 'bg-slate-200 dark:bg-slate-800' : isDelayed && process.status !== 'Em Exigência' ? 'bg-orange-500/10' : ''}>
+                              <TableCell>{getPriorityIcon(process.priority)}</TableCell>
+                              <TableCell className="font-medium">{process.companyName}</TableCell>
+                              <TableCell>{process.processType}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                Início: {formatDate(process.startDate)}<br/>
+                                Protocolo: {formatDate(process.protocolDate)}
+                              </TableCell>
+                              <TableCell>
+                                <Select value={process.status} onValueChange={(newStatus: ProcessStatus) => handleStatusChange(process, newStatus)} disabled={!profile?.permissions.processos.update}>
+                                  <SelectTrigger className="w-full focus:ring-0 focus:ring-offset-0 border-0 shadow-none p-0 h-auto bg-transparent">
+                                    <SelectValue asChild>
+                                        <Badge variant={getStatusBadgeVariant(process.status)} className="w-full justify-center font-medium">
+                                        {process.status}
+                                        </Badge>
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {processStatuses.map((status) => (
+                                      <SelectItem key={status} value={status}>
+                                        <Badge variant={getStatusBadgeVariant(status)} className="border-none shadow-none font-medium">{status}</Badge>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isDelayed && process.status !== 'Em Exigência' && <AlertTriangle className="h-4 w-4 text-orange-500 inline-block mr-2" title="Processo atrasado"/>}
+                                <Button variant="outline" size="icon" onClick={() => handleOpenDetails(process)}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Ver Detalhes</span>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                         )
+                        })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-24 text-center">
+                          Nenhum processo encontrado com os filtros aplicados.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {filteredProcesses.length > 0 ? (
+                        filteredProcesses.map(p => (
+                            <ProcessCard key={p.id} process={p} onClick={() => handleOpenDetails(p)} />
+                        ))
+                    ) : (
+                        <div className="col-span-full text-center py-10">
+                            <p className="text-muted-foreground">Nenhum processo encontrado com os filtros aplicados.</p>
+                        </div>
+                    )}
+                </div>
+            )
+          }
         </CardContent>
       </Card>
     </>
