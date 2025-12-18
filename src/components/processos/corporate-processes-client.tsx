@@ -324,7 +324,7 @@ export function CorporateProcessesClient() {
                      const isDelayed = process.status !== 'Concluído' && process.status !== 'Cancelado' && differenceInDays(new Date(), (process.startDate as Timestamp).toDate()) > 30;
                      const isCanceled = process.status === 'Cancelado';
                      return (
-                        <TableRow key={process.id} className={isCanceled ? 'bg-muted/50' : isDelayed ? 'bg-destructive/10' : ''}>
+                        <TableRow key={process.id} className={isCanceled ? 'bg-slate-200 dark:bg-slate-800' : isDelayed ? 'bg-destructive/10' : ''}>
                           <TableCell>{getPriorityIcon(process.priority)}</TableCell>
                           <TableCell className="font-medium">{process.companyName}</TableCell>
                           <TableCell>{process.processType}</TableCell>
