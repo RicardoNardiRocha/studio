@@ -119,7 +119,7 @@ export function AddProcessDialog({
   }, [isOpeningProcess, form]);
 
 
-  const onSubmit = async (values: z.infer<typeof formSchema>>) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!firestore || !user) {
       toast({
         title: 'Erro',
@@ -204,7 +204,7 @@ export function AddProcessDialog({
         protocolDate: undefined,
         companyName: undefined,
       });
-    } catch (error: any) => {
+    } catch (error: any) {
       console.error(error);
       toast({
         title: 'Erro ao adicionar processo',
