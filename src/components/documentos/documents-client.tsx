@@ -76,7 +76,10 @@ export function DocumentsClient() {
           queries.push({ q: query(collectionGroup(firestore, 'documents')), module: 'Empresa' as Module, nameField: 'fileName', dateField: 'uploadDate', relatedToField: 'companyName' });
         }
         if (userPermissions.processos?.read) {
-          queries.push({ q: query(collectionGroup(firestore, 'attachments')), module: 'Processo' as Module, nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' });
+          queries.push({ q: query(collectionGroup(firestore, 'corporateProcesses')), module: 'Processo' as Module, nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' });
+        }
+         if (userPermissions.obrigacoes?.read) {
+          queries.push({ q: query(collectionGroup(firestore, 'taxObligations')), module: 'Obrigação' as Module, nameField: 'name', dateField: 'uploadedAt', relatedToField: 'processId' });
         }
         if (userPermissions.fiscal?.read) {
            queries.push({ q: query(collectionGroup(firestore, 'fiscalDocuments')), module: 'Fiscal' as Module, nameField: 'documentType', dateField: 'uploadedAt', relatedToField: 'companyName', competenceField: 'competencia' });

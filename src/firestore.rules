@@ -49,6 +49,10 @@ service cloud.firestore {
         allow create: if hasPermission('obrigacoes', 'create');
         allow update: if hasPermission('obrigacoes', 'update');
         allow delete: if hasPermission('obrigacoes', 'delete');
+
+         match /attachments/{attachmentId} {
+          allow read, write: if hasPermission('obrigacoes', 'update');
+        }
       }
 
       match /corporateProcesses/{processId} {
@@ -102,9 +106,6 @@ service cloud.firestore {
     }
     
     // As consultas de grupo de coleção exigem uma regra que se aplica a todos os caminhos.
-    match /{path=**}/attachments/{attachmentId} {
-        allow read: if isSignedIn();
-    }
      match /{path=**}/documents/{documentId} {
         allow read: if isSignedIn();
     }
