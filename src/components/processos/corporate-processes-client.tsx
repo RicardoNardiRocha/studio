@@ -436,7 +436,14 @@ export function CorporateProcessesClient() {
                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {filteredProcesses.length > 0 ? (
                         filteredProcesses.map(p => (
-                            <ProcessCard key={p.id} process={p} onClick={() => handleOpenDetails(p)} />
+                            <ProcessCard 
+                              key={p.id} 
+                              process={p} 
+                              onClick={() => handleOpenDetails(p)}
+                              onStatusChange={(newStatus) => handleStatusChange(p, newStatus)}
+                              canUpdate={profile?.permissions.processos.update || false}
+                              statuses={processStatuses}
+                            />
                         ))
                     ) : (
                         <div className="col-span-full text-center py-10">
