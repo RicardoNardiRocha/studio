@@ -381,7 +381,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                                     {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
                                 </p>
                             </div>
-                            {profile?.permissions.empresas.update && (
+                            {(profile?.permissions.empresas.create || profile?.permissions.empresas.update) && (
                              <div className="flex items-center gap-2">
                               {company.certificateA1Url && (
                                   <Button variant="outline" size="sm" asChild>
