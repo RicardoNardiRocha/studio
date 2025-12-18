@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp, collection, getDocs, limit, query, writeBatch } from 'firebase/firestore';
+import { Firestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp, collection, getDocs, limit, query, writeBatch, where } from 'firebase/firestore';
 import { FirebaseStorage } from 'firebase/storage';
 import { Auth, User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -145,16 +145,14 @@ export function FirebaseProvider({
 
           try {
             // Step 1: Create the user profile with default permissions.
-            // This is allowed by our updated security rules.
             await setDoc(userRef, defaultUserProfile);
 
-            // Step 2: Check if this is the first user in the system.
-            const usersQuery = query(collection(firestore, 'users'), limit(2));
-            const existingUsersSnap = await getDocs(usersQuery);
-            const isFirstUser = existingUsersSnap.docs.length <= 1;
-
-            // Step 3: If it's the first user, UPDATE their profile to give them admin rights.
-            if (isFirstUser) {
+            // Step 2: Check if any other admin user already exists.
+            const adminQuery = query(collection(firestore, 'users'), where('permissions.usuarios.update', '==', true), limit(1));
+            const adminSnap = await getDocs(adminQuery);
+            
+            // Step 3: If no admin exists, this user becomes the first admin.
+            if (adminSnap.empty) {
               await setDoc(userRef, { permissions: adminPermissions }, { merge: true });
             }
             
