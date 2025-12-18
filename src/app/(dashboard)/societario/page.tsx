@@ -36,7 +36,6 @@ import {
 } from '@/components/ui/select';
 import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { AppHeader } from '@/components/layout/header';
 
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
 const ecpfStatusOptions: EcpfStatusFilter[] = ['Todos', 'Sim', 'Não'];
@@ -245,19 +244,13 @@ export default function SocietarioPage() {
           onPartnerDeleted={handleAction}
         />
       )}
-      <AppHeader pageTitle="Módulo Societário" />
-      <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-0">
+      <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
         <Card>
           <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <CardTitle className="font-headline">
-                    Cadastro de Sócios e Administradores
-                </CardTitle>
-                {filteredPartners && (
-                    <Badge variant="secondary">{filteredPartners.length}</Badge>
-                )}
-              </div>
+              <CardTitle className="font-headline">
+                Cadastro de Sócios e Administradores
+              </CardTitle>
               <CardDescription>
                 Gerencie os sócios e administradores de todas as empresas.
               </CardDescription>
