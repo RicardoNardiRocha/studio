@@ -107,7 +107,8 @@ export default function SocietarioPage() {
       const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
 
       const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
-      const cpfMatch = partner.cpf.includes(searchTerm) || (cleanSearchTerm && partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm));
+      // Ensure cleanSearchTerm is not empty before attempting partial CPF match
+      const cpfMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : nameMatch; // Fallback to nameMatch if no numbers
       const companyMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower));
 
       const searchMatch = nameMatch || cpfMatch || companyMatch;
@@ -122,10 +123,10 @@ export default function SocietarioPage() {
     const { value } = e.target;
     const hasLetters = /[a-zA-Z]/.test(value);
 
-    if (!hasLetters) {
-      setSearchTerm(cpfMask(value));
-    } else {
+    if (hasLetters) {
       setSearchTerm(value);
+    } else {
+      setSearchTerm(cpfMask(value));
     }
   };
 
@@ -270,7 +271,7 @@ export default function SocietarioPage() {
               <div className="relative w-full md:flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por sócio, CPF ou empresa..."
+                  placeholder="Buscar por nome ou CPF..."
                   className="pl-8 w-full"
                   value={searchTerm}
                   onChange={handleSearchChange}
@@ -285,7 +286,7 @@ export default function SocietarioPage() {
                     {ecpfStatusOptions.map(status => (
                       <SelectItem key={status} value={status}>
                         E-CPF: {status}
-                      </SelectItem>
+                      </SelectItem
                     ))}
                   </SelectContent>
                 </Select>

@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Search, ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, Loader2 } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddPartnerDialog } from '@/components/societario/add-partner-dialog';
@@ -88,6 +88,7 @@ export default function SocietarioPage() {
   const [validityFilter, setValidityFilter] = useState<'Todos' | ValidityStatus>('Todos');
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
+  const { profile } = useUser();
 
   const firestore = useFirestore();
 
@@ -102,15 +103,33 @@ export default function SocietarioPage() {
     if (!partners) return [];
     return partners.filter(partner => {
       const searchTermLower = searchTerm.toLowerCase();
-      const searchMatch = partner.name.toLowerCase().includes(searchTermLower) || partner.cpf.includes(searchTerm);
+      const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
 
+      const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
+      const cpfMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : false;
+      const companyMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower));
+
+      const searchMatch = nameMatch || cpfMatch || companyMatch;
       const ecpfMatch = ecpfFilter === 'Todos' || (ecpfFilter === 'Sim' && partner.hasECPF) || (ecpfFilter === 'Não' && !partner.hasECPF);
-
       const validityMatch = validityFilter === 'Todos' || getCertificateStatusInfo(partner.ecpfValidity).status === validityFilter;
 
       return searchMatch && ecpfMatch && validityMatch;
     });
   }, [partners, searchTerm, ecpfFilter, validityFilter]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    // Check if input value contains any letters.
+    const hasLetters = /[a-zA-Z]/.test(value);
+
+    // If it has letters, it's a name search, so set the term directly.
+    // Otherwise, it's a CPF search, so apply the mask.
+    if (hasLetters) {
+      setSearchTerm(value);
+    } else {
+      setSearchTerm(cpfMask(value));
+    }
+  };
 
   const handleSyncPartners = async () => {
     if (!firestore) {
@@ -195,11 +214,13 @@ export default function SocietarioPage() {
 
   return (
     <>
-      <AddPartnerDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onPartnerAdded={handleAction}
-      />
+      {profile?.permissions.societario.create && (
+        <AddPartnerDialog
+          open={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onPartnerAdded={handleAction}
+        />
+      )}
       {selectedPartner && (
         <PartnerDetailsDialog
           key={selectedPartner.id}
@@ -247,10 +268,10 @@ export default function SocietarioPage() {
               <div className="relative w-full md:flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome ou CPF..."
+                  placeholder="Buscar por nome, empresa ou CPF..."
                   className="pl-8 w-full"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(cpfMask(e.target.value))}
+                  onChange={handleSearchChange}
                 />
               </div>
               <div className="w-full md:w-auto md:min-w-[180px]">

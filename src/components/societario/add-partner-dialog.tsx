@@ -61,9 +61,10 @@ type CompanyOption = {
 }
 
 const cpfMask = (value: string) => {
-  if (!value) return "";
-  const onlyDigits = value.replace(/\D/g, '').slice(0, 11);
+  const onlyDigits = (value || '').replace(/\D/g, '');
+  if (onlyDigits.length === 0) return '';
   return onlyDigits
+    .slice(0, 11)
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
@@ -102,6 +103,16 @@ export function AddPartnerDialog({
       ecpfValidity: undefined,
     },
   });
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>, fieldChange: (value: string) => void) => {
+    const { value } = e.target;
+    const hasLetters = /[a-zA-Z]/.test(value);
+    if (hasLetters) {
+      fieldChange(value);
+    } else {
+      fieldChange(cpfMask(value));
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!firestore || !user) {
@@ -188,7 +199,7 @@ export function AddPartnerDialog({
                     <Input 
                       placeholder="000.000.000-00" 
                       {...field} 
-                      onChange={(e) => field.onChange(cpfMask(e.target.value))}
+                      onChange={(e) => handleCpfChange(e, field.onChange)}
                     />
                   </FormControl>
                   <FormMessage />
