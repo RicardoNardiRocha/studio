@@ -1,145 +1,329 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Search } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Search,
+  AlertTriangle,
+  Send,
+  CheckCircle,
+  FileCheck2,
+} from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 
 // --- Tipos --- //
 
-type Company = { 
-  id: string; 
-  name: string; 
-  cnpj: string; 
-  // Indica se a empresa deve aparecer no controle fiscal.
-  receivesXml: boolean; 
+type Company = {
+  id: string;
+  name: string;
+  cnpj: string;
+  receivesXml: boolean;
 };
 
-// Novo tipo para o status do XML, agora com mais opções.
-export type XmlStatusOption = 'Pendente' | 'Aguardando Reenvio' | 'Enviado';
+export type XmlStatusOption =
+  | 'Pendente'
+  | 'Aguardando Reenvio'
+  | 'Enviado';
+export type DasStatusOption = 'DAS Enviado';
+type AllStatus = XmlStatusOption | DasStatusOption;
 
-// Armazena o status no Firestore
-type XmlStatus = { 
-  companyId: string; 
-  month: number; 
-  year: number; 
-  status: XmlStatusOption; 
+type StatusRecord = {
+  companyId: string;
+  month: number;
+  year: number;
+  xmlStatus: XmlStatusOption;
+  dasStatus?: DasStatusOption;
 };
 
-// Tipo combinado para exibição na tabela
 type CompanyStatus = {
   companyId: string;
   companyName: string;
   companyCnpj: string;
-  status: XmlStatusOption;
+  xmlStatus: XmlStatusOption;
+  dasStatus?: DasStatusOption;
+  isLocked: boolean;
 };
 
-const statusOptions: XmlStatusOption[] = ['Pendente', 'Aguardando Reenvio', 'Enviado'];
+const xmlStatusOptions: XmlStatusOption[] = [
+  'Pendente',
+  'Aguardando Reenvio',
+  'Enviado',
+];
+const dasStatusOption: DasStatusOption = 'DAS Enviado';
+
+const statusColors: Record<AllStatus, string> = {
+  Pendente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
+  'Aguardando Reenvio': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  Enviado: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+  'DAS Enviado': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+};
 
 // --- Componente --- //
 
 export function FiscalControlTab() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<AllStatus | 'Todos'>('Todos');
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [alertCallback, setAlertCallback] = useState<(() => void) | null>(null);
+
   const firestore = useFirestore();
 
-  // --- Consultas ao Firestore --- //
-  const companiesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'companies') : null, [firestore]);
-  const xmlStatusQuery = useMemoFirebase(() => firestore ? collection(firestore, 'xmlStatus') : null, [firestore]);
+  const companiesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'companies') : null),
+    [firestore]
+  );
+  const xmlStatusQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'xmlStatus') : null),
+    [firestore]
+  );
 
-  const { data: companies, isLoading: loadingCompanies, forceRefetch: refetchCompanies } = useCollection<Company>(companiesQuery);
-  const { data: xmlStatuses, isLoading: loadingXmlStatuses, forceRefetch: refetchStatuses } = useCollection<XmlStatus>(xmlStatusQuery);
+  const {
+    data: companies,
+    isLoading: loadingCompanies,
+    forceRefetch: refetchCompanies,
+  } = useCollection<Company>(companiesQuery);
+  const {
+    data: statusRecords,
+    isLoading: loadingStatuses,
+    forceRefetch: refetchStatuses,
+  } = useCollection<StatusRecord>(xmlStatusQuery);
 
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
 
-  // --- Lógica de Status --- //
   const companyStatuses = useMemo<CompanyStatus[]>(() => {
-    if (!companies) return [];
+    if (!companies || !statusRecords) return [];
 
-    // 1. Filtra apenas empresas que recebem XML
-    const relevantCompanies = companies.filter(c => c.receivesXml === true);
+    const relevantCompanies = companies.filter((c) => c.receivesXml === true);
 
-    // 2. Mapeia o status para cada empresa
-    let allStatuses = relevantCompanies.map(c => {
-      const defaultStatus: CompanyStatus = {
-        companyId: c.id,
-        companyName: c.name,
-        companyCnpj: c.cnpj,
-        status: 'Pendente',
-      };
+    return relevantCompanies
+      .map((c) => {
+        const savedStatus = statusRecords.find(
+          (s) =>
+            s.companyId === c.id &&
+            s.month === currentMonth &&
+            s.year === currentYear
+        );
 
-      // Encontra o status salvo no DB para o mês/ano atual
-      const savedStatus = xmlStatuses?.find(s => 
-        s.companyId === c.id && 
-        s.month === currentMonth && 
-        s.year === currentYear
-      );
+        const companyStatus: CompanyStatus = {
+          companyId: c.id,
+          companyName: c.name,
+          companyCnpj: c.cnpj,
+          xmlStatus: savedStatus?.xmlStatus || 'Pendente',
+          dasStatus: savedStatus?.dasStatus,
+          isLocked: savedStatus?.dasStatus === 'DAS Enviado',
+        };
+        return companyStatus;
+      })
+      .filter((c) => {
+        const searchMatch =
+          c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.companyCnpj.includes(searchTerm);
+        
+        let statusMatch = true;
+        if (statusFilter !== 'Todos') {
+            if (statusFilter === 'DAS Enviado') {
+                statusMatch = c.dasStatus === 'DAS Enviado';
+            } else {
+                statusMatch = c.xmlStatus === statusFilter && !c.isLocked;
+            }
+        }
 
-      if (savedStatus) {
-        defaultStatus.status = savedStatus.status;
-      }
-      
-      return defaultStatus;
+        return searchMatch && statusMatch;
+      });
+  }, [companies, statusRecords, currentMonth, currentYear, searchTerm, statusFilter]);
+
+  const kpis = useMemo(() => {
+    const allRelevantCompanies = companies?.filter(c => c.receivesXml === true) || [];
+    const baseStatuses = allRelevantCompanies.map(c => {
+       const savedStatus = statusRecords?.find(
+          (s) =>
+            s.companyId === c.id &&
+            s.month === currentMonth &&
+            s.year === currentYear
+        );
+         return {
+            xmlStatus: savedStatus?.xmlStatus || 'Pendente',
+            dasStatus: savedStatus?.dasStatus,
+        };
     });
 
-    // 3. Filtra por termo de busca
-    if (searchTerm) {
-      return allStatuses.filter(c => 
-        c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.companyCnpj.includes(searchTerm)
-      );
+    return {
+        'Pendente': baseStatuses.filter(s => s.xmlStatus === 'Pendente' && s.dasStatus !== 'DAS Enviado').length,
+        'Aguardando Reenvio': baseStatuses.filter(s => s.xmlStatus === 'Aguardando Reenvio' && s.dasStatus !== 'DAS Enviado').length,
+        'Enviado': baseStatuses.filter(s => s.xmlStatus === 'Enviado' && s.dasStatus !== 'DAS Enviado').length,
+        'DAS Enviado': baseStatuses.filter(s => s.dasStatus === 'DAS Enviado').length,
     }
-    
-    return allStatuses;
-  }, [companies, xmlStatuses, currentMonth, currentYear, searchTerm]);
+  }, [companies, statusRecords, currentMonth, currentYear])
 
-  // --- Ações --- //
-  const handleStatusChange = async (companyId: string, newStatus: XmlStatusOption) => {
+  const handleStatusChange = async (
+    companyId: string,
+    newStatus: XmlStatusOption
+  ) => {
     if (!firestore) return;
-  
+
     const toastId = toast.loading(`Alterando status para ${newStatus}...`);
-  
+
     try {
       const batch = writeBatch(firestore);
-      // O ID do documento de status é único por empresa/mês/ano
-      const statusRef = doc(firestore, 'xmlStatus', `${companyId}_${currentMonth}_${currentYear}`);
-      
-      batch.set(statusRef, { 
-        companyId, 
-        month: currentMonth, 
-        year: currentYear, 
-        status: newStatus 
-      }, { merge: true });
-  
+      const statusRef = doc(
+        firestore,
+        'xmlStatus',
+        `${companyId}_${currentMonth}_${currentYear}`
+      );
+
+      batch.set(
+        statusRef,
+        {
+          companyId,
+          month: currentMonth,
+          year: currentYear,
+          xmlStatus: newStatus,
+        },
+        { merge: true }
+      );
+
       await batch.commit();
       toast.success('Status alterado com sucesso!', { id: toastId });
-      refetchStatuses(); // Atualiza a UI
+      refetchStatuses();
     } catch (error) {
-      console.error("Erro ao alterar status: ", error);
+      console.error('Erro ao alterar status: ', error);
       toast.error('Erro ao alterar status.', { id: toastId });
     }
   };
 
-  const isLoading = loadingCompanies || loadingXmlStatuses;
+  const handleDasStatusChange = (companyId: string, isChecked: boolean) => {
+    const change = async () => {
+      if (!firestore) return;
+      const toastId = toast.loading('Atualizando status do DAS...');
+      try {
+        const batch = writeBatch(firestore);
+        const statusRef = doc(
+          firestore,
+          'xmlStatus',
+          `${companyId}_${currentMonth}_${currentYear}`
+        );
+        batch.set(
+          statusRef,
+          {
+            companyId,
+            month: currentMonth,
+            year: currentYear,
+            dasStatus: isChecked ? dasStatusOption : null,
+          },
+          { merge: true }
+        );
+        await batch.commit();
+        toast.success('Status do DAS atualizado!', { id: toastId });
+        refetchStatuses();
+      } catch (error) {
+        console.error('Erro ao alterar status do DAS: ', error);
+        toast.error('Erro ao alterar status do DAS.', { id: toastId });
+      }
+    };
+
+    if (!isChecked) {
+      setAlertCallback(() => () => change());
+      setIsAlertOpen(true);
+    } else {
+      change();
+    }
+  };
+
+  const KpiCard = ({ title, value, icon, onClick, colorClass }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string }) => {
+    const Icon = icon;
+    return (
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
+            <CardContent className="p-4 flex items-center gap-4">
+                 <div className={`p-3 rounded-full ${colorClass}`}>
+                    <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                    <div className="text-2xl font-bold">{value}</div>
+                    <p className="text-xs text-muted-foreground">{title}</p>
+                </div>
+            </CardContent>
+        </Card>
+    );
+  };
+
+  const isLoading = loadingCompanies || loadingStatuses;
 
   // --- Renderização --- //
   return (
     <div>
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Desmarcar esta opção reativará a edição da linha. Isso deve ser
+              feito apenas se o DAS precisar ser reenviado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                alertCallback && alertCallback();
+                setIsAlertOpen(false);
+              }}
+            >
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 my-4">
+        <KpiCard title="Pendente" value={kpis['Pendente']} icon={AlertTriangle} colorClass="bg-yellow-500" onClick={() => setStatusFilter('Pendente')} />
+        <KpiCard title="Aguardando Reenvio" value={kpis['Aguardando Reenvio']} icon={Send} colorClass="bg-blue-500" onClick={() => setStatusFilter('Aguardando Reenvio')} />
+        <KpiCard title="XML Enviado" value={kpis['Enviado']} icon={CheckCircle} colorClass="bg-green-500" onClick={() => setStatusFilter('Enviado')} />
+        <KpiCard title="DAS Enviado" value={kpis['DAS Enviado']} icon={FileCheck2} colorClass="bg-gray-500" onClick={() => setStatusFilter('DAS Enviado')} />
+      </div>
+
+
       <div className="flex flex-col md:flex-row items-center gap-4 my-4">
         <div className="relative w-full md:flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-                placeholder="Buscar por empresa ou CNPJ..."
-                className="pl-8 w-full"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por empresa ou CNPJ..."
+            className="pl-8 w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
       <div className="border rounded-md">
@@ -148,44 +332,73 @@ export function FiscalControlTab() {
             <TableRow>
               <TableHead>Empresa</TableHead>
               <TableHead>CNPJ</TableHead>
-              <TableHead className="text-center w-[200px]">Status do XML</TableHead>
+              <TableHead className="text-center w-[220px]">
+                Status do XML
+              </TableHead>
+              <TableHead className="text-center w-[150px]">
+                DAS Enviado
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-5 w-64" /></TableCell>
-                  <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                  <TableCell className="text-center"><Skeleton className="h-9 w-40" /></TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-64" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-32" />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Skeleton className="h-9 w-40" />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Skeleton className="h-5 w-5" />
+                  </TableCell>
                 </TableRow>
               ))
             ) : companyStatuses.length > 0 ? (
               companyStatuses.map((item) => (
-                <TableRow key={item.companyId}>
-                  <TableCell className="font-medium">{item.companyName}</TableCell>
+                <TableRow key={item.companyId} className={item.isLocked ? 'bg-muted/50' : ''}>
+                  <TableCell className="font-medium">
+                    {item.companyName}
+                  </TableCell>
                   <TableCell>{item.companyCnpj}</TableCell>
                   <TableCell className="text-center">
-                    <Select 
-                      value={item.status}
-                      onValueChange={(newStatus: XmlStatusOption) => handleStatusChange(item.companyId, newStatus)}
+                    <Select
+                      value={item.xmlStatus}
+                      onValueChange={(newStatus: XmlStatusOption) =>
+                        handleStatusChange(item.companyId, newStatus)
+                      }
+                      disabled={item.isLocked}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className={`w-full border-0 shadow-none focus:ring-0 ${statusColors[item.xmlStatus]}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {statusOptions.map(option => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
+                        {xmlStatusOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            <span className={`${statusColors[option]} px-2 py-1 rounded-full`}>{option}</span>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Checkbox
+                      checked={item.isLocked}
+                      onCheckedChange={(checked) =>
+                        handleDasStatusChange(item.companyId, checked as boolean)
+                      }
+                    />
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
-                  Nenhuma empresa configurada para o controle de XML.
+                <TableCell colSpan={4} className="h-24 text-center">
+                  Nenhuma empresa encontrada com os filtros aplicados.
                   <br/>
                   <span className="text-sm text-muted-foreground">Clique em "Configurar Empresas" para começar.</span>
                 </TableCell>

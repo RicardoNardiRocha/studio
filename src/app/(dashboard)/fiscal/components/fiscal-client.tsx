@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, Search, Settings } from 'lucide-react';
+import { Upload, Search, Settings, ArrowDownAZ, ArrowUpAZ, List, LayoutGrid } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { UploadFiscalDocumentDialog } from '@/components/fiscal/upload-fiscal-document-dialog';
 import { FiscalDocumentDetailsDialog } from '@/components/fiscal/fiscal-document-details-dialog';
 import { ConfigureXmlCompaniesDialog } from './configure-xml-companies-dialog';
+import { parse } from 'date-fns';
 
 // Define the shape of a fiscal document
 export type FiscalDocument = {
@@ -48,6 +49,8 @@ export function FiscalClient() {
   const [activeNotesSubTab, setActiveNotesSubTab] = useState('saida_notas');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [competenceInput, setCompetenceInput] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isConfigureOpen, setIsConfigureOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<FiscalDocument | null>(null);
@@ -56,8 +59,8 @@ export function FiscalClient() {
 
   const fiscalDocumentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'fiscalDocuments'), orderBy('uploadedAt', 'desc'));
-  }, [firestore]);
+    return query(collection(firestore, 'fiscalDocuments'), orderBy('uploadedAt', sortOrder));
+  }, [firestore, sortOrder]);
 
   const { data: documents, isLoading, forceRefetch } = useCollection<FiscalDocument>(fiscalDocumentsQuery);
 
@@ -65,30 +68,48 @@ export function FiscalClient() {
     if (!documents) return [];
     return documents.filter(doc => {
       const companyMatch = doc.companyName.toLowerCase().includes(searchTerm.toLowerCase());
-      const statusMatch = statusFilter === 'Todos' || doc.status === statusFilter;
-      return companyMatch && statusMatch;
+      const competenceMatch = !competenceInput || doc.competencia === competenceInput;
+      return companyMatch && competenceMatch;
     });
-  }, [documents, searchTerm, statusFilter]);
+  }, [documents, searchTerm, competenceInput]);
 
   const entradaDocuments = useMemo(() => filteredDocuments.filter(doc => doc.documentType === 'Livro de Entrada'), [filteredDocuments]);
   const saidaDocuments = useMemo(() => filteredDocuments.filter(doc => doc.documentType === 'Livro de Saída'), [filteredDocuments]);
-
-  // Documentos para a nova aba de Notas com pendência
+  
   const rejectedSaidaNotes = useMemo(() => {
       if (!documents) return [];
-      return documents.filter(doc => doc.documentType === 'Nota Fiscal de Saída' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
-  }, [documents, searchTerm]);
+      return documents.filter(doc => {
+          const companyMatch = doc.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+          const statusMatch = statusFilter === 'Todos' || doc.status === statusFilter;
+          const competenceMatch = !competenceInput || doc.competencia === competenceInput;
+          const typeMatch = doc.documentType === 'Nota Fiscal de Saída' && rejectedStatuses.includes(doc.status);
+          return companyMatch && statusMatch && competenceMatch && typeMatch;
+      });
+  }, [documents, searchTerm, statusFilter, competenceInput]);
   
   const rejectedEntradaNotes = useMemo(() => {
        if (!documents) return [];
-      return documents.filter(doc => doc.documentType === 'Nota Fiscal de Entrada' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
-  }, [documents, searchTerm]);
+      return documents.filter(doc => {
+          const companyMatch = doc.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+          const statusMatch = statusFilter === 'Todos' || doc.status === statusFilter;
+          const competenceMatch = !competenceInput || doc.competencia === competenceInput;
+          const typeMatch = doc.documentType === 'Nota Fiscal de Entrada' && rejectedStatuses.includes(doc.status);
+          return companyMatch && statusMatch && competenceMatch && typeMatch;
+      });
+  }, [documents, searchTerm, statusFilter, competenceInput]);
 
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+  };
 
   const getCardDescription = () => {
     switch (activeTab) {
       case 'controle':
-        return 'Monitore o envio de arquivos XML para a geração dos livros de saída.';
+        return 'Monitore o envio de arquivos XML e o status do DAS para a geração dos livros de saída.';
       case 'saida':
       case 'entrada':
         return 'Gerencie os livros de entrada, saída e notas fiscais.';
@@ -162,8 +183,8 @@ export function FiscalClient() {
             </TabsList>
 
             {activeTab !== 'controle' && (
-              <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
-                <div className="relative w-full md:flex-1">
+              <div className="flex flex-wrap items-center gap-4 mt-4">
+                <div className="relative flex-grow">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Buscar por empresa..."
@@ -172,20 +193,27 @@ export function FiscalClient() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                {activeTab !== 'notas' && (
-                  <div className="w-full md:w-auto md:min-w-[200px]">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Filtrar por status..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {documentStatuses.map(status => (
-                          <SelectItem key={status} value={status}>{status}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                 <Input
+                    placeholder="Competência (MM/AAAA)"
+                    value={competenceInput}
+                    onChange={handleCompetenceChange}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                    className="w-full md:w-auto"
+                    maxLength={7}
+                />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className='flex-grow min-w-[180px]'>
+                    <SelectValue placeholder="Filtrar por status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documentStatuses.map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                 <Button variant="outline" size="icon" onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}>
+                    {sortOrder === 'desc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
+                </Button>
               </div>
             )}
 
