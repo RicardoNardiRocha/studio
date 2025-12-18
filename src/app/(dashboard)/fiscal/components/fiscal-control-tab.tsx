@@ -38,10 +38,11 @@ import {
   Send,
   CheckCircle,
   FileCheck2,
+  X,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { format, parse } from 'date-fns';
 
 // --- Tipos --- //
 
@@ -90,6 +91,17 @@ const statusColors: Record<AllStatus, string> = {
   'DAS Enviado': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };
 
+const cnpjMask = (value: string) => {
+  if (!value) return '';
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2')
+    .slice(0, 18);
+};
+
 // --- Componente --- //
 
 export function FiscalControlTab() {
@@ -97,6 +109,8 @@ export function FiscalControlTab() {
   const [statusFilter, setStatusFilter] = useState<AllStatus | 'Todos'>('Todos');
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [alertCallback, setAlertCallback] = useState<(() => void) | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
 
   const firestore = useFirestore();
 
@@ -112,7 +126,6 @@ export function FiscalControlTab() {
   const {
     data: companies,
     isLoading: loadingCompanies,
-    forceRefetch: refetchCompanies,
   } = useCollection<Company>(companiesQuery);
   const {
     data: statusRecords,
@@ -120,8 +133,22 @@ export function FiscalControlTab() {
     forceRefetch: refetchStatuses,
   } = useCollection<StatusRecord>(xmlStatusQuery);
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const competenceMonth = selectedDate.getMonth();
+  const competenceYear = selectedDate.getFullYear();
+
+  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 6);
+    }
+    setCompetenceInput(value);
+    if (value.length === 7) {
+      const date = parse(value, 'MM/yyyy', new Date());
+      if (!isNaN(date.getTime())) {
+        setSelectedDate(date);
+      }
+    }
+  };
 
   const companyStatuses = useMemo<CompanyStatus[]>(() => {
     if (!companies || !statusRecords) return [];
@@ -133,8 +160,8 @@ export function FiscalControlTab() {
         const savedStatus = statusRecords.find(
           (s) =>
             s.companyId === c.id &&
-            s.month === currentMonth &&
-            s.year === currentYear
+            s.month === competenceMonth &&
+            s.year === competenceYear
         );
 
         const companyStatus: CompanyStatus = {
@@ -163,7 +190,7 @@ export function FiscalControlTab() {
 
         return searchMatch && statusMatch;
       });
-  }, [companies, statusRecords, currentMonth, currentYear, searchTerm, statusFilter]);
+  }, [companies, statusRecords, competenceMonth, competenceYear, searchTerm, statusFilter]);
 
   const kpis = useMemo(() => {
     const allRelevantCompanies = companies?.filter(c => c.receivesXml === true) || [];
@@ -171,8 +198,8 @@ export function FiscalControlTab() {
        const savedStatus = statusRecords?.find(
           (s) =>
             s.companyId === c.id &&
-            s.month === currentMonth &&
-            s.year === currentYear
+            s.month === competenceMonth &&
+            s.year === competenceYear
         );
          return {
             xmlStatus: savedStatus?.xmlStatus || 'Pendente',
@@ -186,7 +213,7 @@ export function FiscalControlTab() {
         'Enviado': baseStatuses.filter(s => s.xmlStatus === 'Enviado' && s.dasStatus !== 'DAS Enviado').length,
         'DAS Enviado': baseStatuses.filter(s => s.dasStatus === 'DAS Enviado').length,
     }
-  }, [companies, statusRecords, currentMonth, currentYear])
+  }, [companies, statusRecords, competenceMonth, competenceYear])
 
   const handleStatusChange = async (
     companyId: string,
@@ -201,15 +228,15 @@ export function FiscalControlTab() {
       const statusRef = doc(
         firestore,
         'xmlStatus',
-        `${companyId}_${currentMonth}_${currentYear}`
+        `${companyId}_${competenceMonth}_${competenceYear}`
       );
 
       batch.set(
         statusRef,
         {
           companyId,
-          month: currentMonth,
-          year: currentYear,
+          month: competenceMonth,
+          year: competenceYear,
           xmlStatus: newStatus,
         },
         { merge: true }
@@ -233,14 +260,14 @@ export function FiscalControlTab() {
         const statusRef = doc(
           firestore,
           'xmlStatus',
-          `${companyId}_${currentMonth}_${currentYear}`
+          `${companyId}_${competenceMonth}_${competenceYear}`
         );
         batch.set(
           statusRef,
           {
             companyId,
-            month: currentMonth,
-            year: currentYear,
+            month: competenceMonth,
+            year: competenceYear,
             dasStatus: isChecked ? dasStatusOption : null,
           },
           { merge: true }
@@ -262,11 +289,11 @@ export function FiscalControlTab() {
     }
   };
 
-  const KpiCard = ({ title, value, icon, onClick, colorClass }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string }) => {
+  const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
     const Icon = icon;
     return (
-        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
-            <CardContent className="p-4 flex items-center gap-4">
+        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary shadow-lg' : ''}`} onClick={onClick}>
+            <CardContent className="p-4 flex items-center gap-4 relative">
                  <div className={`p-3 rounded-full ${colorClass}`}>
                     <Icon className="h-5 w-5 text-white" />
                 </div>
@@ -274,6 +301,11 @@ export function FiscalControlTab() {
                     <div className="text-2xl font-bold">{value}</div>
                     <p className="text-xs text-muted-foreground">{title}</p>
                 </div>
+                {isActive && (
+                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setStatusFilter('Todos'); }}>
+                        <X className="h-4 w-4"/>
+                    </Button>
+                )}
             </CardContent>
         </Card>
     );
@@ -308,14 +340,22 @@ export function FiscalControlTab() {
       </AlertDialog>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 my-4">
-        <KpiCard title="Pendente" value={kpis['Pendente']} icon={AlertTriangle} colorClass="bg-yellow-500" onClick={() => setStatusFilter('Pendente')} />
-        <KpiCard title="Aguardando Reenvio" value={kpis['Aguardando Reenvio']} icon={Send} colorClass="bg-blue-500" onClick={() => setStatusFilter('Aguardando Reenvio')} />
-        <KpiCard title="XML Enviado" value={kpis['Enviado']} icon={CheckCircle} colorClass="bg-green-500" onClick={() => setStatusFilter('Enviado')} />
-        <KpiCard title="DAS Enviado" value={kpis['DAS Enviado']} icon={FileCheck2} colorClass="bg-gray-500" onClick={() => setStatusFilter('DAS Enviado')} />
+        <KpiCard title="Pendente" value={kpis['Pendente']} icon={AlertTriangle} colorClass="bg-yellow-500" onClick={() => setStatusFilter('Pendente')} isActive={statusFilter === 'Pendente'} />
+        <KpiCard title="Aguardando Reenvio" value={kpis['Aguardando Reenvio']} icon={Send} colorClass="bg-blue-500" onClick={() => setStatusFilter('Aguardando Reenvio')} isActive={statusFilter === 'Aguardando Reenvio'} />
+        <KpiCard title="XML Enviado" value={kpis['Enviado']} icon={CheckCircle} colorClass="bg-green-500" onClick={() => setStatusFilter('Enviado')} isActive={statusFilter === 'Enviado'} />
+        <KpiCard title="DAS Enviado" value={kpis['DAS Enviado']} icon={FileCheck2} colorClass="bg-gray-500" onClick={() => setStatusFilter('DAS Enviado')} isActive={statusFilter === 'DAS Enviado'} />
       </div>
 
 
       <div className="flex flex-col md:flex-row items-center gap-4 my-4">
+        <Input
+            placeholder="Competência (MM/AAAA)"
+            value={competenceInput}
+            onChange={handleCompetenceChange}
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+            className="w-full md:w-auto"
+            maxLength={7}
+        />
         <div className="relative w-full md:flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -364,7 +404,7 @@ export function FiscalControlTab() {
                   <TableCell className="font-medium">
                     {item.companyName}
                   </TableCell>
-                  <TableCell>{item.companyCnpj}</TableCell>
+                  <TableCell>{cnpjMask(item.companyCnpj)}</TableCell>
                   <TableCell className="text-center">
                     <Select
                       value={item.xmlStatus}

@@ -182,7 +182,7 @@ export function FiscalClient() {
               <TabsTrigger value="notas">Notas Fiscais</TabsTrigger>
             </TabsList>
 
-            {activeTab !== 'controle' && (
+            {(activeTab === 'saida' || activeTab === 'entrada' || activeTab === 'notas') && (
               <div className="flex flex-wrap items-center gap-4 mt-4">
                 <div className="relative flex-grow">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -201,16 +201,18 @@ export function FiscalClient() {
                     className="w-full md:w-auto"
                     maxLength={7}
                 />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className='flex-grow min-w-[180px]'>
-                    <SelectValue placeholder="Filtrar por status..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentStatuses.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {activeTab === 'notas' && (
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className='flex-grow min-w-[180px]'>
+                      <SelectValue placeholder="Filtrar por status..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentStatuses.map(status => (
+                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                  <Button variant="outline" size="icon" onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}>
                     {sortOrder === 'desc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
                 </Button>
