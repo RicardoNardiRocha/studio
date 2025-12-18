@@ -33,7 +33,7 @@ export type FiscalDocument = {
   id: string;
   companyName: string;
   companyCnpj: string;
-  documentType: 'Livro de Entrada' | 'Livro de Saída' | 'Nota Fiscal';
+  documentType: 'Livro de Entrada' | 'Livro de Saída' | 'Nota Fiscal de Entrada' | 'Nota Fiscal de Saída';
   status: 'Ativa' | 'Cancelada' | 'Inutilizada' | 'Denegada' | 'Rejeitada';
   uploadedAt: string; // ISO string date
   fileUrl: string;
@@ -75,12 +75,12 @@ export function FiscalClient() {
   // Documentos para a nova aba de Notas com pendência
   const rejectedSaidaNotes = useMemo(() => {
       if (!documents) return [];
-      return documents.filter(doc => doc.documentType === 'Nota Fiscal' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
+      return documents.filter(doc => doc.documentType === 'Nota Fiscal de Saída' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
   }, [documents, searchTerm]);
   
   const rejectedEntradaNotes = useMemo(() => {
        if (!documents) return [];
-      return documents.filter(doc => doc.documentType === 'Nota Fiscal' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
+      return documents.filter(doc => doc.documentType === 'Nota Fiscal de Entrada' && doc.companyName.toLowerCase().includes(searchTerm.toLowerCase()) && rejectedStatuses.includes(doc.status));
   }, [documents, searchTerm]);
 
 

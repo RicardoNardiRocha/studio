@@ -258,7 +258,7 @@
         "companyId": { "type": "string" },
         "companyName": { "type": "string" },
         "companyCnpj": { "type": "string" },
-        "documentType": { "type": "string", "enum": ["Livro de Entrada", "Livro de Saída", "Nota Fiscal"] },
+        "documentType": { "type": "string", "enum": ["Livro de Entrada", "Livro de Saída", "Nota Fiscal de Entrada", "Nota Fiscal de Saída"] },
         "status": { "type": "string", "enum": ["Ativa", "Cancelada", "Inutilizada", "Denegada", "Rejeitada"] },
         "uploadedAt": { "type": "string", "format": "date-time" },
         "fileUrl": { "type": "string", "format": "uri" },

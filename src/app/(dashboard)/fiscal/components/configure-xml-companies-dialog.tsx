@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, ArrowDownAZ, ArrowUpAZ } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -38,6 +38,7 @@ export function ConfigureXmlCompaniesDialog({
 }: ConfigureXmlCompaniesDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [selectedCompanies, setSelectedCompanies] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -55,10 +56,17 @@ export function ConfigureXmlCompaniesDialog({
     }
   }, [companies]);
 
-  const filteredCompanies = useMemo(() => {
+  const filteredAndSortedCompanies = useMemo(() => {
     if (!companies) return [];
-    return companies.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [companies, searchTerm]);
+    return companies
+      .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => {
+        if (sortOrder === 'asc') {
+          return a.name.localeCompare(b.name);
+        }
+        return b.name.localeCompare(a.name);
+      });
+  }, [companies, searchTerm, sortOrder]);
 
   const handleSave = async () => {
     if (!firestore) return;
@@ -85,10 +93,14 @@ export function ConfigureXmlCompaniesDialog({
 
   const handleToggleAll = (check: boolean) => {
     const newSelection: Record<string, boolean> = {};
-    filteredCompanies.forEach(c => {
+    filteredAndSortedCompanies.forEach(c => {
         newSelection[c.id] = check;
     });
     setSelectedCompanies(prev => ({...prev, ...newSelection}));
+  }
+
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
   }
 
   return (
@@ -102,14 +114,19 @@ export function ConfigureXmlCompaniesDialog({
         </DialogHeader>
         
         <div className="space-y-4">
-            <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Buscar empresa..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="flex gap-2">
+                <div className="relative flex-grow">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar empresa..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <Button variant="outline" size="icon" onClick={toggleSortOrder}>
+                    {sortOrder === 'asc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
+                </Button>
             </div>
 
             <div className='flex items-center space-x-2'>
@@ -122,9 +139,9 @@ export function ConfigureXmlCompaniesDialog({
             <ScrollArea className="h-72 w-full rounded-md border p-4">
                 {loadingCompanies ? (
                     <p>Carregando...</p>
-                ) : filteredCompanies.length > 0 ? (
+                ) : filteredAndSortedCompanies.length > 0 ? (
                     <div className="space-y-2">
-                        {filteredCompanies.map(company => (
+                        {filteredAndSortedCompanies.map(company => (
                             <div key={company.id} className="flex items-center space-x-2">
                                 <Checkbox
                                     id={company.id}

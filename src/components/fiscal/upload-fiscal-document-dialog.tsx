@@ -44,14 +44,15 @@ interface UploadFiscalDocumentDialogProps {
   onUploadComplete: () => void;
 }
 
-const documentTypes = ['Livro de Entrada', 'Livro de Saída', 'Nota Fiscal'];
+const documentTypes = ['Livro de Entrada', 'Livro de Saída', 'Nota Fiscal de Entrada', 'Nota Fiscal de Saída'];
+const noteStatuses = ['Ativa', 'Cancelada', 'Inutilizada', 'Denegada', 'Rejeitada'];
+
 
 const formSchema = z.object({
   companyId: z.string({ required_error: 'Selecione uma empresa.' }),
   documentType: z.string({ required_error: 'Selecione o tipo de documento.' }),
   competencia: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
   file: z.any().refine(file => file?.length > 0, 'O arquivo é obrigatório.'),
-  // Status foi removido
   status: z.string().optional(),
 });
 
@@ -85,6 +86,7 @@ export function UploadFiscalDocumentDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       competencia: format(new Date(), 'MM/yyyy'),
+      status: 'Ativa',
     },
   });
 
@@ -120,7 +122,7 @@ export function UploadFiscalDocumentDialog({
           companyName: company.name,
           companyCnpj: (company as any).cnpj,
           documentType: values.documentType,
-          status: values.status || 'Ativa', // Status 'Ativa' como padrão, ou o status que for definido para notas com problema
+          status: values.documentType.includes('Nota Fiscal') ? values.status : 'Ativa', // Status 'Ativa' como padrão para livros
           competencia: values.competencia,
           uploadedAt: new Date().toISOString(),
           fileUrl,
@@ -200,7 +202,7 @@ export function UploadFiscalDocumentDialog({
                     </FormItem>
                 )}
             />
-             {form.watch('documentType') === 'Nota Fiscal' && (
+             {form.watch('documentType')?.includes('Nota Fiscal') && (
                   <FormField
                     control={form.control}
                     name="status"
@@ -209,7 +211,7 @@ export function UploadFiscalDocumentDialog({
                         <FormLabel>Status da Nota</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status da nota..." /></SelectTrigger></FormControl>
-                            <SelectContent>{['Ativa', 'Cancelada', 'Inutilizada', 'Denegada', 'Rejeitada'].map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
+                            <SelectContent>{noteStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
                         </Select>
                         <FormMessage />
                         </FormItem>
