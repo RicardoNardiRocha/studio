@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -34,7 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Workflow, Loader2, CheckCircle2, X } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
@@ -43,7 +44,6 @@ import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ProcessDetailsDialog } from './process-details-dialog';
-import { KpiCard } from '../dashboard/kpi-card';
 import { differenceInDays, isPast } from 'date-fns';
 
 export type ProcessPriority = 'Baixa' | 'Média' | 'Alta';
@@ -107,9 +107,8 @@ export function CorporateProcessesClient() {
   const [selectedProcess, setSelectedProcess] = useState<CorporateProcess | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
-  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState<ProcessStatus | 'Todos' | 'Em Andamento'>('Todos');
   const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
-  const [showOnlyHighPriority, setShowOnlyHighPriority] = useState(false);
 
   const [allProcesses, setAllProcesses] = useState<CorporateProcess[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -208,14 +207,17 @@ export function CorporateProcessesClient() {
         const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             p.processType.toLowerCase().includes(searchTerm.toLowerCase());
         const typeMatch = typeFilter === 'Todos' || p.processType === typeFilter;
-        const statusMatch = statusFilter === 'Todos' || p.status === statusFilter;
+        
+        let statusMatch = statusFilter === 'Todos' || p.status === statusFilter;
+        if (statusFilter === 'Em Andamento') {
+          statusMatch = !['Concluído', 'Cancelado'].includes(p.status);
+        }
+        
         const priorityMatch = priorityFilter === 'Todos' || p.priority === priorityFilter;
         
-        const highPriorityMatch = !showOnlyHighPriority || p.priority === 'Alta';
-        
-        return searchMatch && typeMatch && statusMatch && priorityMatch && highPriorityMatch;
+        return searchMatch && typeMatch && statusMatch && priorityMatch;
     });
-  }, [allProcesses, searchTerm, typeFilter, statusFilter, priorityFilter, showOnlyHighPriority]);
+  }, [allProcesses, searchTerm, typeFilter, statusFilter, priorityFilter]);
 
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
@@ -226,16 +228,35 @@ export function CorporateProcessesClient() {
   const kpiValues = useMemo(() => {
     if (!allProcesses) return { inProgress: 0, completed: 0, delayed: 0, total: 0 };
     const today = new Date();
+    const total = allProcesses.length;
     const inProgress = allProcesses.filter(p => !['Concluído', 'Cancelado'].includes(p.status)).length;
     const completed = allProcesses.filter(p => p.status === 'Concluído').length;
     const delayed = allProcesses.filter(p => p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30).length;
-    return {
-        total: allProcesses.length,
-        inProgress,
-        completed,
-        delayed
-    }
+    
+    return { total, inProgress, completed, delayed };
   }, [allProcesses]);
+  
+  const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
+    const Icon = icon;
+    return (
+        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary shadow-lg' : ''}`} onClick={onClick}>
+            <CardContent className="p-4 flex items-center gap-4 relative">
+                 <div className={`p-3 rounded-full ${colorClass}`}>
+                    <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                    <div className="text-2xl font-bold">{value}</div>
+                    <p className="text-xs text-muted-foreground">{title}</p>
+                </div>
+                {isActive && (
+                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setStatusFilter('Todos'); }}>
+                        <X className="h-4 w-4"/>
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+  };
 
   return (
     <>
@@ -275,10 +296,10 @@ export function CorporateProcessesClient() {
       )}
       
        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
-            <KpiCard title="Total de Processos" value={String(kpiValues.total)} icon="Workflow" description="" href="/processos" />
-            <KpiCard title="Em Andamento" value={String(kpiValues.inProgress)} icon="Loader2" description="" href="/processos" />
-            <KpiCard title="Concluídos" value={String(kpiValues.completed)} icon="CheckCircle2" description="No total" href="/processos" />
-            <KpiCard title="Atrasados" value={String(kpiValues.delayed)} icon="AlertTriangle" description="> 30 dias abertos" href="/processos" />
+            <KpiCard title="Total de Processos" value={kpiValues.total} icon={Workflow} colorClass="bg-gray-500" onClick={() => setStatusFilter('Todos')} isActive={statusFilter === 'Todos'} />
+            <KpiCard title="Em Andamento" value={kpiValues.inProgress} icon={Loader2} colorClass="bg-blue-500" onClick={() => setStatusFilter('Em Andamento')} isActive={statusFilter === 'Em Andamento'} />
+            <KpiCard title="Concluídos" value={kpiValues.completed} icon={CheckCircle2} colorClass="bg-green-500" onClick={() => setStatusFilter('Concluído')} isActive={statusFilter === 'Concluído'} />
+            <KpiCard title="Atrasados (>30d)" value={kpiValues.delayed} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => {}} isActive={false} />
         </div>
 
       <Card>
@@ -316,22 +337,10 @@ export function CorporateProcessesClient() {
               </Select>
             </div>
              <div className="flex-grow min-w-[180px]">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger><SelectValue placeholder="Filtrar por status..." /></SelectTrigger>
-                <SelectContent><SelectItem value="Todos">Todos os Status</SelectItem>{processStatuses.map(status => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
-             <div className="flex-grow min-w-[180px]">
-                <Select value={priorityFilter} onValueChange={(value: 'Todos' | ProcessPriority) => setPriorityFilter(value)}>
+              <Select value={priorityFilter} onValueChange={(value: 'Todos' | ProcessPriority) => setPriorityFilter(value)}>
                     <SelectTrigger><SelectValue placeholder="Filtrar por prioridade..." /></SelectTrigger>
                     <SelectContent><SelectItem value="Todos">Todas as Prioridades</SelectItem>{processPriorities.filter(p => p !== 'Todos').map(p => (<SelectItem key={p} value={p}>{p}</SelectItem>))}</SelectContent>
                 </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-                <Button variant={showOnlyHighPriority ? 'destructive' : 'outline'} onClick={() => setShowOnlyHighPriority(!showOnlyHighPriority)}>
-                    <AlertTriangle className="mr-2 h-4 w-4"/>
-                    Apenas Alta Prioridade
-                </Button>
             </div>
           </div>
           <div className="border rounded-md">

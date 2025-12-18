@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal, AlertTriangle, X } from 'lucide-react';
+import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal, AlertTriangle, X, CheckCircle2, Clock, CalendarClock } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
@@ -24,7 +24,6 @@ import { AddObligationDialog } from './add-obligation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '../ui/input';
 import { ObligationDetailsDialog } from './obligation-details-dialog';
-import { KpiCard } from '../dashboard/kpi-card';
 import { startOfMonth, endOfMonth, isWithinInterval, format, isPast, startOfDay, parse, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ObligationCard } from './obligation-card';
@@ -193,29 +192,25 @@ export function ObligationsClient() {
   }, [allObligations]);
 
   const kpis = useMemo(() => {
-    const obligationsInMonth = allObligations.filter(o => {
+    const obligationsInMonth = allObligations
+      .map(o => {
+            const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
+            const isOverdue = isPast(dueDate) && o.status === 'Pendente';
+            const displayStatus: ObligationStatus = isOverdue ? 'Atrasada' : o.status;
+            return { ...o, displayStatus };
+        })
+      .filter(o => {
       const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
       return isWithinInterval(dueDate, { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) });
     });
 
-    const today = startOfDay(new Date());
     const total = obligationsInMonth.length;
     const entregue = obligationsInMonth.filter(o => o.status === 'Entregue').length;
-    
-    const atrasada = obligationsInMonth.filter(o => {
-        const dueDate = o.dataVencimento instanceof Timestamp ? o.dataVencimento.toDate() : o.dataVencimento;
-        return isPast(dueDate) && o.status !== 'Entregue' && o.status !== 'Cancelada';
-    }).length;
+    const atrasada = obligationsInMonth.filter(o => o.displayStatus === 'Atrasada').length;
+    const pendente = obligationsInMonth.filter(o => o.displayStatus === 'Pendente').length;
 
-    const pendente = total - entregue - atrasada;
 
-    return {
-        total,
-        entregue,
-        atrasada,
-        pendente,
-        percentualEntregue: total > 0 ? (entregue / total) * 100 : 0,
-    }
+    return { total, entregue, atrasada, pendente };
   }, [allObligations, selectedDate]);
 
   const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,10 +226,6 @@ export function ObligationsClient() {
         setSelectedDate(date);
       }
     }
-  };
-
-  const handleKpiClick = (status: ObligationStatus | 'Todos') => {
-    setStatusFilter(current => current === status ? 'Todos' : status);
   };
 
   const formatDate = (date: any): string => {
@@ -254,6 +245,28 @@ export function ObligationsClient() {
         return period;
     }
   }
+  
+  const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
+    const Icon = icon;
+    return (
+        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary shadow-lg' : ''}`} onClick={onClick}>
+            <CardContent className="p-4 flex items-center gap-4 relative">
+                 <div className={`p-3 rounded-full ${colorClass}`}>
+                    <Icon className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                    <div className="text-2xl font-bold">{value}</div>
+                    <p className="text-xs text-muted-foreground">{title}</p>
+                </div>
+                {isActive && (
+                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setStatusFilter('Todos'); }}>
+                        <X className="h-4 w-4"/>
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+  };
 
 
   return (
@@ -283,18 +296,10 @@ export function ObligationsClient() {
         )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div onClick={() => setStatusFilter('Todos')} className={statusFilter !== 'Todos' ? 'opacity-50' : ''}>
-                <KpiCard title="Obrigações do Mês" value={String(kpis.total)} icon="CalendarClock" description={format(selectedDate, "MMMM 'de' yyyy", { locale: ptBR })} href="#" />
-            </div>
-            <div onClick={() => handleKpiClick('Entregue')} className={statusFilter !== 'Todos' && statusFilter !== 'Entregue' ? 'opacity-50' : ''}>
-                <KpiCard title="Entregues" value={String(kpis.entregue)} icon="CheckCircle2" description={`${kpis.percentualEntregue.toFixed(0)}% concluído`} href="#" />
-            </div>
-            <div onClick={() => handleKpiClick('Pendente')} className={statusFilter !== 'Todos' && statusFilter !== 'Pendente' ? 'opacity-50' : ''}>
-                <KpiCard title="Pendentes" value={String(kpis.pendente)} icon="Clock" description="Aguardando ação" href="#" />
-            </div>
-            <div onClick={() => handleKpiClick('Atrasada')} className={statusFilter !== 'Todos' && statusFilter !== 'Atrasada' ? 'opacity-50' : ''}>
-                <KpiCard title="Atrasadas" value={String(kpis.atrasada)} icon="AlertTriangle" description="Exigem atenção imediata" href="#" />
-            </div>
+            <KpiCard title="Total do Mês" value={kpis.total} icon={CalendarClock} colorClass="bg-gray-500" onClick={() => setStatusFilter('Todos')} isActive={statusFilter === 'Todos'} />
+            <KpiCard title="Pendentes" value={kpis.pendente} icon={Clock} colorClass="bg-yellow-500" onClick={() => setStatusFilter('Pendente')} isActive={statusFilter === 'Pendente'} />
+            <KpiCard title="Atrasadas" value={kpis.atrasada} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => setStatusFilter('Atrasada')} isActive={statusFilter === 'Atrasada'} />
+            <KpiCard title="Entregues" value={kpis.entregue} icon={CheckCircle2} colorClass="bg-green-500" onClick={() => setStatusFilter('Entregue')} isActive={statusFilter === 'Entregue'} />
         </div>
 
         <Card>
