@@ -8,12 +8,6 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Helper function to get user's specific module permission.
-    // This is more efficient than fetching the whole profile.
-    function canUser(module, permission) {
-      return get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions[module][permission] == true;
-    }
-    
     // Profile pictures: Users can only write to their own folder.
     // Anyone can read profile pictures.
     match /profile-pictures/{userId}/{fileName} {
@@ -23,28 +17,34 @@ service firebase.storage {
 
     // Company certificates: Only users with 'empresas' update permission can manage certificates.
     match /companies/{companyId}/certificate.pfx {
-      allow read, write: if isSignedIn() && canUser('empresas', 'update');
+      allow read, write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.empresas.update == true;
     }
     
     // Partner certificates: Only users with 'societario' update permission can manage certificates.
     match /partners/{partnerId}/certificate.pfx {
-      allow read, write: if isSignedIn() && canUser('societario', 'update');
+      allow read, write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.societario.update == true;
     }
 
     // Company documents: Only users with 'documentos' create/read permission can manage documents for any company.
     match /companies/{companyId}/documents/{fileName} {
-      allow read: if isSignedIn() && canUser('documentos', 'read');
-      allow write: if isSignedIn() && canUser('documentos', 'create');
+      allow read: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.documentos.read == true;
+      allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.documentos.create == true;
     }
     
     // Process attachments: Only users with 'processos' update permission can manage attachments.
     match /processes/{processId}/{fileName} {
-        allow write: if isSignedIn() && canUser('processos', 'update');
+        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.processos.update == true;
     }
     
     // Obligation attachments: Only users with 'obrigacoes' update permission can manage attachments.
     match /obligations/{obligationId}/{fileName} {
-        allow write: if isSignedIn() && canUser('obrigacoes', 'update');
+        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.obrigacoes.update == true;
+    }
+
+    // Fiscal documents
+    match /fiscalDocuments/{companyId}/{fileName} {
+        allow read: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.read == true;
+        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.create == true;
     }
 
     // Fallback rule: Deny all other read/write operations for security.

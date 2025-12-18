@@ -8,12 +8,6 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is a member of the company.
-    // This requires a Firestore read, which is billed.
-    function isCompanyMember(companyId) {
-      return exists(/databases/(default)/documents/companies/$(companyId)/members/$(request.auth.uid));
-    }
-    
     // Profile pictures: Users can only write to their own folder.
     // Anyone can read profile pictures.
     match /profile-pictures/{userId}/{fileName} {
@@ -21,9 +15,36 @@ service firebase.storage {
       allow read: if true;
     }
 
-    // Company documents: Only members of the company can read or write documents.
+    // Company certificates: Only users with 'empresas' update permission can manage certificates.
+    match /companies/{companyId}/certificate.pfx {
+      allow read, write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.empresas.update == true;
+    }
+    
+    // Partner certificates: Only users with 'societario' update permission can manage certificates.
+    match /partners/{partnerId}/certificate.pfx {
+      allow read, write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.societario.update == true;
+    }
+
+    // Company documents: Only users with 'documentos' create/read permission can manage documents for any company.
     match /companies/{companyId}/documents/{fileName} {
-      allow read, write: if isSignedIn() && isCompanyMember(companyId);
+      allow read: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.documentos.read == true;
+      allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.documentos.create == true;
+    }
+    
+    // Process attachments: Only users with 'processos' update permission can manage attachments.
+    match /processes/{processId}/{fileName} {
+        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.processos.update == true;
+    }
+    
+    // Obligation attachments: Only users with 'obrigacoes' update permission can manage attachments.
+    match /obligations/{obligationId}/{fileName} {
+        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.obrigacoes.update == true;
+    }
+
+    // Fiscal documents
+    match /fiscalDocuments/{companyId}/{fileName} {
+        allow read: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.read == true;
+        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.create == true;
     }
 
     // Fallback rule: Deny all other read/write operations for security.
