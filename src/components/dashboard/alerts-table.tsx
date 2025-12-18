@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, FileWarning, CalendarClock, AlertTriangle, ArrowUpDown, Filter } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import { parseISO, isBefore, startOfDay, endOfDay, addDays, formatDistanceToNow, differenceInDays, isValid } from 'date-fns';
+import { parse, isBefore, startOfDay, endOfDay, addDays, formatDistanceToNow, differenceInDays, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -64,7 +64,7 @@ export function AlertsTable() {
           const company = doc.data();
           if (company.certificateA1Validity) {
             try {
-              const validityDate = parseISO(company.certificateA1Validity);
+              const validityDate = parse(company.certificateA1Validity, 'yyyy-MM-dd', new Date());
               if (!isValid(validityDate)) continue;
               const daysLeft = differenceInDays(validityDate, today);
 
@@ -82,7 +82,7 @@ export function AlertsTable() {
           const partner = doc.data();
           if (partner.ecpfValidity) {
             try {
-              const validityDate = parseISO(partner.ecpfValidity);
+              const validityDate = parse(partner.ecpfValidity, 'yyyy-MM-dd', new Date());
               if (!isValid(validityDate)) continue;
               const daysLeft = differenceInDays(validityDate, today);
 
