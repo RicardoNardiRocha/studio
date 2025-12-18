@@ -153,7 +153,8 @@ export function FirebaseProvider({
             
             // Step 3: If no admin exists, this user becomes the first admin.
             if (adminSnap.empty) {
-              await setDoc(userRef, { permissions: adminPermissions }, { merge: true });
+                // Now update the just-created user to be an admin
+                await setDoc(userRef, { permissions: adminPermissions }, { merge: true });
             }
             
             // The onSnapshot listener below will pick up the final state.

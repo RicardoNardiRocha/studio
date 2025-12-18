@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Eye, PlusCircle, Pencil, Trash2, AlertTriangle, Settings } from 'lucide-react';
+import { Loader2, Eye, PlusCircle, Pencil, Trash2, AlertTriangle, Settings, UserCog } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import type { UserProfile, ModulePermissions } from '@/firebase/provider';
@@ -74,6 +74,20 @@ const formSchema = z.object({
     usuarios: permissionSchema,
   }),
 });
+
+const allPermissions: ModulePermissions = { read: true, create: true, update: true, delete: true };
+const adminPermissions: Record<keyof UserProfile['permissions'], ModulePermissions> = {
+  dashboard: allPermissions,
+  empresas: allPermissions,
+  societario: allPermissions,
+  processos: allPermissions,
+  obrigacoes: allPermissions,
+  fiscal: allPermissions,
+  documentos: allPermissions,
+  financeiro: allPermissions,
+  usuarios: allPermissions,
+};
+
 
 const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], ModulePermissions> => ({
   dashboard: { read: true, create: false, update: false, delete: false },
@@ -169,6 +183,14 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
     }
     form.setValue(`permissions.${module}`, newPermissions);
   };
+  
+  const setAllAsAdmin = () => {
+    form.setValue('permissions', adminPermissions);
+    toast({
+        title: 'Permissões de Admin pré-preenchidas',
+        description: 'Clique em "Salvar Permissões" para confirmar as alterações.',
+    });
+  }
 
 
   return (
@@ -181,6 +203,13 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
              <div className="space-y-3 p-1">
+                <div className='flex justify-between items-center bg-muted p-2 rounded-md'>
+                    <p className='text-sm text-muted-foreground'>Atalhos rápidos para definir permissões.</p>
+                     <Button type="button" size="sm" onClick={setAllAsAdmin}>
+                        <UserCog className="mr-2 h-4 w-4" />
+                        Tornar Administrador
+                    </Button>
+                </div>
                 {/* Header */}
                 <div className="flex items-center px-4 py-2">
                     <div className="flex-1 font-semibold text-muted-foreground text-sm">MÓDULO</div>
