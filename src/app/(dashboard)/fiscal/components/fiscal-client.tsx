@@ -98,6 +98,12 @@ export function FiscalClient() {
     }
   };
 
+  const getDefaultDocumentTypeForUpload = (): 'Livro de Saída' | 'Livro de Entrada' | undefined => {
+    if (activeTab === 'saida') return 'Livro de Saída';
+    if (activeTab === 'entrada') return 'Livro de Entrada';
+    return undefined;
+  };
+
   const handleAction = () => {
     forceRefetch();
     setIsUploadOpen(false);
@@ -107,7 +113,12 @@ export function FiscalClient() {
 
   return (
     <>
-      <UploadFiscalDocumentDialog open={isUploadOpen} onOpenChange={setIsUploadOpen} onUploadComplete={handleAction} />
+      <UploadFiscalDocumentDialog 
+        open={isUploadOpen} 
+        onOpenChange={setIsUploadOpen} 
+        onUploadComplete={handleAction} 
+        defaultDocumentType={getDefaultDocumentTypeForUpload()}
+      />
       <ConfigureXmlCompaniesDialog open={isConfigureOpen} onOpenChange={setIsConfigureOpen} onSave={handleAction} />
       {selectedDocument && (
         <FiscalDocumentDetailsDialog document={selectedDocument} open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)} />

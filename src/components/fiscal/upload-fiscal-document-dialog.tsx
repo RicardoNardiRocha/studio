@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -42,9 +42,10 @@ interface UploadFiscalDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadComplete: () => void;
+  defaultDocumentType?: 'Livro de Saída' | 'Livro de Entrada';
 }
 
-const documentTypes = ['Livro de Entrada', 'Livro de Saída', 'Nota Fiscal de Entrada', 'Nota Fiscal de Saída'];
+const allDocumentTypes = ['Livro de Entrada', 'Livro de Saída', 'Nota Fiscal de Entrada', 'Nota Fiscal de Saída'];
 const noteStatuses = ['Ativa', 'Cancelada', 'Inutilizada', 'Denegada', 'Rejeitada'];
 
 
@@ -53,16 +54,16 @@ const formSchema = z.object({
   documentType: z.string({ required_error: 'Selecione o tipo de documento.' }),
   competencia: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
   file: z.any().refine(file => file?.length > 0, 'O arquivo é obrigatório.'),
-  status: z.string().optional(),
 });
 
 type CompanyOption = { value: string; label: string; };
-type Company = { id: string; name: string };
+type Company = { id: string; name: string, cnpj: string };
 
 export function UploadFiscalDocumentDialog({
   open,
   onOpenChange,
   onUploadComplete,
+  defaultDocumentType,
 }: UploadFiscalDocumentDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -86,9 +87,21 @@ export function UploadFiscalDocumentDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       competencia: format(new Date(), 'MM/yyyy'),
-      status: 'Ativa',
+      documentType: defaultDocumentType || '',
     },
   });
+
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        competencia: format(new Date(), 'MM/yyyy'),
+        documentType: defaultDocumentType || '',
+        companyId: '',
+        file: undefined,
+      });
+      setCompetenceInput(format(new Date(), 'MM/yyyy'));
+    }
+  }, [open, defaultDocumentType, form]);
 
   const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
@@ -120,9 +133,9 @@ export function UploadFiscalDocumentDialog({
       const newDoc = {
           companyId: company.id,
           companyName: company.name,
-          companyCnpj: (company as any).cnpj,
+          companyCnpj: company.cnpj,
           documentType: values.documentType,
-          status: values.documentType.includes('Nota Fiscal') ? values.status : 'Ativa', // Status 'Ativa' como padrão para livros
+          status: 'Ativa', // Status 'Ativa' como padrão para todos os uploads
           competencia: values.competencia,
           uploadedAt: new Date().toISOString(),
           fileUrl,
@@ -139,8 +152,6 @@ export function UploadFiscalDocumentDialog({
       });
 
       onUploadComplete();
-      form.reset();
-      setCompetenceInput(format(new Date(), 'MM/yyyy'));
       onOpenChange(false);
 
     } catch (error: any) {
@@ -194,30 +205,17 @@ export function UploadFiscalDocumentDialog({
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Tipo de Documento</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!!defaultDocumentType}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
-                        <SelectContent>{documentTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent>
+                        <SelectContent>
+                            {allDocumentTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}
+                        </SelectContent>
                     </Select>
                     <FormMessage />
                     </FormItem>
                 )}
             />
-             {form.watch('documentType')?.includes('Nota Fiscal') && (
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Status da Nota</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status da nota..." /></SelectTrigger></FormControl>
-                            <SelectContent>{noteStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            )}
+            
              <FormField
                 control={form.control}
                 name="competencia"
