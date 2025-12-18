@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -47,7 +48,7 @@ interface ProcessDetailsDialogProps {
 }
 
 const processTypes = ['Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
-const processStatuses: ProcessStatus[] = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Concluído', 'Cancelado'];
+const processStatuses: ProcessStatus[] = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Em Exigência', 'Concluído', 'Cancelado'];
 const processPriorities: ProcessPriority[] = ['Baixa', 'Média', 'Alta'];
 
 
@@ -83,6 +84,8 @@ const getStatusBadgeVariant = (status: ProcessStatus): 'success' | 'info' | 'cya
     case 'Aguardando Cliente':
     case 'Aguardando Órgão':
       return 'warning';
+    case 'Em Exigência':
+        return 'destructive';
     case 'Cancelado':
       return 'outline';
     default:

@@ -47,7 +47,7 @@ import { ProcessDetailsDialog } from './process-details-dialog';
 import { differenceInDays, isPast } from 'date-fns';
 
 export type ProcessPriority = 'Baixa' | 'Média' | 'Alta';
-export type ProcessStatus = 'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Concluído' | 'Cancelado';
+export type ProcessStatus = 'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Em Exigência' | 'Concluído' | 'Cancelado';
 
 export interface CorporateProcess {
   id: string;
@@ -64,7 +64,7 @@ export interface CorporateProcess {
   notes?: string;
 }
 
-const processStatuses: ProcessStatus[] = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Concluído', 'Cancelado'];
+const processStatuses: ProcessStatus[] = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Em Exigência', 'Concluído', 'Cancelado'];
 const processTypes = ['Todos', 'Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
 const processPriorities: Array<'Todos' | ProcessPriority> = ['Todos', 'Baixa', 'Média', 'Alta'];
 
@@ -83,6 +83,8 @@ const getStatusBadgeVariant = (status: ProcessStatus): 'success' | 'info' | 'cya
     case 'Aguardando Cliente':
     case 'Aguardando Órgão':
       return 'warning';
+    case 'Em Exigência':
+        return 'destructive';
     case 'Cancelado':
       return 'outline';
     default:
@@ -107,7 +109,7 @@ export function CorporateProcessesClient() {
   const [selectedProcess, setSelectedProcess] = useState<CorporateProcess | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('Todos');
-  const [statusFilter, setStatusFilter] = useState<ProcessStatus | 'Todos' | 'Em Andamento'>('Todos');
+  const [statusFilter, setStatusFilter] = useState<ProcessStatus | 'Todos' | 'Em Andamento'>('Em Andamento');
   const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
 
   const [allProcesses, setAllProcesses] = useState<CorporateProcess[]>([]);
@@ -226,14 +228,13 @@ export function CorporateProcessesClient() {
   };
   
   const kpiValues = useMemo(() => {
-    if (!allProcesses) return { inProgress: 0, completed: 0, delayed: 0, total: 0 };
-    const today = new Date();
+    if (!allProcesses) return { inProgress: 0, completed: 0, onHold: 0, total: 0 };
     const total = allProcesses.length;
-    const inProgress = allProcesses.filter(p => !['Concluído', 'Cancelado'].includes(p.status)).length;
+    const inProgress = allProcesses.filter(p => !['Concluído', 'Cancelado', 'Em Exigência'].includes(p.status)).length;
     const completed = allProcesses.filter(p => p.status === 'Concluído').length;
-    const delayed = allProcesses.filter(p => p.status !== 'Concluído' && p.status !== 'Cancelado' && differenceInDays(today, (p.startDate as Timestamp).toDate()) > 30).length;
+    const onHold = allProcesses.filter(p => p.status === 'Em Exigência').length;
     
-    return { total, inProgress, completed, delayed };
+    return { total, inProgress, completed, onHold };
   }, [allProcesses]);
   
   const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
@@ -296,10 +297,10 @@ export function CorporateProcessesClient() {
       )}
       
        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
-            <KpiCard title="Total de Processos" value={kpiValues.total} icon={Workflow} colorClass="bg-gray-500" onClick={() => setStatusFilter('Todos')} isActive={statusFilter === 'Todos'} />
             <KpiCard title="Em Andamento" value={kpiValues.inProgress} icon={Loader2} colorClass="bg-blue-500" onClick={() => setStatusFilter('Em Andamento')} isActive={statusFilter === 'Em Andamento'} />
+            <KpiCard title="Em Exigência" value={kpiValues.onHold} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => setStatusFilter('Em Exigência')} isActive={statusFilter === 'Em Exigência'} />
             <KpiCard title="Concluídos" value={kpiValues.completed} icon={CheckCircle2} colorClass="bg-green-500" onClick={() => setStatusFilter('Concluído')} isActive={statusFilter === 'Concluído'} />
-            <KpiCard title="Atrasados (>30d)" value={kpiValues.delayed} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => {}} isActive={false} />
+            <KpiCard title="Total de Processos" value={kpiValues.total} icon={Workflow} colorClass="bg-gray-500" onClick={() => setStatusFilter('Todos')} isActive={statusFilter === 'Todos'} />
         </div>
 
       <Card>
@@ -372,7 +373,7 @@ export function CorporateProcessesClient() {
                      const isDelayed = process.status !== 'Concluído' && process.status !== 'Cancelado' && differenceInDays(new Date(), (process.startDate as Timestamp).toDate()) > 30;
                      const isCanceled = process.status === 'Cancelado';
                      return (
-                        <TableRow key={process.id} className={isCanceled ? 'bg-slate-200 dark:bg-slate-800' : isDelayed ? 'bg-destructive/10' : ''}>
+                        <TableRow key={process.id} className={isCanceled ? 'bg-slate-200 dark:bg-slate-800' : isDelayed && process.status !== 'Em Exigência' ? 'bg-orange-500/10' : ''}>
                           <TableCell>{getPriorityIcon(process.priority)}</TableCell>
                           <TableCell className="font-medium">{process.companyName}</TableCell>
                           <TableCell>{process.processType}</TableCell>
@@ -399,7 +400,7 @@ export function CorporateProcessesClient() {
                             </Select>
                           </TableCell>
                           <TableCell className="text-right">
-                            {isDelayed && <AlertTriangle className="h-4 w-4 text-destructive inline-block mr-2" title="Processo atrasado"/>}
+                            {isDelayed && process.status !== 'Em Exigência' && <AlertTriangle className="h-4 w-4 text-orange-500 inline-block mr-2" title="Processo atrasado"/>}
                             <Button variant="outline" size="icon" onClick={() => handleOpenDetails(process)}>
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">Ver Detalhes</span>

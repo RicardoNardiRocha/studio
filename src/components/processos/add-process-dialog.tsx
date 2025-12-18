@@ -51,7 +51,7 @@ interface AddProcessDialogProps {
 }
 
 const processTypes = ['Abertura', 'Alteração', 'Baixa', 'Certidão', 'Parcelamento', 'Outro'];
-const processStatuses: Array<'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Concluído' | 'Cancelado'> = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Concluído', 'Cancelado'];
+const processStatuses: Array<'Aguardando Documentação' | 'Em Análise' | 'Em Preenchimento' | 'Protocolado' | 'Em Andamento Externo' | 'Aguardando Cliente' | 'Aguardando Órgão' | 'Em Exigência' | 'Concluído' | 'Cancelado'> = ['Aguardando Documentação', 'Em Análise', 'Em Preenchimento', 'Protocolado', 'Em Andamento Externo', 'Aguardando Cliente', 'Aguardando Órgão', 'Em Exigência', 'Concluído', 'Cancelado'];
 const processPriorities: Array<'Baixa' | 'Média' | 'Alta'> = ['Baixa', 'Média', 'Alta'];
 
 
