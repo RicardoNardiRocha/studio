@@ -1,11 +1,10 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import type { CorporateProcess, ProcessStatus, ProcessPriority } from './corporate-processes-client';
 import { Badge } from '../ui/badge';
-import { ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowRight, ArrowDown, Calendar, CalendarCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface ProcessCardProps {
@@ -37,16 +36,25 @@ const getPriorityInfo = (priority: ProcessPriority) => {
   }
 }
 
-const toDate = (date: any): Date => {
-  if (!date) return new Date();
-  if (date instanceof Date) return date;
-  if (date.seconds) return new Date(date.seconds * 1000);
-  return new Date(date);
+const toDate = (date: any): Date | undefined => {
+    if (!date) return undefined;
+    if (date instanceof Date) return date;
+    if (date.seconds) return new Date(date.seconds * 1000);
+    if (typeof date === 'string') {
+        try {
+            return new Date(date);
+        } catch (e) {
+            return undefined;
+        }
+    }
+    return undefined;
 }
+
 
 export function ProcessCard({ process, onClick, onStatusChange, canUpdate, statuses }: ProcessCardProps) {
   const { Icon, className: priorityClassName } = getPriorityInfo(process.priority);
   const startDate = toDate(process.startDate);
+  const protocolDate = toDate(process.protocolDate);
 
   return (
     <Card
@@ -59,8 +67,12 @@ export function ProcessCard({ process, onClick, onStatusChange, canUpdate, statu
             <CardTitle className="text-sm font-bold leading-tight truncate">{process.processType}</CardTitle>
           </div>
           <div className="text-right pl-2">
-            <p className="text-xl font-bold">{format(startDate, 'dd')}</p>
-            <p className="text-xs text-muted-foreground -mt-1">{format(startDate, 'MMM')}</p>
+             {startDate && (
+                <>
+                    <p className="text-xl font-bold">{format(startDate, 'dd')}</p>
+                    <p className="text-xs text-muted-foreground -mt-1">{format(startDate, 'MMM')}</p>
+                </>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-3 pt-0 text-xs text-muted-foreground space-y-1.5">
@@ -71,6 +83,16 @@ export function ProcessCard({ process, onClick, onStatusChange, canUpdate, statu
                  <span>{process.priority}</span>
               </div>
            </div>
+           <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> Início:</span>
+              <span className="font-semibold text-foreground">{startDate ? format(startDate, 'dd/MM/yy') : 'N/A'}</span>
+           </div>
+            {protocolDate && (
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><CalendarCheck className="h-3 w-3" /> Protocolo:</span>
+                <span className="font-semibold text-foreground">{format(protocolDate, 'dd/MM/yy')}</span>
+              </div>
+            )}
         </CardContent>
       </div>
        <div className="p-3 pt-0">
