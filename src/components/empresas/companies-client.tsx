@@ -34,7 +34,7 @@ import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
-import { differenceInDays, parse, isValid } from 'date-fns';
+import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -54,13 +54,13 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
-    const validityDate = parse(validity, 'yyyy-MM-dd', new Date());
+    const [year, month, day] = validity.split('-').map(Number);
+    const validityDate = new Date(year, month - 1, day);
     if (!isValid(validityDate)) {
         return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); 
+    const today = startOfDay(new Date());
     const daysLeft = differenceInDays(validityDate, today);
     const dateText = validityDate.toLocaleDateString('pt-BR');
 

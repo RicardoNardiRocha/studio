@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { differenceInDays, parseISO, isValid } from 'date-fns';
+import { differenceInDays, parseISO, isValid, startOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 type EcpfStatusFilter = 'Todos' | 'Sim' | 'Não';
@@ -56,13 +56,13 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
-    const validityDate = parseISO(validity + 'T00:00:00-03:00');
+    const [year, month, day] = validity.split('-').map(Number);
+    const validityDate = new Date(year, month - 1, day);
     if (!isValid(validityDate)) {
         return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfDay(new Date());
     const daysLeft = differenceInDays(validityDate, today);
     const dateText = validityDate.toLocaleDateString('pt-BR');
 

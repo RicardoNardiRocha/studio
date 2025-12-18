@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
@@ -64,7 +63,8 @@ export function AlertsTable() {
           const company = doc.data();
           if (company.certificateA1Validity) {
             try {
-              const validityDate = parse(company.certificateA1Validity, 'yyyy-MM-dd', new Date());
+              const [year, month, day] = company.certificateA1Validity.split('-').map(Number);
+              const validityDate = new Date(year, month - 1, day);
               if (!isValid(validityDate)) continue;
               const daysLeft = differenceInDays(validityDate, today);
 
@@ -82,7 +82,8 @@ export function AlertsTable() {
           const partner = doc.data();
           if (partner.ecpfValidity) {
             try {
-              const validityDate = parse(partner.ecpfValidity, 'yyyy-MM-dd', new Date());
+              const [year, month, day] = partner.ecpfValidity.split('-').map(Number);
+              const validityDate = new Date(year, month - 1, day);
               if (!isValid(validityDate)) continue;
               const daysLeft = differenceInDays(validityDate, today);
 
