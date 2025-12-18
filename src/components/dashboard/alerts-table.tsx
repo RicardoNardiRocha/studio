@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, FileWarning, CalendarClock, AlertTriangle, ArrowUpDown, Filter } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import { parseISO, isBefore, startOfDay, endOfDay, addDays, formatDistanceToNow, differenceInDays } from 'date-fns';
+import { parseISO, isBefore, startOfDay, endOfDay, addDays, formatDistanceToNow, differenceInDays, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -64,6 +65,7 @@ export function AlertsTable() {
           if (company.certificateA1Validity) {
             try {
               const validityDate = parseISO(company.certificateA1Validity);
+              if (!isValid(validityDate)) continue;
               const daysLeft = differenceInDays(validityDate, today);
 
               if (daysLeft < 0) {
@@ -81,6 +83,7 @@ export function AlertsTable() {
           if (partner.ecpfValidity) {
             try {
               const validityDate = parseISO(partner.ecpfValidity);
+              if (!isValid(validityDate)) continue;
               const daysLeft = differenceInDays(validityDate, today);
 
               if (daysLeft < 0) {
