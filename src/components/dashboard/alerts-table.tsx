@@ -26,13 +26,13 @@ const alertTypes: Alert['type'][] = ['Certificado Vencendo', 'Certificado Vencid
 const getAlertInfo = (alertType: Alert['type']) => {
     switch (alertType) {
         case 'Certificado Vencendo':
-            return { Icon: FileWarning, variant: 'secondary' as const };
+            return { Icon: FileWarning, variant: 'warning' as const };
         case 'Certificado Vencido':
             return { Icon: FileWarning, variant: 'destructive' as const };
         case 'Obrigação Atrasada':
             return { Icon: CalendarClock, variant: 'destructive' as const };
         case 'Obrigação Vencendo':
-            return { Icon: CalendarClock, variant: 'secondary' as const };
+            return { Icon: CalendarClock, variant: 'warning' as const };
         case 'Processo em Exigência':
             return { Icon: AlertTriangle, variant: 'destructive' as const };
         default:
@@ -195,11 +195,10 @@ export function AlertsTable() {
             ) : sortedAndFilteredAlerts.length > 0 ? (
               sortedAndFilteredAlerts.map((alert, index) => {
                 const { Icon, variant } = getAlertInfo(alert.type);
-                let badgeVariant = variant;
+                let badgeVariant: 'warning' | 'destructive' = variant;
                 if (alert.type === 'Certificado Vencendo') {
                     const daysLeft = differenceInDays(alert.date, new Date());
                     if (daysLeft <= 30) badgeVariant = 'destructive';
-                    else badgeVariant = 'secondary';
                 }
 
                 return (
