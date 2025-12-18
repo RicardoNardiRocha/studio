@@ -27,7 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
@@ -35,6 +35,7 @@ import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
 import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -94,6 +95,7 @@ export function CompaniesClient() {
   const [taxRegimeFilter, setTaxRegimeFilter] = useState('Todos');
   const [certificateStatusFilter, setCertificateStatusFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [isAlertDismissed, setIsAlertDismissed] = useState(false);
 
 
   const firestore = useFirestore();
@@ -116,6 +118,14 @@ export function CompaniesClient() {
       return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
     });
   }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter]);
+  
+  const expiringCertificates = useMemo(() => {
+    if (!companies) return [];
+    return companies.filter(c => {
+      const statusInfo = getCertificateStatusInfo(c.certificateA1Validity);
+      return statusInfo.status === 'Vencido' || statusInfo.status === 'Vencendo em 30 dias' || statusInfo.status === 'Vencendo em 60 dias';
+    });
+  }, [companies]);
 
 
   const handleAction = () => {
@@ -150,6 +160,23 @@ export function CompaniesClient() {
           onCompanyDeleted={handleAction}
         />
       )}
+
+      {!isAlertDismissed && expiringCertificates.length > 0 && (
+        <Alert variant="destructive" className="relative mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Atenção: Certificados Vencendo!</AlertTitle>
+          <AlertDescription>
+            Você possui <strong>{expiringCertificates.length}</strong> certificados de empresa vencidos ou vencendo nos próximos 60 dias.
+          </AlertDescription>
+          <button
+            onClick={() => setIsAlertDismissed(true)}
+            className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
