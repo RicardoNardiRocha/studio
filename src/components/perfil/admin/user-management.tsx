@@ -9,9 +9,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { UserProfile } from '@/firebase/provider';
-import { Users, UserCog } from 'lucide-react';
+import { Users, UserCog, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EditUserDialog } from './edit-user-dialog';
+import { ActivityLog } from './activity-log';
 
 export function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -48,6 +49,8 @@ export function UserManagement() {
     return adminProfile.permissions?.usuarios?.update === true;
   }
 
+  const canViewLog = adminProfile?.permissions.usuarios.update === true;
+
   return (
     <>
       {selectedUser && (
@@ -59,76 +62,95 @@ export function UserManagement() {
         />
       )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Gerenciamento de Usuários</CardTitle>
-            <CardDescription>Visualize e edite os perfis e permissões dos usuários do sistema.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4 p-4 border-l-4 rounded-md bg-muted">
-            <b>Como funciona:</b> Para que um novo usuário apareça nesta lista, ele deve primeiro ser criado no painel do <b>Firebase Authentication</b>. Após o primeiro login no aplicativo, seu perfil será automaticamente criado aqui com permissões padrão, e então você poderá gerenciá-lo.
-          </p>
-          <div className="border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Função Resumida</TableHead>
-                  <TableHead>Acessa Financeiro?</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 2 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-48" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+      <div className="space-y-6">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>Gerenciamento de Usuários</CardTitle>
+                <CardDescription>Visualize e edite os perfis e permissões dos usuários do sistema.</CardDescription>
+            </div>
+            </CardHeader>
+            <CardContent>
+            <p className="text-sm text-muted-foreground mb-4 p-4 border-l-4 rounded-md bg-muted">
+                <b>Como funciona:</b> Para que um novo usuário apareça nesta lista, ele deve primeiro ser criado no painel do <b>Firebase Authentication</b>. Após o primeiro login no aplicativo, seu perfil será automaticamente criado aqui com permissões padrão, e então você poderá gerenciá-lo.
+            </p>
+            <div className="border rounded-md">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Função Resumida</TableHead>
+                    <TableHead>Acessa Financeiro?</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
-                  ))
-                ) : users && users.length > 0 ? (
-                  users.map((user) => (
-                    <TableRow key={user.uid}>
-                      <TableCell className="font-medium">{user.displayName}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={getRoleSummary(user.permissions) === 'Admin' ? 'default' : 'secondary'}>
-                          {getRoleSummary(user.permissions)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.permissions?.financeiro?.read ? 'default' : 'outline'}>
-                          {user.permissions?.financeiro?.read ? 'Sim' : 'Não'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(user)} disabled={!canEdit(user)}>
-                          <UserCog className="h-4 w-4" />
-                          <span className="sr-only">Gerenciar Permissões</span>
-                        </Button>
-                      </TableCell>
+                </TableHeader>
+                <TableBody>
+                    {isLoading ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                        <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8" /></TableCell>
+                        </TableRow>
+                    ))
+                    ) : users && users.length > 0 ? (
+                    users.map((user) => (
+                        <TableRow key={user.uid}>
+                        <TableCell className="font-medium">{user.displayName}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                            <Badge variant={getRoleSummary(user.permissions) === 'Admin' ? 'default' : 'secondary'}>
+                            {getRoleSummary(user.permissions)}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <Badge variant={user.permissions?.financeiro?.read ? 'default' : 'outline'}>
+                            {user.permissions?.financeiro?.read ? 'Sim' : 'Não'}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <Button variant="outline" size="icon" onClick={() => handleOpenEditDialog(user)} disabled={!canEdit(user)}>
+                            <UserCog className="h-4 w-4" />
+                            <span className="sr-only">Gerenciar Permissões</span>
+                            </Button>
+                        </TableCell>
+                        </TableRow>
+                    ))
+                    ) : (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                        <Users className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                        Nenhum perfil de usuário encontrado no banco de dados.
+                        <p className='text-xs text-muted-foreground'>Faça o primeiro login de um novo usuário para que ele apareça aqui.</p>
+                        </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                      <Users className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                      Nenhum perfil de usuário encontrado no banco de dados.
-                      <p className='text-xs text-muted-foreground'>Faça o primeiro login de um novo usuário para que ele apareça aqui.</p>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                    )}
+                </TableBody>
+                </Table>
+            </div>
+            </CardContent>
+        </Card>
+
+        {canViewLog && (
+           <Card>
+            <CardHeader>
+                <div className='flex items-center gap-2'>
+                    <History className="h-5 w-5" />
+                    <CardTitle>Log de Atividades do Sistema</CardTitle>
+                </div>
+                <CardDescription>
+                    Registro completo de todas as ações realizadas na plataforma.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ActivityLog />
+            </CardContent>
+           </Card>
+        )}
+      </div>
     </>
   );
 }
