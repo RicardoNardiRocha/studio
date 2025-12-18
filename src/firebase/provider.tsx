@@ -134,16 +134,18 @@ export function FirebaseProvider({
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-          // Verifica se existem outros usuários para determinar se este é o primeiro
-          const usersQuery = query(collection(firestore, 'users'), limit(1));
+          // Check if any other user exists to determine if this is the first user
+          const usersQuery = query(collection(firestore, 'users'), limit(2)); // Check for more than 1 document
           const existingUsersSnap = await getDocs(usersQuery);
-          const isFirstUser = existingUsersSnap.empty;
+          
+          // isFirstUser is true if there are no other documents or only this user's (which is not created yet)
+          const isFirstUser = existingUsersSnap.docs.filter(d => d.id !== firebaseUser.uid).length === 0;
 
           const newUserProfile: UserProfile = {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Novo Usuário',
             email: firebaseUser.email || '',
-            // Se for o primeiro usuário, concede permissões de admin, senão, as padrão.
+            // If first user, grant admin permissions, otherwise default permissions.
             permissions: isFirstUser ? adminPermissions : defaultPermissions,
             photoURL: firebaseUser.photoURL || '',
           };
