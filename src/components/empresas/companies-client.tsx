@@ -265,8 +265,8 @@ export function CompaniesClient() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-2 mb-4">
-            <div className="relative">
+          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+            <div className="relative flex-grow">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome..."
@@ -275,38 +275,44 @@ export function CompaniesClient() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Select value={taxRegimeFilter} onValueChange={setTaxRegimeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por regime..." />
-              </SelectTrigger>
-              <SelectContent>
-                {taxRegimes.map(regime => (
-                  <SelectItem key={regime} value={regime}>{regime}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
+            <div className="w-full md:w-auto md:min-w-[180px]">
+                <Select value={taxRegimeFilter} onValueChange={setTaxRegimeFilter}>
                 <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por certificado..." />
+                    <SelectValue placeholder="Filtrar por regime..." />
                 </SelectTrigger>
                 <SelectContent>
-                    {certificateStatuses.map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                    {taxRegimes.map(regime => (
+                    <SelectItem key={regime} value={regime}>{regime}</SelectItem>
                     ))}
                 </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por situação..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {companyStatuses.map(status => (
-                    <SelectItem key={status} value={status}>{status === 'Todos' ? 'Todas as Situações' : status.charAt(0) + status.slice(1).toLowerCase()}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+                </Select>
+            </div>
+            <div className="w-full md:w-auto md:min-w-[200px]">
+                <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Filtrar por certificado..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {certificateStatuses.map(status => (
+                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="w-full md:w-auto md:min-w-[180px]">
+                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Filtrar por situação..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {companyStatuses.map(status => (
+                        <SelectItem key={status} value={status}>{status === 'Todos' ? 'Todas as Situações' : status.charAt(0) + status.slice(1).toLowerCase()}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
              {showAlertsOnly && (
-                <Button variant="ghost" onClick={clearAlertFilter} className="w-full justify-start">
+                <Button variant="ghost" onClick={clearAlertFilter} className="w-full md:w-auto justify-start">
                     <X className="mr-2 h-4 w-4" />
                     Limpar Filtro de Alerta
                 </Button>
