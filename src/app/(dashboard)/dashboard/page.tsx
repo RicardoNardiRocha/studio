@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { KpiCards } from '@/components/dashboard/kpi-cards';
 import { RecentActivities } from '@/components/dashboard/recent-activities';
 import { QuickActions } from '@/components/dashboard/quick-actions';
-import { AlertsTable } from '@/components/dashboard/alerts-table';
+import { Notifications } from '@/components/dashboard/notifications';
 
 
 export default function DashboardPage() {
@@ -20,7 +20,7 @@ export default function DashboardPage() {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="col-span-1 lg:col-span-2 space-y-4">
-              <AlertsTable />
+              <Notifications />
           </div>
           <div className="col-span-1 space-y-4">
             <QuickActions />
