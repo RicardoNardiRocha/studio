@@ -56,8 +56,9 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
   }
   try {
     const [year, month, day] = validity.split('-').map(Number);
-    const validityDate = new Date(year, month - 1, day);
-    if (!isValid(validityDate)) {
+    const validityDate = startOfDay(new Date(year, month - 1, day));
+    
+     if (!isValid(validityDate)) {
         return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
     }
 
@@ -96,6 +97,7 @@ export function CompaniesClient() {
   const [certificateStatusFilter, setCertificateStatusFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
+  const [showAlertsOnly, setShowAlertsOnly] = useState(false);
 
 
   const firestore = useFirestore();
@@ -107,17 +109,6 @@ export function CompaniesClient() {
   }, [firestore]);
   
   const { data: companies, isLoading, forceRefetch } = useCollection<Company>(companiesQuery);
-
-  const filteredCompanies = useMemo(() => {
-    if (!companies) return [];
-    return companies.filter(company => {
-      const nameMatch = company.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const taxRegimeMatch = taxRegimeFilter === 'Todos' || company.taxRegime === taxRegimeFilter;
-      const certStatusMatch = certificateStatusFilter === 'Todos' || getCertificateStatusInfo(company.certificateA1Validity).status === certificateStatusFilter;
-      const statusMatch = statusFilter === 'Todos' || company.status.toUpperCase() === statusFilter;
-      return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
-    });
-  }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter]);
   
   const expiringCertificates = useMemo(() => {
     if (!companies) return [];
@@ -126,6 +117,25 @@ export function CompaniesClient() {
       return statusInfo.status === 'Vencido' || statusInfo.status === 'Vencendo em 30 dias' || statusInfo.status === 'Vencendo em 60 dias';
     });
   }, [companies]);
+
+  const filteredCompanies = useMemo(() => {
+    if (!companies) return [];
+
+    let filtered = companies;
+
+    if (showAlertsOnly) {
+      const expiringIds = new Set(expiringCertificates.map(c => c.id));
+      filtered = companies.filter(c => expiringIds.has(c.id));
+    }
+
+    return filtered.filter(company => {
+      const nameMatch = company.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const taxRegimeMatch = taxRegimeFilter === 'Todos' || company.taxRegime === taxRegimeFilter;
+      const certStatusMatch = certificateStatusFilter === 'Todos' || getCertificateStatusInfo(company.certificateA1Validity).status === certificateStatusFilter;
+      const statusMatch = statusFilter === 'Todos' || company.status.toUpperCase() === statusFilter;
+      return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
+    });
+  }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter, showAlertsOnly, expiringCertificates]);
 
 
   const handleAction = () => {
@@ -136,6 +146,17 @@ export function CompaniesClient() {
   const handleOpenDetails = (company: Company) => {
     setSelectedCompany(company);
     setIsDetailsDialogOpen(true);
+  };
+
+  const handleAlertClick = () => {
+    // Ativa o filtro de alertas e limpa outros filtros que possam conflitar
+    setShowAlertsOnly(true);
+    setCertificateStatusFilter('Todos'); // Garante que não haja conflito
+  };
+
+  const clearAlertFilter = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Impede que o clique no botão propague para o alerta
+    setShowAlertsOnly(false);
   };
 
   return (
@@ -160,22 +181,29 @@ export function CompaniesClient() {
           onCompanyDeleted={handleAction}
         />
       )}
-
-      {!isAlertDismissed && expiringCertificates.length > 0 && (
-        <Alert variant="destructive" className="relative mb-4">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Atenção: Certificados Vencendo!</AlertTitle>
-          <AlertDescription>
-            Você possui <strong>{expiringCertificates.length}</strong> certificados de empresa vencidos ou vencendo nos próximos 60 dias.
-          </AlertDescription>
-          <button
-            onClick={() => setIsAlertDismissed(true)}
-            className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </Alert>
-      )}
+      <div className="mb-4">
+        {!isAlertDismissed && expiringCertificates.length > 0 && (
+            <div onClick={handleAlertClick} className="cursor-pointer">
+                <Alert variant="destructive" className="relative">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Atenção: Certificados Vencendo!</AlertTitle>
+                <AlertDescription>
+                    Você possui <strong>{expiringCertificates.length}</strong> certificados de empresa vencidos ou vencendo nos próximos 60 dias. Clique aqui para vê-los.
+                </AlertDescription>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAlertDismissed(true);
+                        if (showAlertsOnly) setShowAlertsOnly(false);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+                </Alert>
+            </div>
+        )}
+      </div>
 
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -250,6 +278,12 @@ export function CompaniesClient() {
                 </SelectContent>
               </Select>
             </div>
+             {showAlertsOnly && (
+                <Button variant="ghost" onClick={clearAlertFilter}>
+                    <X className="mr-2 h-4 w-4" />
+                    Limpar Filtro de Alerta
+                </Button>
+             )}
           </div>
           <div className="border rounded-md">
             <Table>
