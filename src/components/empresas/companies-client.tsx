@@ -265,8 +265,8 @@ export function CompaniesClient() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <div className="relative flex-grow">
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome..."
@@ -276,7 +276,7 @@ export function CompaniesClient() {
               />
             </div>
             <Select value={taxRegimeFilter} onValueChange={setTaxRegimeFilter}>
-              <SelectTrigger className="flex-grow sm:flex-grow-0 min-w-[180px]">
+              <SelectTrigger>
                 <SelectValue placeholder="Filtrar por regime..." />
               </SelectTrigger>
               <SelectContent>
@@ -286,7 +286,7 @@ export function CompaniesClient() {
               </SelectContent>
             </Select>
             <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
-                <SelectTrigger className="flex-grow sm:flex-grow-0 min-w-[180px]">
+                <SelectTrigger>
                     <SelectValue placeholder="Filtrar por certificado..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -296,7 +296,7 @@ export function CompaniesClient() {
                 </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="flex-grow sm:flex-grow-0 min-w-[180px]">
+                <SelectTrigger>
                     <SelectValue placeholder="Filtrar por situação..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -306,7 +306,7 @@ export function CompaniesClient() {
                 </SelectContent>
             </Select>
              {showAlertsOnly && (
-                <Button variant="ghost" onClick={clearAlertFilter} className="flex-shrink-0">
+                <Button variant="ghost" onClick={clearAlertFilter} className="w-full justify-start">
                     <X className="mr-2 h-4 w-4" />
                     Limpar Filtro de Alerta
                 </Button>
