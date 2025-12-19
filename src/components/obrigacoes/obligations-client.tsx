@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Search, LayoutGrid, List, MoreHorizontal, AlertTriangle, X, CheckCircle2, Clock, CalendarClock } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddObligationDialog } from './add-obligation-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +50,9 @@ export interface TaxObligation {
   comprovantes?: string[];
   displayStatus?: ObligationStatus;
 }
+
+const obligationStatuses: ObligationStatus[] = ['Pendente', 'Em Andamento', 'Entregue', 'Atrasada', 'Cancelada'];
+
 
 const getStatusBadgeVariant = (status?: ObligationStatus): 'default' | 'secondary' | 'destructive' | 'outline' => {
   if (!status) return 'outline';
@@ -150,6 +153,26 @@ export function ObligationsClient() {
   const handleOpenDetails = (obligation: TaxObligation) => {
     setSelectedObligation(obligation);
     setIsDetailsDialogOpen(true);
+  };
+
+  const handleStatusChange = async (obligation: TaxObligation, newStatus: ObligationStatus) => {
+    if (!firestore) return;
+    
+    const obligationRef = doc(firestore, 'companies', obligation.companyId, 'taxObligations', obligation.id);
+    try {
+        const updateData: any = { status: newStatus };
+        if (newStatus === 'Entregue') {
+            updateData.dataEntrega = serverTimestamp();
+        } else {
+             updateData.dataEntrega = null;
+        }
+        await updateDoc(obligationRef, updateData);
+        forceRefetch();
+        toast({ title: "Status atualizado com sucesso!" });
+    } catch (error) {
+        console.error("Failed to update status:", error);
+        toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    }
   };
 
   const filteredObligations = useMemo(() => {
@@ -344,7 +367,14 @@ export function ObligationsClient() {
              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {filteredObligations.length > 0 ? (
                     filteredObligations.map(ob => (
-                        <ObligationCard key={ob.id} obligation={ob} onClick={() => handleOpenDetails(ob)} />
+                        <ObligationCard 
+                            key={ob.id} 
+                            obligation={ob} 
+                            onClick={() => handleOpenDetails(ob)} 
+                            onStatusChange={(newStatus) => handleStatusChange(ob, newStatus)}
+                            canUpdate={profile?.permissions.obrigacoes.update || false}
+                            statuses={obligationStatuses}
+                        />
                     ))
                 ) : (
                     <div className="col-span-full text-center py-10">
@@ -373,7 +403,7 @@ export function ObligationsClient() {
                                 <TableRow key={ob.id}>
                                     <TableCell className="font-medium">{ob.companyName}</TableCell>
                                     <TableCell>{ob.nome}</TableCell>
-                                    <TableCell>{formatPeriod(ob.periodo)}</TableCell>
+                                    <TableCell>{ob.periodo}</TableCell>
                                     <TableCell>{formatDate(ob.dataVencimento)}</TableCell>
                                     <TableCell>{ob.responsavelNome}</TableCell>
                                     <TableCell><Badge variant={getStatusBadgeVariant(ob.displayStatus)}>{ob.displayStatus}</Badge></TableCell>
