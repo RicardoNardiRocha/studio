@@ -128,15 +128,6 @@ export function CertificateUploadDialog({
             updatedAt: new Date().toISOString(),
         }, { merge: true });
 
-        // Também atualiza o documento principal da empresa (se o usuário tiver permissão, a regra permitirá)
-        // Isso é para compatibilidade com a exibição na lista principal
-        const companyRef = doc(firestore, 'companies', company.id);
-        setDocumentNonBlocking(companyRef, {
-            certificateA1Validity: validityDateString,
-            certificateA1Url: fileUrl,
-        }, { merge: true });
-
-
         toast({
           title: 'Certificado Processado!',
           description: `A data de validade foi salva e o arquivo foi armazenado para a empresa ${company.name}.`,
