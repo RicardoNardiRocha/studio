@@ -85,11 +85,8 @@ export async function getNotifications(): Promise<Notification[]> {
         }
     });
 
-    // --- 2. Obligations & Processes Notifications ---
+    // --- 2. Obligations Notifications ---
     const next15Days = addDays(today, 15);
-    const processesSnapshot = await getDocs(collection(firestore, 'corporateProcesses'));
-    
-    // Obligations need to be fetched per company
     const obligationPromises = companiesSnapshot.docs.map(companyDoc => 
       getDocs(collection(firestore, 'companies', companyDoc.id, 'taxObligations'))
     );
@@ -111,7 +108,9 @@ export async function getNotifications(): Promise<Notification[]> {
         });
       }
     });
-
+    
+    // --- 3. Processes Notifications ---
+    const processesSnapshot = await getDocs(collection(firestore, 'corporateProcesses'));
     processesSnapshot.forEach(doc => {
         const proc = doc.data();
         const startDate = (proc.startDate as Timestamp)?.toDate();
