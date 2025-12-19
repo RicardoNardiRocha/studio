@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useStorage } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import * as forge from 'node-forge';
 import type { Company } from './company-details-dialog';
 import { uploadCertificate } from '@/lib/storage/upload';
@@ -118,11 +118,24 @@ export function CertificateUploadDialog({
         
         const fileUrl = await uploadCertificate(storage, `companies/${company.id}`, file);
 
+        // Salva as informações do certificado em um documento separado na subcoleção
+        const certificateDocRef = doc(collection(firestore, `companies/${company.id}/certificates`), 'A1');
+
+        setDocumentNonBlocking(certificateDocRef, { 
+            validity: validityDateString,
+            url: fileUrl,
+            type: 'A1',
+            updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        // Também atualiza o documento principal da empresa (se o usuário tiver permissão, a regra permitirá)
+        // Isso é para compatibilidade com a exibição na lista principal
         const companyRef = doc(firestore, 'companies', company.id);
-        setDocumentNonBlocking(companyRef, { 
+        setDocumentNonBlocking(companyRef, {
             certificateA1Validity: validityDateString,
             certificateA1Url: fileUrl,
         }, { merge: true });
+
 
         toast({
           title: 'Certificado Processado!',

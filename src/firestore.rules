@@ -39,8 +39,7 @@ service cloud.firestore {
                                                           match /companies/{companyId} {
                                                                   allow create: if isSignedIn();
                                                                         allow read: if hasPermission('empresas', 'read');
-                                                                              allow update: if hasPermission('empresas', 'update') || 
-                                                                                            (isSignedIn() && request.resource.data.keys().hasOnly(['certificateA1Validity', 'certificateA1Url']));
+                                                                              allow update: if hasPermission('empresas', 'update');
                                                                                     allow delete: if hasPermission('empresas', 'delete');
 
                                                                                           // Subcollection Rules
@@ -61,6 +60,10 @@ service cloud.firestore {
                                                                                                                                 allow update: if hasPermission('documentos', 'update');
                                                                                                                                         allow delete: if hasPermission('documentos', 'delete');
                                                                                                        }
+                                                                                                       
+                                                                                                        match /certificates/{certificateId} {
+																																																														allow read, write: if isSignedIn();
+																																																								}
                                                           }
                                                               
                                                                   match /corporateProcesses/{processId} {

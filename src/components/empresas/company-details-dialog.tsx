@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -30,9 +30,9 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
 import { Loader2, Trash2, ShieldCheck, UploadCloud, Download, MessageSquare, Phone, Mail } from 'lucide-react';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -143,6 +143,13 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const { user, profile } = useUser();
   const { toast } = useToast();
 
+  // Hook para ouvir em tempo real as atualizações do certificado
+  const certificateRef = useMemoFirebase(() => 
+    firestore ? doc(firestore, `companies/${company.id}/certificates/A1`) : null,
+    [firestore, company.id]
+  );
+  const { data: certificateData } = useDoc(certificateRef);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -152,6 +159,15 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       whatsappGroup: company.whatsappGroup || '',
     },
   });
+  
+  useEffect(() => {
+    form.reset({
+      taxRegime: company.taxRegime,
+      internalEmail: company.internalEmail || '',
+      internalPhone: company.internalPhone || '',
+      whatsappGroup: company.whatsappGroup || '',
+    })
+  }, [company, form]);
 
   const normalizedQsa = normalizeQsaData(company.qsa);
 
@@ -219,6 +235,9 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
       setIsLoading(false);
     }
   };
+
+  const displayValidity = certificateData?.validity || company.certificateA1Validity;
+  const displayUrl = certificateData?.url || company.certificateA1Url;
 
 
   return (
@@ -378,14 +397,13 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                             <div className="space-y-1">
                                 <Label>Data de Vencimento</Label>
                                 <p className="text-sm font-medium text-muted-foreground">
-                                    {company.certificateA1Validity ? new Date(company.certificateA1Validity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
+                                    {displayValidity ? new Date(displayValidity + 'T00:00:00-03:00').toLocaleDateString('pt-BR') : 'Não informado'}
                                 </p>
                             </div>
-                            {(profile?.permissions.empresas.create || profile?.permissions.empresas.update) && (
-                             <div className="flex items-center gap-2">
-                              {company.certificateA1Url && (
+                            <div className="flex items-center gap-2">
+                              {displayUrl && (
                                   <Button variant="outline" size="sm" asChild>
-                                      <a href={company.certificateA1Url} download={`${company.name}_${company.cnpj}.pfx`} target="_blank" rel="noopener noreferrer">
+                                      <a href={displayUrl} download={`${company.name}_${company.cnpj}.pfx`} target="_blank" rel="noopener noreferrer">
                                           <Download className="mr-2 h-4 w-4" />
                                           Baixar
                                       </a>
@@ -396,7 +414,6 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                                   Adicionar/Atualizar
                               </Button>
                             </div>
-                            )}
                         </div>
                     </div>
                 

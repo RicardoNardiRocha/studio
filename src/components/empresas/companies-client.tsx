@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -29,8 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
@@ -80,10 +80,45 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
   }
 };
 
-
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 60 dias', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
 const companyStatuses = ['Todos', 'ATIVA', 'INAPTA', 'BAIXADA'];
+
+function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetails: (company: Company) => void }) {
+    const firestore = useFirestore();
+    const certificateRef = useMemoFirebase(() => 
+        firestore ? doc(firestore, `companies/${company.id}/certificates/A1`) : null,
+        [firestore, company.id]
+    );
+    const { data: certificateData } = useDoc(certificateRef);
+
+    const displayValidity = certificateData?.validity || company.certificateA1Validity;
+    const certStatus = getCertificateStatusInfo(displayValidity);
+
+    return (
+        <TableRow key={company.id}>
+            <TableCell className="font-medium">{company.name}</TableCell>
+            <TableCell>{company.cnpj}</TableCell>
+            <TableCell>{company.taxRegime}</TableCell>
+            <TableCell>
+                <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
+            </TableCell>
+            <TableCell className="space-y-1">
+                <Badge variant={certStatus.variant} className="gap-1.5 whitespace-nowrap">
+                    <certStatus.Icon className="h-3 w-3" />
+                    {certStatus.text}
+                </Badge>
+                <div className="text-xs text-muted-foreground">{certStatus.dateText}</div>
+            </TableCell>
+            <TableCell className="text-right">
+                <Button variant="outline" size="icon" onClick={() => onOpenDetails(company)}>
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Ver Detalhes</span>
+                </Button>
+            </TableCell>
+        </TableRow>
+    );
+}
 
 
 export function CompaniesClient() {
@@ -230,7 +265,7 @@ export function CompaniesClient() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             <div className="relative flex-grow">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -240,42 +275,36 @@ export function CompaniesClient() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex-grow sm:flex-grow-0 min-w-[180px]">
-              <Select value={taxRegimeFilter} onValueChange={setTaxRegimeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por regime..." />
+            <Select value={taxRegimeFilter} onValueChange={setTaxRegimeFilter}>
+              <SelectTrigger className="flex-grow sm:flex-grow-0 min-w-[180px]">
+                <SelectValue placeholder="Filtrar por regime..." />
+              </SelectTrigger>
+              <SelectContent>
+                {taxRegimes.map(regime => (
+                  <SelectItem key={regime} value={regime}>{regime}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
+                <SelectTrigger className="flex-grow sm:flex-grow-0 min-w-[180px]">
+                    <SelectValue placeholder="Filtrar por certificado..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {taxRegimes.map(regime => (
-                    <SelectItem key={regime} value={regime}>{regime}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-grow sm:flex-grow-0 min-w-[180px]">
-              <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por certificado..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {certificateStatuses.map(status => (
+                    {certificateStatuses.map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
+                    ))}
                 </SelectContent>
-              </Select>
-            </div>
-             <div className="flex-grow sm:flex-grow-0 min-w-[180px]">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por situação..." />
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="flex-grow sm:flex-grow-0 min-w-[180px]">
+                    <SelectValue placeholder="Filtrar por situação..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {companyStatuses.map(status => (
+                    {companyStatuses.map(status => (
                     <SelectItem key={status} value={status}>{status === 'Todos' ? 'Todas as Situações' : status.charAt(0) + status.slice(1).toLowerCase()}</SelectItem>
-                  ))}
+                    ))}
                 </SelectContent>
-              </Select>
-            </div>
+            </Select>
              {showAlertsOnly && (
                 <Button variant="ghost" onClick={clearAlertFilter} className="flex-shrink-0">
                     <X className="mr-2 h-4 w-4" />
@@ -310,32 +339,9 @@ export function CompaniesClient() {
                     </TableRow>
                   ))
                 ) : filteredCompanies.length > 0 ? (
-                  filteredCompanies.map((company) => {
-                     const certStatus = getCertificateStatusInfo(company.certificateA1Validity);
-                     return (
-                      <TableRow key={company.id}>
-                        <TableCell className="font-medium">{company.name}</TableCell>
-                        <TableCell>{company.cnpj}</TableCell>
-                        <TableCell>{company.taxRegime}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
-                        </TableCell>
-                        <TableCell className="space-y-1">
-                          <Badge variant={certStatus.variant} className="gap-1.5 whitespace-nowrap">
-                            <certStatus.Icon className="h-3 w-3" />
-                            {certStatus.text}
-                          </Badge>
-                          <div className="text-xs text-muted-foreground">{certStatus.dateText}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                           <Button variant="outline" size="icon" onClick={() => handleOpenDetails(company)}>
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Ver Detalhes</span>
-                            </Button>
-                        </TableCell>
-                      </TableRow>
-                     )
-                    })
+                  filteredCompanies.map((company) => (
+                     <CompanyRow key={company.id} company={company} onOpenDetails={handleOpenDetails} />
+                  ))
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center">
