@@ -55,8 +55,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
-    const [year, month, day] = validity.split('-').map(Number);
-    const validityDate = startOfDay(new Date(year, month - 1, day));
+    const validityDate = startOfDay(new Date(validity));
     
      if (!isValid(validityDate)) {
         return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
@@ -64,7 +63,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
     const today = startOfDay(new Date());
     const daysLeft = differenceInDays(validityDate, today);
-    const dateText = validityDate.toLocaleDateString('pt-BR');
+    const dateText = validityDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
     if (daysLeft < 0) {
       return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX, dateText };
@@ -231,8 +230,8 @@ export function CompaniesClient() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-            <div className="relative w-full md:flex-1">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="relative flex-grow">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome..."
@@ -241,7 +240,7 @@ export function CompaniesClient() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="w-full md:w-auto md:min-w-[200px]">
+            <div className="flex-grow sm:flex-grow-0 min-w-[180px]">
               <Select value={taxRegimeFilter} onValueChange={setTaxRegimeFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por regime..." />
@@ -253,7 +252,7 @@ export function CompaniesClient() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="w-full md:w-auto md:min-w-[200px]">
+            <div className="flex-grow sm:flex-grow-0 min-w-[180px]">
               <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por certificado..." />
@@ -265,7 +264,7 @@ export function CompaniesClient() {
                 </SelectContent>
               </Select>
             </div>
-             <div className="w-full md:w-auto md:min-w-[200px]">
+             <div className="flex-grow sm:flex-grow-0 min-w-[180px]">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por situação..." />
@@ -278,7 +277,7 @@ export function CompaniesClient() {
               </Select>
             </div>
              {showAlertsOnly && (
-                <Button variant="ghost" onClick={clearAlertFilter}>
+                <Button variant="ghost" onClick={clearAlertFilter} className="flex-shrink-0">
                     <X className="mr-2 h-4 w-4" />
                     Limpar Filtro de Alerta
                 </Button>
