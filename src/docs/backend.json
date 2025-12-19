@@ -218,7 +218,7 @@
         "periodo": { "type": "string" },
         "dataVencimento": { "type": "string", "format": "date-time" },
         "dataEntrega": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["Pendente", "Em Andamento", "Entregue", "Atrasada"] },
+        "status": { "type": "string", "enum": ["Pendente", "Em Andamento", "Entregue", "Atrasada", "Cancelada"] },
         "responsavelId": { "type": "string" },
         "responsavelNome": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
@@ -238,6 +238,7 @@
         "processType": { "type": "string" },
         "startDate": { "type": "string", "format": "date-time" },
         "protocolDate": { "type": "string", "format": "date-time" },
+        "completionDate": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["Aguardando Documentação", "Em Análise", "Em Preenchimento", "Protocolado", "Em Andamento Externo", "Aguardando Cliente", "Aguardando Órgão", "Concluído", "Cancelado"] },
         "priority": { "type": "string", "enum": ["Baixa", "Média", "Alta"] },
         "notes": { "type": "string" }
@@ -327,6 +328,12 @@
           "entityName": "Company",
           "schema": { "$ref": "#/entities/Company" },
           "description": "Collection for all client companies."
+        }
+      },
+       {
+        "path": "/companies/{companyId}/certificates/{certificateId}",
+        "definition": {
+          "description": "Subcollection to store certificate details like validity and URL."
         }
       },
       {

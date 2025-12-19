@@ -37,7 +37,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, MoreHorizontal, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Workflow, Loader2, CheckCircle2, X, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
-import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, orderBy, Timestamp, getDocs, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { AddProcessDialog } from './add-process-dialog';
 import { Badge } from '../ui/badge';
@@ -58,6 +58,7 @@ export interface CorporateProcess {
   status: ProcessStatus;
   startDate: Timestamp | Date;
   protocolDate?: Timestamp | Date | null;
+  completionDate?: Timestamp | Date | null;
   priority: ProcessPriority;
   dueDate?: Timestamp | Date | null;
   history?: any[];
@@ -126,7 +127,13 @@ export function CorporateProcessesClient() {
     const changeAction = async () => {
         const processRef = doc(firestore, 'corporateProcesses', process.id);
         try {
-            await updateDoc(processRef, { status: newStatus });
+            const updateData: any = { status: newStatus };
+            if (newStatus === 'Concluído') {
+                updateData.completionDate = serverTimestamp();
+            } else if (process.status === 'Concluído') {
+                updateData.completionDate = null;
+            }
+            await updateDoc(processRef, updateData);
             forceRefetch();
             toast({ title: "Status atualizado com sucesso!" });
         } catch (error) {

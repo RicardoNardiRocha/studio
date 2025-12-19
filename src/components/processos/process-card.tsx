@@ -1,10 +1,11 @@
+
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import type { CorporateProcess, ProcessStatus, ProcessPriority } from './corporate-processes-client';
 import { Badge } from '../ui/badge';
-import { ArrowUp, ArrowRight, ArrowDown, Calendar, CalendarCheck } from 'lucide-react';
+import { ArrowUp, ArrowRight, ArrowDown, Calendar, CalendarCheck, CheckCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface ProcessCardProps {
@@ -55,6 +56,7 @@ export function ProcessCard({ process, onClick, onStatusChange, canUpdate, statu
   const { Icon, className: priorityClassName } = getPriorityInfo(process.priority);
   const startDate = toDate(process.startDate);
   const protocolDate = toDate(process.protocolDate);
+  const completionDate = toDate(process.completionDate);
 
   return (
     <Card
@@ -91,6 +93,12 @@ export function ProcessCard({ process, onClick, onStatusChange, canUpdate, statu
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5"><CalendarCheck className="h-3 w-3" /> Protocolo:</span>
                 <span className="font-semibold text-foreground">{format(protocolDate, 'dd/MM/yy')}</span>
+              </div>
+            )}
+            {completionDate && (
+              <div className="flex items-center justify-between text-green-600">
+                <span className="flex items-center gap-1.5"><CheckCircle className="h-3 w-3" /> Concluído em:</span>
+                <span className="font-semibold">{format(completionDate, 'dd/MM/yy')}</span>
               </div>
             )}
         </CardContent>
