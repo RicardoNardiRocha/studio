@@ -191,9 +191,16 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
 
             toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
             onDelete();
-        } catch (error) {
-            console.error("Error deleting fiscal document:", error);
-            toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento.', variant: 'destructive' });
+        } catch (error: any) {
+            // Se o arquivo não existir no storage, mas o doc sim, consideramos sucesso parcial
+             if (error.code === 'storage/object-not-found') {
+                logActivity(firestore, user, `excluiu o registro do documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName} (arquivo não encontrado no storage).`);
+                toast({ id: toastId, title: 'Registro Excluído', description: 'O registro do documento foi excluído, mas o arquivo não foi encontrado no armazenamento.' });
+                onDelete();
+            } else {
+                console.error("Error deleting fiscal document:", error);
+                toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento.', variant: 'destructive' });
+            }
         }
     };
 
@@ -278,3 +285,4 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
     </Dialog>
   );
 }
+
