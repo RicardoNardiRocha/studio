@@ -101,63 +101,18 @@ export function CorporateProcessesClient() {
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState<ProcessStatus | 'Todos' | 'Em Andamento'>('Em Andamento');
   const [priorityFilter, setPriorityFilter] = useState<'Todos' | ProcessPriority>('Todos');
-  const [viewType, setViewType] = useState<'kanban' | 'list'>('list');
-
-  const [allProcesses, setAllProcesses] = useState<CorporateProcess[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [viewType, setViewType] = useState<'list' | 'kanban'>('list');
 
   const firestore = useFirestore();
   const { toast } = useToast();
   const { profile } = useUser();
 
-  const companiesQuery = useMemoFirebase(() => {
+  const processesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
+    return query(collection(firestore, 'corporateProcesses'), orderBy('startDate', 'desc'));
   }, [firestore]);
-  const { data: companies, isLoading: isLoadingCompanies } = useCollection<{id: string, name: string}>(companiesQuery);
-
-  const fetchAllProcesses = async () => {
-    if (!firestore || !companies || companies.length === 0) {
-      setAllProcesses([]);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    let collectedProcesses: CorporateProcess[] = [];
-    try {
-        const promises = companies.map(company => {
-            const processesRef = collection(firestore, 'companies', company.id, 'corporateProcesses');
-            return getDocs(processesRef);
-        });
-
-        const snapshots = await Promise.all(promises);
-        snapshots.forEach(snapshot => {
-            snapshot.forEach(doc => {
-                collectedProcesses.push({ id: doc.id, ...doc.data() } as CorporateProcess);
-            });
-        });
-        
-        collectedProcesses.sort((a, b) => ((b.startDate as Timestamp)?.toMillis() || 0) - ((a.startDate as Timestamp)?.toMillis() || 0));
-        setAllProcesses(collectedProcesses);
-    } catch (error) {
-        console.error("Error fetching all processes: ", error);
-        toast({ title: "Erro ao buscar processos", description: "Não foi possível carregar os dados de todas as empresas.", variant: "destructive" });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isLoadingCompanies && companies) {
-        fetchAllProcesses();
-    }
-  }, [companies, isLoadingCompanies, firestore]);
-
-  const forceRefetch = () => {
-      if (!isLoadingCompanies && companies) {
-        fetchAllProcesses();
-      }
-  };
+  
+  const { data: allProcesses, isLoading, forceRefetch } = useCollection<CorporateProcess>(processesQuery);
 
   const handleProcessAction = () => {
     forceRefetch();
@@ -169,7 +124,7 @@ export function CorporateProcessesClient() {
     if (!firestore) return;
     
     const changeAction = async () => {
-        const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
+        const processRef = doc(firestore, 'corporateProcesses', process.id);
         try {
             await updateDoc(processRef, { status: newStatus });
             forceRefetch();
@@ -195,7 +150,6 @@ export function CorporateProcessesClient() {
 
   const filteredProcesses = useMemo(() => {
     if (!allProcesses) return [];
-    const today = new Date();
     return allProcesses.filter(p => {
         const searchMatch = p.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             p.processType.toLowerCase().includes(searchTerm.toLowerCase());
@@ -340,7 +294,7 @@ export function CorporateProcessesClient() {
             </div>
           </div>
           
-           {isLoading || isLoadingCompanies ? (
+           {isLoading ? (
              <div className="border rounded-md">
                 <Table>
                   <TableHeader>

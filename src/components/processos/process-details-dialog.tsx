@@ -106,10 +106,10 @@ export function ProcessDetailsDialog({
   const { toast } = useToast();
   const { user, profile } = useUser();
 
-  const attachmentsQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id, process.companyId]);
+  const attachmentsQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/attachments`), orderBy('uploadedAt', 'desc')), [firestore, process.id]);
   const { data: attachments, isLoading: isLoadingAttachments } = useCollection(attachmentsQuery);
 
-  const historyQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/history`), orderBy('timestamp', 'desc')), [firestore, process.id, process.companyId]);
+  const historyQuery = useMemoFirebase(() => !firestore ? null : query(collection(firestore, `corporateProcesses/${process.id}/history`), orderBy('timestamp', 'desc')), [firestore, process.id]);
   const { data: history, isLoading: isLoadingHistory } = useCollection(historyQuery);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -129,7 +129,7 @@ export function ProcessDetailsDialog({
       toast({ title: 'Erro', description: 'O serviço de banco de dados não está disponível.', variant: 'destructive' });
       return;
     }
-    const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
+    const processRef = doc(firestore, 'corporateProcesses', process.id);
     deleteDocumentNonBlocking(processRef);
     logActivity(firestore, user, `excluiu o processo de ${process.processType} de ${process.companyName}.`);
     toast({
@@ -153,7 +153,7 @@ export function ProcessDetailsDialog({
 
         const batch = writeBatch(firestore);
         
-        const attachmentRef = doc(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/attachments`));
+        const attachmentRef = doc(collection(firestore, `corporateProcesses/${process.id}/attachments`));
         batch.set(attachmentRef, {
             id: attachmentRef.id,
             name: file.name,
@@ -162,7 +162,7 @@ export function ProcessDetailsDialog({
             uploadedBy: user.displayName,
         });
 
-        const historyRef = doc(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/history`));
+        const historyRef = doc(collection(firestore, `corporateProcesses/${process.id}/history`));
         batch.set(historyRef, {
             id: historyRef.id,
             timestamp: serverTimestamp(),
@@ -184,7 +184,7 @@ export function ProcessDetailsDialog({
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!firestore) return;
     try {
-        await deleteDoc(doc(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/attachments`, attachmentId));
+        await deleteDoc(doc(firestore, `corporateProcesses/${process.id}/attachments`, attachmentId));
         toast({ title: "Anexo excluído."});
     } catch (error) {
         toast({ title: "Erro ao excluir anexo.", variant: "destructive"});
@@ -201,7 +201,7 @@ export function ProcessDetailsDialog({
 
     try {
       const batch = writeBatch(firestore);
-      const processRef = doc(firestore, 'companies', process.companyId, 'corporateProcesses', process.id);
+      const processRef = doc(firestore, 'corporateProcesses', process.id);
       
       const updatedData = {
         processType: values.processType,
@@ -216,7 +216,7 @@ export function ProcessDetailsDialog({
 
       const oldStatus = process.status;
       if(oldStatus !== values.status) {
-         const historyRef = doc(collection(firestore, `companies/${process.companyId}/corporateProcesses/${process.id}/history`));
+         const historyRef = doc(collection(firestore, `corporateProcesses/${process.id}/history`));
          batch.set(historyRef, {
             id: historyRef.id,
             timestamp: serverTimestamp(),

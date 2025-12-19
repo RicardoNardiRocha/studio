@@ -323,14 +323,6 @@
           "description": "Subcollection to store tax obligations for a specific company."
         }
       },
-       {
-        "path": "/companies/{companyId}/corporateProcesses/{processId}",
-        "definition": {
-          "entityName": "CorporateProcess",
-          "schema": { "$ref": "#/entities/CorporateProcess" },
-          "description": "Subcollection to store corporate processes for a specific company."
-        }
-      },
       {
         "path": "/companies/{companyId}/documents/{documentId}",
         "definition": {
@@ -371,6 +363,26 @@
           "entityName": "XmlStatus",
           "schema": { "$ref": "#/entities/XmlStatus" },
           "description": "Collection to track XML submission status."
+        }
+      },
+       {
+        "path": "/corporateProcesses/{processId}",
+        "definition": {
+          "entityName": "CorporateProcess",
+          "schema": { "$ref": "#/entities/CorporateProcess" },
+          "description": "Collection for all corporate processes."
+        }
+      },
+      {
+        "path": "/corporateProcesses/{processId}/history/{historyId}",
+        "definition": {
+          "description": "Subcollection to store the history of a corporate process."
+        }
+      },
+      {
+        "path": "/corporateProcesses/{processId}/attachments/{attachmentId}",
+        "definition": {
+          "description": "Subcollection to store attachments for a corporate process."
         }
       }
     ]

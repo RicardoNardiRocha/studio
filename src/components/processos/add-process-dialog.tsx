@@ -141,7 +141,7 @@ export function AddProcessDialog({
             return;
         }
         // Para abertura, usamos um ID temporário ou o nome da empresa como ID provisório
-        companyId = values.companyName.toLowerCase().replace(/\s+/g, '-');
+        companyId = 'proc_abertura_' + Date.now(); // ID único para não colidir
         companyName = values.companyName;
     } else {
         const company = companies?.find(c => c.id === values.companyId);
@@ -156,7 +156,7 @@ export function AddProcessDialog({
 
     try {
       const batch = writeBatch(firestore);
-      const processDocRef = doc(collection(firestore, 'companies', companyId, 'corporateProcesses'));
+      const processDocRef = doc(collection(firestore, 'corporateProcesses'));
 
       const newProcess = {
         id: processDocRef.id,
@@ -174,7 +174,7 @@ export function AddProcessDialog({
       
       batch.set(processDocRef, newProcess);
       
-      const historyCollectionRef = collection(firestore, `companies/${companyId}/corporateProcesses/${processDocRef.id}/history`);
+      const historyCollectionRef = collection(firestore, `corporateProcesses/${processDocRef.id}/history`);
       const historyDocRef = doc(historyCollectionRef);
       batch.set(historyDocRef, {
         id: historyDocRef.id,
