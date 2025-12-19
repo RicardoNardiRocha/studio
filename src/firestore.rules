@@ -93,6 +93,12 @@ service cloud.firestore {
                                                                               match /fiscalDocuments/{documentId} {
                                                                                       allow read: if hasPermission('fiscal', 'read');
                                                                                             allow create, update, delete: if hasPermission('fiscal', 'create') || hasPermission('fiscal', 'update') || hasPermission('fiscal', 'delete');
+
+                                                                                                  match /notes/{noteId} {
+                                                                                                        allow read: if hasPermission('fiscal', 'read');
+                                                                                                        allow create: if hasPermission('fiscal', 'update');
+                                                                                                        allow update, delete: if hasPermission('fiscal', 'update') && resource.data.userId == request.auth.uid;
+                                                                                                  }
                                                                               }
 
                                                                                   match /xmlStatus/{statusId} {
