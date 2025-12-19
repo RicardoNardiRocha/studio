@@ -346,7 +346,7 @@ export function ProcessDetailsDialog({
                         {isLoadingHistory && Array.from({length:3}).map((_, i) => <li key={i}><Skeleton className="h-12 w-full"/></li>)}
                         {history?.map(entry => (
                              <li key={entry.id} className="flex items-start gap-3">
-                                <div className="flex-shrink-0"><Badge variant="secondary">{format(toDate(entry.timestamp)!, 'dd/MM HH:mm')}</Badge></div>
+                                <div className="flex-shrink-0"><Badge variant="secondary">{format(toDate(entry.timestamp)!, 'dd/MM/yyyy')}</Badge></div>
                                 <div>
                                     <p className="text-sm">{entry.action}</p>
                                     <p className="text-xs text-muted-foreground">por {entry.userName}</p>
