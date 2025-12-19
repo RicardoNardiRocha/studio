@@ -171,36 +171,43 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
     };
 
     const handleDelete = async () => {
-        if (!firestore || !storage || !user) {
-            toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
-            return;
-        }
+      if (!firestore || !storage || !user) {
+        toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
+        return;
+      }
     
-        const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
+      const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
     
+      try {
+        // Step 1: Delete the Firestore document. This is the primary action for the user.
+        const docRef = doc(firestore, 'fiscalDocuments', document.id);
+        await deleteDoc(docRef);
+    
+        // If Firestore deletion is successful, show success and proceed with storage deletion in the background.
+        toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
+        logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
+        onDelete(); // Refresh UI
+    
+        // Step 2: Try deleting the file from storage. Errors here will be logged but not shown to the user.
         try {
-            const docRef = doc(firestore, 'fiscalDocuments', document.id);
-            await deleteDoc(docRef);
-    
-            const fileRef = ref(storage, document.fileUrl);
-            await deleteObject(fileRef);
-    
-            logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
-            toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
-            onDelete();
-        } catch (error: any) {
-            // Se a exclusão do documento do Firestore funcionou, mas a do Storage falhou
-            // com 'object-not-found', consideramos um sucesso.
-            if (error.code === 'storage/object-not-found') {
-                console.warn(`File not found in Storage, but this is acceptable: ${document.fileUrl}`);
-                 logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
-                toast({ id: toastId, title: 'Sucesso!', description: 'Registro do documento excluído (arquivo não encontrado no armazenamento).' });
-                onDelete();
-            } else {
-                console.error("Error deleting fiscal document:", error);
-                toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento. Verifique as permissões e tente novamente.', variant: 'destructive' });
-            }
+          const fileRef = ref(storage, document.fileUrl);
+          await deleteObject(fileRef);
+        } catch (storageError: any) {
+          // We only log this error to the console. We don't show a toast because the main operation succeeded.
+          // This prevents the "ghost error" message.
+          console.error("Non-critical error deleting file from storage:", storageError.message);
         }
+    
+      } catch (firestoreError: any) {
+        // This catch block now only handles critical errors from the Firestore operation.
+        console.error("Critical error deleting Firestore document:", firestoreError);
+        toast({ 
+          id: toastId, 
+          title: 'Erro!', 
+          description: 'Não foi possível excluir o documento. Verifique as permissões e tente novamente.', 
+          variant: 'destructive' 
+        });
+      }
     };
 
   return (
