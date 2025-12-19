@@ -173,13 +173,14 @@ export function CorporateProcessesClient() {
   };
   
   const kpiValues = useMemo(() => {
-    if (!allProcesses) return { inProgress: 0, completed: 0, onHold: 0, total: 0 };
+    if (!allProcesses) return { inProgress: 0, completed: 0, onHold: 0, total: 0, highPriority: 0 };
     const total = allProcesses.length;
     const inProgress = allProcesses.filter(p => !['Concluído', 'Cancelado', 'Em Exigência'].includes(p.status)).length;
     const completed = allProcesses.filter(p => p.status === 'Concluído').length;
     const onHold = allProcesses.filter(p => p.status === 'Em Exigência').length;
+    const highPriority = allProcesses.filter(p => p.priority === 'Alta' && !['Concluído', 'Cancelado'].includes(p.status)).length;
     
-    return { total, inProgress, completed, onHold };
+    return { total, inProgress, completed, onHold, highPriority };
   }, [allProcesses]);
   
   const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
@@ -195,7 +196,7 @@ export function CorporateProcessesClient() {
                     <p className="text-xs text-muted-foreground">{title}</p>
                 </div>
                 {isActive && (
-                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setStatusFilter('Todos'); }}>
+                    <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setStatusFilter('Todos'); setPriorityFilter('Todos'); }}>
                         <X className="h-4 w-4"/>
                     </Button>
                 )}
@@ -241,11 +242,12 @@ export function CorporateProcessesClient() {
         />
       )}
       
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
             <KpiCard title="Em Andamento" value={kpiValues.inProgress} icon={Loader2} colorClass="bg-blue-500" onClick={() => setStatusFilter('Em Andamento')} isActive={statusFilter === 'Em Andamento'} />
-            <KpiCard title="Em Exigência" value={kpiValues.onHold} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => setStatusFilter('Em Exigência')} isActive={statusFilter === 'Em Exigência'} />
+            <KpiCard title="Prioridade Alta" value={kpiValues.highPriority} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => setPriorityFilter('Alta')} isActive={priorityFilter === 'Alta'} />
+            <KpiCard title="Em Exigência" value={kpiValues.onHold} icon={AlertTriangle} colorClass="bg-orange-500" onClick={() => setStatusFilter('Em Exigência')} isActive={statusFilter === 'Em Exigência'} />
             <KpiCard title="Concluídos" value={kpiValues.completed} icon={CheckCircle2} colorClass="bg-green-500" onClick={() => setStatusFilter('Concluído')} isActive={statusFilter === 'Concluído'} />
-            <KpiCard title="Total de Processos" value={kpiValues.total} icon={Workflow} colorClass="bg-gray-500" onClick={() => setStatusFilter('Todos')} isActive={statusFilter === 'Todos'} />
+            <KpiCard title="Total de Processos" value={kpiValues.total} icon={Workflow} colorClass="bg-gray-500" onClick={() => { setStatusFilter('Todos'); setPriorityFilter('Todos'); }} isActive={statusFilter === 'Todos' && priorityFilter === 'Todos'} />
         </div>
 
       <Card>
