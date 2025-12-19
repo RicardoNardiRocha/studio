@@ -2,115 +2,137 @@
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/{database}/documents {
+    match /databases/{database}/documents {
 
-    // =========================================================================
-    // Helper Functions
-    // =========================================================================
-    function isSignedIn() {
-      return request.auth != null;
-    }
+          // =========================================================================
+              // Helper Functions
+                  // =========================================================================
+                      function isSignedIn() {
+                              return request.auth != null;
+                      }
 
-    function isOwner(userId) {
-        return request.auth.uid == userId;
-    }
+                          function isOwner(userId) {
+                                    return request.auth.uid == userId;
+                          }
 
-    function getUserProfile(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-    
-    function hasPermission(module, permission) {
-        // Verifica se o caminho do perfil existe antes de tentar acessar
-        return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-               && getUserProfile(request.auth.uid).permissions[module][permission] == true;
-    }
+                              function getUserProfile(userId) {
+                                      return get(/databases/$(database)/documents/users/$(userId)).data;
+                              }
+                                  
+                                      function hasPermission(module, permission) {
+                                                // Verifica se o caminho do perfil existe antes de tentar acessar
+                                                        return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                                                                       && getUserProfile(request.auth.uid).permissions[module][permission] == true;
+                                      }
 
-    // =========================================================================
-    // Collection Rules
-    // =========================================================================
+                                          // =========================================================================
+                                              // Collection Rules
+                                                  // =========================================================================
 
-    match /users/{userId} {
-      allow read: if isOwner(userId) || hasPermission('usuarios', 'read');
-      allow create: if request.auth.uid == userId;
-      allow update: if isOwner(userId) || hasPermission('usuarios', 'update');
-      allow delete: if hasPermission('usuarios', 'delete') && request.auth.uid != userId;
-    }
+                                                      match /users/{userId} {
+                                                              allow read: if isOwner(userId) || hasPermission('usuarios', 'read');
+                                                                    allow create: if request.auth.uid == userId;
+                                                                          allow update: if isOwner(userId) || hasPermission('usuarios', 'update');
+                                                                                allow delete: if hasPermission('usuarios', 'delete') && request.auth.uid != userId;
+                                                      }
 
-    match /companies/{companyId} {
-      allow create: if isSignedIn();
-      allow read: if hasPermission('empresas', 'read');
-      allow update: if hasPermission('empresas', 'update');
-      allow delete: if hasPermission('empresas', 'delete');
+                                                          match /companies/{companyId} {
+                                                                  allow create: if isSignedIn();
+                                                                        allow read: if hasPermission('empresas', 'read');
+                                                                              allow update: if hasPermission('empresas', 'update');
+                                                                                    allow delete: if hasPermission('empresas', 'delete');
 
-      // Subcollection Rules
-      match /taxObligations/{obligationId} {
-        allow read: if hasPermission('obrigacoes', 'read');
-        allow create: if hasPermission('obrigacoes', 'create');
-        allow update: if hasPermission('obrigacoes', 'update');
-        allow delete: if hasPermission('obrigacoes', 'delete');
+                                                                                          // Subcollection Rules
+                                                                                                match /taxObligations/{obligationId} {
+                                                                                                          allow read: if hasPermission('obrigacoes', 'read');
+                                                                                                                  allow create: if hasPermission('obrigacoes', 'create');
+                                                                                                                          allow update: if hasPermission('obrigacoes', 'update');
+                                                                                                                                  allow delete: if hasPermission('obrigacoes', 'delete');
 
-         match /attachments/{attachmentId} {
-          allow read, write: if hasPermission('obrigacoes', 'update');
-        }
-      }
+                                                                                                                                           match /attachments/{attachmentId} {
+                                                                                                                                                      allow read, write: if hasPermission('obrigacoes', 'update');
+                                                                                                                                           }
+                                                                                                }
 
-       match /documents/{documentId} {
-        allow read: if hasPermission('documentos', 'read');
-        allow create: if hasPermission('documentos', 'create');
-        allow update: if hasPermission('documentos', 'update');
-        allow delete: if hasPermission('documentos', 'delete');
-       }
-    }
-    
-    match /corporateProcesses/{processId} {
-      allow read: if hasPermission('processos', 'read');
-      allow create: if hasPermission('processos', 'create');
-      allow update: if hasPermission('processos', 'update');
-      allow delete: if hasPermission('processos', 'delete');
+                                                                                                       match /documents/{documentId} {
+                                                                                                                allow read: if hasPermission('documentos', 'read');
+                                                                                                                        allow create: if hasPermission('documentos', 'create');
+                                                                                                                                allow update: if hasPermission('documentos', 'update');
+                                                                                                                                        allow delete: if hasPermission('documentos', 'delete');
+                                                                                                       }
+                                                          }
+                                                              
+                                                                  match /corporateProcesses/{processId} {
+                                                                          allow read: if hasPermission('processos', 'read');
+                                                                                allow create: if hasPermission('processos', 'create');
+                                                                                      allow update: if hasPermission('processos', 'update');
+                                                                                            allow delete: if hasPermission('processos', 'delete');
 
-      match /history/{historyId} {
-        allow read, write: if hasPermission('processos', 'update');
-      }
-      match /attachments/{attachmentId} {
-        allow read, write: if hasPermission('processos', 'update');
-      }
-    }
+                                                                                                  match /history/{historyId} {
+                                                                                                            allow read, write: if hasPermission('processos', 'update');
+                                                                                                  }
+                                                                                                        match /attachments/{attachmentId} {
+                                                                                                                  allow read, write: if hasPermission('processos', 'update');
+                                                                                                        }
+                                                                  }
 
-    match /partners/{partnerId} {
-      allow read: if hasPermission('societario', 'read');
-      allow create: if hasPermission('societario', 'create');
-      allow update: if hasPermission('societario', 'update');
-      allow delete: if hasPermission('societario', 'delete');
-    }
+                                                                      match /partners/{partnerId} {
+                                                                              allow read: if hasPermission('societario', 'read');
+                                                                                    allow create: if hasPermission('societario', 'create');
+                                                                                          allow update: if hasPermission('societario', 'update');
+                                                                                                allow delete: if hasPermission('societario', 'delete');
+                                                                      }
 
-    match /invoices/{invoiceId} {
-      allow read: if hasPermission('financeiro', 'read');
-      allow create: if hasPermission('financeiro', 'create');
-      allow update: if hasPermission('financeiro', 'update');
-      allow delete: if hasPermission('financeiro', 'delete');
-    }
+                                                                          match /invoices/{invoiceId} {
+                                                                                  allow read: if hasPermission('financeiro', 'read');
+                                                                                        allow create: if hasPermission('financeiro', 'create');
+                                                                                              allow update: if hasPermission('financeiro', 'update');
+                                                                                                    allow delete: if hasPermission('financeiro', 'delete');
+                                                                          }
 
-    match /fiscalDocuments/{documentId} {
-      allow read: if hasPermission('fiscal', 'read');
-      allow create, update, delete: if hasPermission('fiscal', 'create') || hasPermission('fiscal', 'update') || hasPermission('fiscal', 'delete');
-    }
+                                                                              match /fiscalDocuments/{documentId} {
+                                                                                      allow read: if hasPermission('fiscal', 'read');
+                                                                                            allow create, update, delete: if hasPermission('fiscal', 'create') || hasPermission('fiscal', 'update') || hasPermission('fiscal', 'delete');
+                                                                              }
 
-    match /xmlStatus/{statusId} {
-      allow read: if hasPermission('fiscal', 'read');
-      allow create, update, delete: if hasPermission('fiscal', 'create') || hasPermission('fiscal', 'update') || hasPermission('fiscal', 'delete');
+                                                                                  match /xmlStatus/{statusId} {
+                                                                                          allow read: if hasPermission('fiscal', 'read');
+                                                                                                allow create, update, delete: if hasPermission('fiscal', 'create') || hasPermission('fiscal', 'update') || hasPermission('fiscal', 'delete');
+                                                                                  }
+                                                                                      
+                                                                                          match /activities/{activityId} {
+                                                                                                  allow read, create: if isSignedIn();
+                                                                                                        allow update, delete: if false; // Immutable log
+                                                                                          }
+                                                                                              
+                                                                                                  // As consultas de grupo de coleção exigem uma regra que se aplica a todos os caminhos.
+                                                                                                       match /{path=**}/documents/{documentId} {
+                                                                                                                allow read: if isSignedIn();
+                                                                                                       }
+                                                                                                            match /{path=**}/fiscalDocuments/{documentId} {
+                                                                                                                      allow read: if isSignedIn();
+                                                                                                            }
     }
-    
-    match /activities/{activityId} {
-      allow read, create: if isSignedIn();
-      allow update, delete: if false; // Immutable log
+}
+
+                                                                                                            }
+                                                                                                       }
+                                                                                          }
+                                                                                  }
+                                                                              }
+                                                                          }
+                                                                      }
+                                                                                                        }
+                                                                                                  }
+                                                                  }
+                                                                                                       }
+                                                                                                                                           }
+                                                                                                }
+                                                          }
+                                                      }
+                                      }
+                              }
+                          }
+                      }
     }
-    
-    // As consultas de grupo de coleção exigem uma regra que se aplica a todos os caminhos.
-     match /{path=**}/documents/{documentId} {
-        allow read: if isSignedIn();
-    }
-     match /{path=**}/fiscalDocuments/{documentId} {
-        allow read: if isSignedIn();
-    }
-  }
 }
