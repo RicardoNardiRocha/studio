@@ -36,6 +36,8 @@ export type NotificationType =
   | 'obligation_due'
   | 'obligation_overdue'
   | 'process_status_change'
+  | 'process_delayed'
+  | 'process_high_priority'
   | 'new_document_added';
 
 export async function getNotifications(): Promise<Notification[]> {
@@ -44,15 +46,14 @@ export async function getNotifications(): Promise<Notification[]> {
 
   const createSafeDate = (dateString: string) => {
     if (!dateString) return null;
-    const date = new Date(dateString + 'T00:00:00-03:00'); // Assume UTC-3 for consistency
+    const date = new Date(dateString + 'T00:00:00-03:00');
     return isValid(date) ? date : null;
   };
 
   try {
     const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-    const partnersSnapshot = await getDocs(collection(firestore, 'partners'));
 
-    // Certificate notifications (working correctly)
+    // --- 1. Certificate Notifications ---
     companiesSnapshot.forEach((doc) => {
       const company = doc.data();
       if (company.certificateA1Validity) {
@@ -67,6 +68,8 @@ export async function getNotifications(): Promise<Notification[]> {
         }
       }
     });
+
+    const partnersSnapshot = await getDocs(collection(firestore, 'partners'));
     partnersSnapshot.forEach((doc) => {
         const partner = doc.data();
         if (partner.ecpfValidity) {
@@ -82,55 +85,60 @@ export async function getNotifications(): Promise<Notification[]> {
         }
     });
 
+    // --- 2. Obligations & Processes Notifications ---
     const next15Days = addDays(today, 15);
+    const processesSnapshot = await getDocs(collection(firestore, 'corporateProcesses'));
+    
+    // Obligations need to be fetched per company
     const obligationPromises = companiesSnapshot.docs.map(companyDoc => 
       getDocs(collection(firestore, 'companies', companyDoc.id, 'taxObligations'))
     );
-    const processPromises = companiesSnapshot.docs.map(companyDoc => 
-      getDocs(collection(firestore, 'companies', companyDoc.id, 'corporateProcesses'))
-    );
-
     const allObligationsResults = await Promise.allSettled(obligationPromises);
-    const allProcessesResults = await Promise.allSettled(processPromises);
 
-    allObligationsResults.forEach((result, index) => {
+    allObligationsResults.forEach((result) => {
       if (result.status === 'fulfilled') {
         result.value.forEach(doc => {
           const ob = doc.data();
           const dueDate = (ob.dataVencimento as Timestamp)?.toDate();
-          if (dueDate) {
+          if (dueDate && (ob.status === 'Pendente' || ob.status === 'Atrasada')) {
             const isOverdue = ob.status === 'Atrasada' || (ob.status === 'Pendente' && isPast(dueDate));
             if (isOverdue) {
               notifications.push({ id: `ob-overdue-${doc.id}`, type: 'obligation_overdue', title: 'Obrigação Atrasada', message: `${ob.nome} da empresa ${ob.companyName}.`, date: dueDate, link: '/obrigacoes', severity: 'high' });
-            } else if (ob.status === 'Pendente' && isBefore(dueDate, next15Days)) {
+            } else if (isBefore(dueDate, next15Days)) {
               notifications.push({ id: `ob-due-${doc.id}`, type: 'obligation_due', title: 'Obrigação a Vencer', message: `${ob.nome} da empresa ${ob.companyName}.`, date: dueDate, link: '/obrigacoes', severity: 'medium' });
             }
           }
         });
-      } else {
-        const companyId = companiesSnapshot.docs[index].id;
-        console.error(`Failed to fetch obligations for company ${companyId}:`, result.reason);
       }
     });
 
-    allProcessesResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        result.value.forEach(doc => {
-          const proc = doc.data();
-          if (proc.status === 'Em Exigência') {
-            const startDate = (proc.startDate as Timestamp)?.toDate();
-            notifications.push({ id: `proc-status-${doc.id}`, type: 'process_status_change', title: 'Processo em Exigência', message: `${proc.processType} da empresa ${proc.companyName}.`, date: startDate || new Date(), link: '/processos', severity: 'high' });
-          }
-        });
-      } else {
-        const companyId = companiesSnapshot.docs[index].id;
-        console.error(`Failed to fetch processes for company ${companyId}:`, result.reason);
-      }
+    processesSnapshot.forEach(doc => {
+        const proc = doc.data();
+        const startDate = (proc.startDate as Timestamp)?.toDate();
+        const isProcessActive = proc.status !== 'Concluído' && proc.status !== 'Cancelado';
+
+        // High Priority Process
+        if (proc.priority === 'Alta' && isProcessActive) {
+             notifications.push({ id: `proc-priority-${doc.id}`, type: 'process_high_priority', title: 'Processo com Prioridade Alta', message: `${proc.processType} para ${proc.companyName}.`, date: startDate || new Date(), link: '/processos', severity: 'high' });
+        }
+        
+        // Process in "Em Exigência"
+        if (proc.status === 'Em Exigência') {
+            notifications.push({ id: `proc-status-${doc.id}`, type: 'process_status_change', title: 'Processo em Exigência', message: `${proc.processType} para ${proc.companyName}.`, date: startDate || new Date(), link: '/processos', severity: 'critical' });
+        }
+
+        // Delayed Process
+        if (startDate && isProcessActive && differenceInDays(today, startDate) > 30) {
+            notifications.push({ id: `proc-delayed-${doc.id}`, type: 'process_delayed', title: 'Processo Atrasado', message: `O processo de ${proc.processType} para ${proc.companyName} está aberto há mais de 30 dias.`, date: startDate, link: '/processos', severity: 'medium' });
+        }
     });
+
 
   } catch (error) {
     console.error('A critical error occurred while fetching notifications:', error);
   }
 
-  return notifications.sort((a, b) => b.date.getTime() - a.date.getTime());
+  // Remove duplicates and sort
+  const uniqueNotifications = Array.from(new Map(notifications.map(n => [n.id, n])).values());
+  return uniqueNotifications.sort((a, b) => b.date.getTime() - a.date.getTime());
 }

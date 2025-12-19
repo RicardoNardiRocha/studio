@@ -6,6 +6,7 @@ import {
   AlertTriangle, 
   FileWarning, 
   CalendarClock, 
+  Workflow
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,7 +21,9 @@ const notificationIcons = {
   certificate_expired: FileWarning,
   obligation_due: CalendarClock,
   obligation_overdue: CalendarClock,
-  process_status_change: AlertTriangle,
+  process_status_change: Workflow,
+  process_delayed: Workflow,
+  process_high_priority: Workflow,
   new_document_added: AlertTriangle,
 };
 
@@ -73,7 +76,7 @@ export function Notifications() {
                 return n.type === 'obligation_due' || n.type === 'obligation_overdue';
             }
             if (filter === 'processos') {
-                return n.type === 'process_status_change';
+                return n.type === 'process_status_change' || n.type === 'process_delayed' || n.type === 'process_high_priority';
             }
             return false;
         });
