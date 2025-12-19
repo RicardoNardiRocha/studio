@@ -36,8 +36,7 @@ export default function RootLayout({
       <body className={cn('font-body antialiased', fontPoppins.variable, fontInter.variable)}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
           disableTransitionOnChange
         >
           <ClientProviders>

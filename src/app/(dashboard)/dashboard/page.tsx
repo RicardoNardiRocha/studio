@@ -1,10 +1,6 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, Timestamp } from 'firebase/firestore';
-import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useUser } from '@/firebase';
 import { KpiCards } from '@/components/dashboard/kpi-cards';
 import { RecentActivities } from '@/components/dashboard/recent-activities';
 import { QuickActions } from '@/components/dashboard/quick-actions';
@@ -12,6 +8,8 @@ import { Notifications } from '@/components/dashboard/notifications';
 
 
 export default function DashboardPage() {
+  const { profile } = useUser();
+
   return (
     <>
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
@@ -24,15 +22,17 @@ export default function DashboardPage() {
           </div>
           <div className="col-span-1 space-y-4">
             <QuickActions />
-            <Card>
-              <CardHeader>
-                <CardTitle className='font-headline'>Atividades Recentes</CardTitle>
-                <CardDescription>Últimas ações realizadas no sistema.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RecentActivities />
-              </CardContent>
-            </Card>
+            {profile?.permissions.usuarios.read && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className='font-headline'>Atividades Recentes</CardTitle>
+                  <CardDescription>Últimas ações realizadas no sistema.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RecentActivities />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>
