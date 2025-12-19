@@ -25,7 +25,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { logActivity } from '@/lib/activity-log';
-import { ref, deleteObject } from 'firebase/storage';
+import { ref, deleteObject, refFromURL } from 'firebase/storage';
 
 
 interface FiscalDocumentDetailsDialogProps {
@@ -175,32 +175,39 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
             toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
             return;
         }
-
+    
         const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
-
+    
         try {
-            // Delete Firestore document
+            // Step 1: Delete the Firestore document entry. This is the primary action.
             const docRef = doc(firestore, 'fiscalDocuments', document.id);
             await deleteDoc(docRef);
-
-            // Delete file from Storage
-            const fileRef = ref(storage, document.fileUrl);
-            await deleteObject(fileRef);
-            
+    
+            // Step 2: Attempt to delete the file from Storage.
+            try {
+                const fileRef = refFromURL(storage, document.fileUrl);
+                await deleteObject(fileRef);
+            } catch (storageError: any) {
+                // If the file doesn't exist, it's not a critical failure.
+                // The main goal was to remove the reference from the database.
+                if (storageError.code === 'storage/object-not-found') {
+                    console.warn(`File not found in Storage, but Firestore doc was deleted: ${document.fileUrl}`);
+                } else {
+                    // For other storage errors, re-throw to be caught by the outer catch block.
+                    throw storageError;
+                }
+            }
+    
+            // If we reach here, the core operation (DB delete) was successful.
             logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
-
+    
             toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
             onDelete();
+    
         } catch (error: any) {
-            // Se o arquivo não existir no storage, mas o doc sim, consideramos sucesso parcial
-             if (error.code === 'storage/object-not-found') {
-                logActivity(firestore, user, `excluiu o registro do documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName} (arquivo não encontrado no storage).`);
-                toast({ id: toastId, title: 'Registro Excluído', description: 'O registro do documento foi excluído, mas o arquivo não foi encontrado no armazenamento.' });
-                onDelete();
-            } else {
-                console.error("Error deleting fiscal document:", error);
-                toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento.', variant: 'destructive' });
-            }
+            // This will catch critical errors from Firestore or unexpected errors from Storage.
+            console.error("Error deleting fiscal document:", error);
+            toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento.', variant: 'destructive' });
         }
     };
 
@@ -273,7 +280,7 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDelete}>Sim, Excluir</AlertDialogAction>
+                                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Sim, Excluir</AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
@@ -285,4 +292,3 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
     </Dialog>
   );
 }
-
