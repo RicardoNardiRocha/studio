@@ -63,8 +63,7 @@ export function AlertsTable() {
         companiesSnapshot.forEach(doc => {
           const company = doc.data();
           if (company.certificateA1Validity) {
-            try {
-              const validityDate = new Date(company.certificateA1Validity + 'T00:00:00');
+             const validityDate = new Date(company.certificateA1Validity + 'T00:00:00-03:00');
               if (!isValid(validityDate)) return;
 
               const daysLeft = differenceInDays(validityDate, today);
@@ -74,7 +73,6 @@ export function AlertsTable() {
               } else if (daysLeft <= 60) {
                 identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: company.name, details: `Certificado A1 vence em ${daysLeft + 1} dias`, date: validityDate, link: '/empresas' });
               }
-            } catch (e) { console.warn(`Invalid certificate date for company ${company.id}`); }
           }
         });
         
@@ -83,18 +81,16 @@ export function AlertsTable() {
         partnersSnapshot.forEach(doc => {
           const partner = doc.data();
           if (partner.ecpfValidity) {
-            try {
-              const validityDate = new Date(partner.ecpfValidity + 'T00:00:00');
-              if (!isValid(validityDate)) return;
+            const validityDate = new Date(partner.ecpfValidity + 'T00:00:00-03:00');
+            if (!isValid(validityDate)) return;
 
-              const daysLeft = differenceInDays(validityDate, today);
+            const daysLeft = differenceInDays(validityDate, today);
 
-              if (daysLeft < 0) {
-                identifiedAlerts.push({ type: 'Certificado Vencido', entityName: partner.name, details: `e-CPF do sócio venceu`, date: validityDate, link: '/societario' });
-              } else if (daysLeft <= 60) {
-                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: partner.name, details: `e-CPF vence em ${daysLeft + 1} dias`, date: validityDate, link: '/societario' });
-              }
-            } catch (e) { console.warn(`Invalid certificate date for partner ${partner.id}`); }
+            if (daysLeft < 0) {
+              identifiedAlerts.push({ type: 'Certificado Vencido', entityName: partner.name, details: `e-CPF do sócio venceu`, date: validityDate, link: '/societario' });
+            } else if (daysLeft <= 60) {
+              identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: partner.name, details: `e-CPF vence em ${daysLeft + 1} dias`, date: validityDate, link: '/societario' });
+            }
           }
         });
 
