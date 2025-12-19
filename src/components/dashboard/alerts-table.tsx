@@ -58,58 +58,61 @@ export function AlertsTable() {
       const next7days = endOfDay(addDays(today, 7));
 
       try {
+        // --- Certificados de Empresas (A1) ---
         const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
-
-        for (const doc of companiesSnapshot.docs) {
+        companiesSnapshot.forEach(doc => {
           const company = doc.data();
           if (company.certificateA1Validity) {
             try {
-              const [year, month, day] = company.certificateA1Validity.split('-').map(Number);
-              const validityDate = new Date(year, month - 1, day);
-              if (!isValid(validityDate)) continue;
+              const validityDate = new Date(company.certificateA1Validity + 'T00:00:00');
+              if (!isValid(validityDate)) return;
+
               const daysLeft = differenceInDays(validityDate, today);
 
               if (daysLeft < 0) {
                 identifiedAlerts.push({ type: 'Certificado Vencido', entityName: company.name, details: `Certificado A1 venceu`, date: validityDate, link: '/empresas' });
               } else if (daysLeft <= 60) {
-                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: company.name, details: `Certificado A1 vence em ${daysLeft} dias`, date: validityDate, link: '/empresas' });
+                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: company.name, details: `Certificado A1 vence em ${daysLeft + 1} dias`, date: validityDate, link: '/empresas' });
               }
             } catch (e) { console.warn(`Invalid certificate date for company ${company.id}`); }
           }
-        }
+        });
         
+        // --- Certificados de Sócios (e-CPF) ---
         const partnersSnapshot = await getDocs(collection(firestore, 'partners'));
-         for (const doc of partnersSnapshot.docs) {
+        partnersSnapshot.forEach(doc => {
           const partner = doc.data();
           if (partner.ecpfValidity) {
             try {
-              const [year, month, day] = partner.ecpfValidity.split('-').map(Number);
-              const validityDate = new Date(year, month - 1, day);
-              if (!isValid(validityDate)) continue;
+              const validityDate = new Date(partner.ecpfValidity + 'T00:00:00');
+              if (!isValid(validityDate)) return;
+
               const daysLeft = differenceInDays(validityDate, today);
 
               if (daysLeft < 0) {
                 identifiedAlerts.push({ type: 'Certificado Vencido', entityName: partner.name, details: `e-CPF do sócio venceu`, date: validityDate, link: '/societario' });
               } else if (daysLeft <= 60) {
-                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: partner.name, details: `e-CPF vence em ${daysLeft} dias`, date: validityDate, link: '/societario' });
+                identifiedAlerts.push({ type: 'Certificado Vencendo', entityName: partner.name, details: `e-CPF vence em ${daysLeft + 1} dias`, date: validityDate, link: '/societario' });
               }
             } catch (e) { console.warn(`Invalid certificate date for partner ${partner.id}`); }
           }
-        }
+        });
 
-        const obligationsQuery = query( collectionGroup(firestore, `taxObligations`), where('status', 'in', ['Pendente', 'Atrasada']));
+        // --- Obrigações ---
+        const obligationsQuery = query(collectionGroup(firestore, 'taxObligations'), where('status', 'in', ['Pendente', 'Atrasada']));
         const obligationsSnapshot = await getDocs(obligationsQuery);
         obligationsSnapshot.forEach(doc => {
             const ob = doc.data();
             const dueDate = (ob.dataVencimento as Timestamp).toDate();
-            if(ob.status === 'Atrasada' || isBefore(dueDate, today)) {
+            if (ob.status === 'Atrasada' || (ob.status === 'Pendente' && isBefore(dueDate, today))) {
                  identifiedAlerts.push({ type: 'Obrigação Atrasada', entityName: ob.companyName, details: ob.nome, date: dueDate, link: '/obrigacoes' });
-            } else if (isBefore(dueDate, next7days)) {
+            } else if (ob.status === 'Pendente' && isBefore(dueDate, next7days)) {
                  identifiedAlerts.push({ type: 'Obrigação Vencendo', entityName: ob.companyName, details: `${ob.nome} vence ${formatDistanceToNow(dueDate, { locale: ptBR, addSuffix: true })}`, date: dueDate, link: '/obrigacoes' });
             }
         });
 
-        const processesQuery = query( collectionGroup(firestore, `corporateProcesses`), where('status', '==', 'Em Exigência'));
+        // --- Processos ---
+        const processesQuery = query(collectionGroup(firestore, 'corporateProcesses'), where('status', '==', 'Em Exigência'));
         const processesSnapshot = await getDocs(processesQuery);
         processesSnapshot.forEach(doc => {
             const proc = doc.data();
@@ -239,3 +242,4 @@ export function AlertsTable() {
     </Card>
   );
 }
+
