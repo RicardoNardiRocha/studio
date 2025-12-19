@@ -49,6 +49,14 @@ export async function getNotifications(): Promise<Notification[]> {
     const date = new Date(dateString + 'T00:00:00-03:00');
     return isValid(date) ? date : null;
   };
+  
+  const toDate = (date: any): Date | undefined => {
+    if (!date) return undefined;
+    if (date instanceof Date) return date;
+    if (date.seconds) return new Date(date.seconds * 1000);
+    return undefined;
+  }
+
 
   try {
     const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
@@ -113,22 +121,23 @@ export async function getNotifications(): Promise<Notification[]> {
     const processesSnapshot = await getDocs(collection(firestore, 'corporateProcesses'));
     processesSnapshot.forEach(doc => {
         const proc = doc.data();
-        const startDate = (proc.startDate as Timestamp)?.toDate();
+        const startDate = toDate(proc.startDate);
+        const notificationDate = (startDate && isValid(startDate)) ? startDate : new Date();
         const isProcessActive = proc.status !== 'Concluído' && proc.status !== 'Cancelado';
 
         // High Priority Process
         if (proc.priority === 'Alta' && isProcessActive) {
-             notifications.push({ id: `proc-priority-${doc.id}`, type: 'process_high_priority', title: 'Processo com Prioridade Alta', message: `${proc.processType} para ${proc.companyName}.`, date: startDate || new Date(), link: '/processos', severity: 'high' });
+             notifications.push({ id: `proc-priority-${doc.id}`, type: 'process_high_priority', title: 'Processo com Prioridade Alta', message: `${proc.processType} para ${proc.companyName}.`, date: notificationDate, link: '/processos', severity: 'high' });
         }
         
         // Process in "Em Exigência"
         if (proc.status === 'Em Exigência') {
-            notifications.push({ id: `proc-status-${doc.id}`, type: 'process_status_change', title: 'Processo em Exigência', message: `${proc.processType} para ${proc.companyName}.`, date: startDate || new Date(), link: '/processos', severity: 'critical' });
+            notifications.push({ id: `proc-status-${doc.id}`, type: 'process_status_change', title: 'Processo em Exigência', message: `${proc.processType} para ${proc.companyName}.`, date: notificationDate, link: '/processos', severity: 'critical' });
         }
 
         // Delayed Process
         if (startDate && isProcessActive && differenceInDays(today, startDate) > 30) {
-            notifications.push({ id: `proc-delayed-${doc.id}`, type: 'process_delayed', title: 'Processo Atrasado', message: `O processo de ${proc.processType} para ${proc.companyName} está aberto há mais de 30 dias.`, date: startDate, link: '/processos', severity: 'medium' });
+            notifications.push({ id: `proc-delayed-${doc.id}`, type: 'process_delayed', title: 'Processo Atrasado', message: `O processo de ${proc.processType} para ${proc.companyName} está aberto há mais de 30 dias.`, date: notificationDate, link: '/processos', severity: 'medium' });
         }
     });
 
