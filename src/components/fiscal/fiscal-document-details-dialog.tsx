@@ -25,7 +25,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { logActivity } from '@/lib/activity-log';
-import { ref, deleteObject, refFromURL } from 'firebase/storage';
+import { ref, deleteObject } from 'firebase/storage';
 
 
 interface FiscalDocumentDetailsDialogProps {
@@ -179,23 +179,22 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
         const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
     
         try {
-            // Step 1: Delete the Firestore document entry. This is the primary action.
+            // Step 1: Delete the Firestore document entry.
             const docRef = doc(firestore, 'fiscalDocuments', document.id);
             await deleteDoc(docRef);
     
             // Step 2: Attempt to delete the file from Storage.
             try {
-                const fileRef = refFromURL(storage, document.fileUrl);
+                const fileRef = ref(storage, document.fileUrl);
                 await deleteObject(fileRef);
             } catch (storageError: any) {
                 // If the file doesn't exist, it's not a critical failure.
                 // The main goal was to remove the reference from the database.
-                if (storageError.code === 'storage/object-not-found') {
-                    console.warn(`File not found in Storage, but Firestore doc was deleted: ${document.fileUrl}`);
-                } else {
+                if (storageError.code !== 'storage/object-not-found') {
                     // For other storage errors, re-throw to be caught by the outer catch block.
                     throw storageError;
                 }
+                 console.warn(`File not found in Storage, but Firestore doc was deleted: ${document.fileUrl}`);
             }
     
             // If we reach here, the core operation (DB delete) was successful.
