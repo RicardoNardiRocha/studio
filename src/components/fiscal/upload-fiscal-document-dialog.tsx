@@ -42,7 +42,7 @@ interface UploadFiscalDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadComplete: () => void;
-  defaultDocumentType?: 'Livro de Saída' | 'Livro de Entrada';
+  defaultDocumentType?: 'Livro de Saída' | 'Livro de Entrada' | 'Nota Fiscal de Entrada' | 'Nota Fiscal de Saída';
 }
 
 const allDocumentTypes = ['Livro de Entrada', 'Livro de Saída', 'Nota Fiscal de Entrada', 'Nota Fiscal de Saída'];
@@ -54,6 +54,7 @@ const formSchema = z.object({
   documentType: z.string({ required_error: 'Selecione o tipo de documento.' }),
   competencia: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
   file: z.any().refine(file => file?.length > 0, 'O arquivo é obrigatório.'),
+  status: z.string().optional(), // Tornando opcional
 });
 
 type CompanyOption = { value: string; label: string; };
@@ -88,8 +89,12 @@ export function UploadFiscalDocumentDialog({
     defaultValues: {
       competencia: format(new Date(), 'MM/yyyy'),
       documentType: defaultDocumentType || '',
+      status: 'Ativa',
     },
   });
+
+  const documentType = form.watch('documentType');
+  const isNote = documentType?.includes('Nota Fiscal');
 
   useEffect(() => {
     if (open) {
@@ -98,6 +103,7 @@ export function UploadFiscalDocumentDialog({
         documentType: defaultDocumentType || '',
         companyId: '',
         file: undefined,
+        status: 'Ativa',
       });
       setCompetenceInput(format(new Date(), 'MM/yyyy'));
     }
@@ -135,7 +141,7 @@ export function UploadFiscalDocumentDialog({
           companyName: company.name,
           companyCnpj: company.cnpj,
           documentType: values.documentType,
-          status: 'Ativa', // Status 'Ativa' como padrão para todos os uploads
+          status: values.status || 'Ativa', // Usa o status do form ou 'Ativa' como fallback
           competencia: values.competencia,
           uploadedAt: new Date().toISOString(),
           fileUrl,
@@ -215,6 +221,25 @@ export function UploadFiscalDocumentDialog({
                     </FormItem>
                 )}
             />
+
+            {isNote && (
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Status da Nota</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione o status..." /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            {noteStatuses.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+            )}
             
              <FormField
                 control={form.control}

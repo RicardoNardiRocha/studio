@@ -69,31 +69,32 @@ export function FiscalClient() {
     return documents.filter(doc => {
       const companyMatch = doc.companyName.toLowerCase().includes(searchTerm.toLowerCase());
       const competenceMatch = !competenceInput || doc.competencia === competenceInput;
-      return companyMatch && competenceMatch;
+      const statusMatch = statusFilter === 'Todos' || doc.status === statusFilter;
+      return companyMatch && competenceMatch && statusMatch;
     });
-  }, [documents, searchTerm, competenceInput]);
+  }, [documents, searchTerm, competenceInput, statusFilter]);
 
   const entradaDocuments = useMemo(() => filteredDocuments.filter(doc => doc.documentType === 'Livro de Entrada'), [filteredDocuments]);
   const saidaDocuments = useMemo(() => filteredDocuments.filter(doc => doc.documentType === 'Livro de Saída'), [filteredDocuments]);
   
-  const rejectedSaidaNotes = useMemo(() => {
+  const saidaNotes = useMemo(() => {
       if (!documents) return [];
       return documents.filter(doc => {
           const companyMatch = doc.companyName.toLowerCase().includes(searchTerm.toLowerCase());
           const statusMatch = statusFilter === 'Todos' || doc.status === statusFilter;
           const competenceMatch = !competenceInput || doc.competencia === competenceInput;
-          const typeMatch = doc.documentType === 'Nota Fiscal de Saída' && rejectedStatuses.includes(doc.status);
+          const typeMatch = doc.documentType === 'Nota Fiscal de Saída';
           return companyMatch && statusMatch && competenceMatch && typeMatch;
       });
   }, [documents, searchTerm, statusFilter, competenceInput]);
   
-  const rejectedEntradaNotes = useMemo(() => {
+  const entradaNotes = useMemo(() => {
        if (!documents) return [];
       return documents.filter(doc => {
           const companyMatch = doc.companyName.toLowerCase().includes(searchTerm.toLowerCase());
           const statusMatch = statusFilter === 'Todos' || doc.status === statusFilter;
           const competenceMatch = !competenceInput || doc.competencia === competenceInput;
-          const typeMatch = doc.documentType === 'Nota Fiscal de Entrada' && rejectedStatuses.includes(doc.status);
+          const typeMatch = doc.documentType === 'Nota Fiscal de Entrada';
           return companyMatch && statusMatch && competenceMatch && typeMatch;
       });
   }, [documents, searchTerm, statusFilter, competenceInput]);
@@ -114,7 +115,7 @@ export function FiscalClient() {
       case 'entrada':
         return 'Gerencie os livros de entrada, saída e notas fiscais.';
       case 'notas':
-        return 'Visualize notas fiscais com status de Cancelada, Denegada, Inutilizada ou Rejeitada.';
+        return 'Visualize notas fiscais com status de Ativa, Cancelada, Denegada, Inutilizada ou Rejeitada.';
       default:
         return '';
     }
@@ -201,18 +202,16 @@ export function FiscalClient() {
                     className="w-full md:w-auto"
                     maxLength={7}
                 />
-                {activeTab === 'notas' && (
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className='flex-grow min-w-[180px]'>
-                      <SelectValue placeholder="Filtrar por status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {documentStatuses.map(status => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className='flex-grow min-w-[180px]'>
+                    <SelectValue placeholder="Filtrar por status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documentStatuses.map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                  <Button variant="outline" size="icon" onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}>
                     {sortOrder === 'desc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
                 </Button>
@@ -235,10 +234,10 @@ export function FiscalClient() {
                         <TabsTrigger value="entrada_notas">Notas de Entrada</TabsTrigger>
                     </TabsList>
                     <TabsContent value="saida_notas">
-                         <FiscalDocumentsTable documents={rejectedSaidaNotes} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
+                         <FiscalDocumentsTable documents={saidaNotes} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
                     </TabsContent>
                      <TabsContent value="entrada_notas">
-                         <FiscalDocumentsTable documents={rejectedEntradaNotes} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
+                         <FiscalDocumentsTable documents={entradaNotes} isLoading={isLoading} onSelectDocument={setSelectedDocument} />
                     </TabsContent>
                 </Tabs>
              </TabsContent>
