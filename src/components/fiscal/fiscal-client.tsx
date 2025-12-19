@@ -148,7 +148,12 @@ export function FiscalClient() {
       />
       <ConfigureXmlCompaniesDialog open={isConfigureOpen} onOpenChange={setIsConfigureOpen} onSave={handleAction} />
       {selectedDocument && (
-        <FiscalDocumentDetailsDialog document={selectedDocument} open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)} />
+        <FiscalDocumentDetailsDialog
+          document={selectedDocument}
+          open={!!selectedDocument}
+          onOpenChange={() => setSelectedDocument(null)}
+          onDelete={handleAction}
+        />
       )}
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

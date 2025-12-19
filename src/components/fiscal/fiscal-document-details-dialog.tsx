@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import type { FiscalDocument } from '@/app/(dashboard)/fiscal/components/fiscal-client';
 import { Download, FileText, Loader2, Send, Trash2, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useStorage } from '@/firebase';
 import { collection, query, orderBy, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import { Textarea } from '../ui/textarea';
 import { useState } from 'react';
@@ -23,12 +23,16 @@ import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { logActivity } from '@/lib/activity-log';
+import { ref, deleteObject } from 'firebase/storage';
 
 
 interface FiscalDocumentDetailsDialogProps {
   document: FiscalDocument;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDelete: () => void;
 }
 
 interface Note {
@@ -149,17 +153,49 @@ function NotesTab({ document }: { document: FiscalDocument }) {
   )
 }
 
-export function FiscalDocumentDetailsDialog({ document, open, onOpenChange }: FiscalDocumentDetailsDialogProps) {
-  const getStatusVariant = (status: FiscalDocument['status']): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
-    switch (status) {
-      case 'Ativa': return 'default';
-      case 'Cancelada': return 'destructive';
-      case 'Inutilizada': return 'secondary';
-      case 'Denegada': return 'destructive';
-      case 'Rejeitada': return 'outline';
-      default: return 'secondary';
-    }
-  };
+export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDelete }: FiscalDocumentDetailsDialogProps) {
+    const { profile, user } = useUser();
+    const firestore = useFirestore();
+    const storage = useStorage();
+    const { toast } = useToast();
+
+    const getStatusVariant = (status: FiscalDocument['status']): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
+        switch (status) {
+        case 'Ativa': return 'default';
+        case 'Cancelada': return 'destructive';
+        case 'Inutilizada': return 'secondary';
+        case 'Denegada': return 'destructive';
+        case 'Rejeitada': return 'outline';
+        default: return 'secondary';
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!firestore || !storage || !user) {
+            toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
+            return;
+        }
+
+        const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
+
+        try {
+            // Delete Firestore document
+            const docRef = doc(firestore, 'fiscalDocuments', document.id);
+            await deleteDoc(docRef);
+
+            // Delete file from Storage
+            const fileRef = ref(storage, document.fileUrl);
+            await deleteObject(fileRef);
+            
+            logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
+
+            toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
+            onDelete();
+        } catch (error) {
+            console.error("Error deleting fiscal document:", error);
+            toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento.', variant: 'destructive' });
+        }
+    };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -206,12 +242,36 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange }: Fi
         </Tabs>
         
         <DialogFooter className='sm:justify-between pt-4 border-t'>
-            <Button asChild variant="outline">
-                <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-2 h-4 w-4" />
-                    Baixar Arquivo
-                </a>
-            </Button>
+            <div className="flex gap-2">
+                <Button asChild variant="outline">
+                    <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
+                        <Download className="mr-2 h-4 w-4" />
+                        Baixar Arquivo
+                    </a>
+                </Button>
+                {profile?.permissions.fiscal.delete && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                           <Button variant="destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Esta ação não pode ser desfeita. Isso excluirá permanentemente o documento e seu arquivo associado.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete}>Sim, Excluir</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+            </div>
             <Button onClick={() => onOpenChange(false)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>
