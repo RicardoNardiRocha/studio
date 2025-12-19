@@ -44,7 +44,7 @@ service firebase.storage {
     // Fiscal documents
     match /fiscalDocuments/{companyId}/{fileName} {
         allow read: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.read == true;
-        allow write: if request.auth != null && get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.create == true;
+        allow write: if request.auth != null && (get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.create == true || get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.update == true || get(/databases/(default)/documents/users/$(request.auth.uid)).data.permissions.fiscal.delete == true);
     }
 
     // Fallback rule: Deny all other read/write operations for security.

@@ -179,31 +179,26 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
         const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
     
         try {
-            // Exclui o registro do Firestore
             const docRef = doc(firestore, 'fiscalDocuments', document.id);
             await deleteDoc(docRef);
     
-            // Exclui o arquivo do Storage
             const fileRef = ref(storage, document.fileUrl);
             await deleteObject(fileRef);
     
-            // Se ambas as operações funcionarem, mostra o sucesso
             logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
             toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
             onDelete();
-    
         } catch (error: any) {
-            // Se o erro for 'objeto não encontrado', significa que a exclusão do DB funcionou
-            // mas o arquivo não estava no storage, o que é um resultado aceitável.
+            // Se a exclusão do documento do Firestore funcionou, mas a do Storage falhou
+            // com 'object-not-found', consideramos um sucesso.
             if (error.code === 'storage/object-not-found') {
-                console.warn(`File not found in Storage, but Firestore doc was deleted: ${document.fileUrl}`);
-                logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
-                toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído (arquivo não encontrado no armazenamento).' });
+                console.warn(`File not found in Storage, but this is acceptable: ${document.fileUrl}`);
+                 logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
+                toast({ id: toastId, title: 'Sucesso!', description: 'Registro do documento excluído (arquivo não encontrado no armazenamento).' });
                 onDelete();
             } else {
-                // Para todos os outros erros, mostra a mensagem de falha.
                 console.error("Error deleting fiscal document:", error);
-                toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento.', variant: 'destructive' });
+                toast({ id: toastId, title: 'Erro!', description: 'Não foi possível excluir o documento. Verifique as permissões e tente novamente.', variant: 'destructive' });
             }
         }
     };
