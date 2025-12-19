@@ -15,7 +15,9 @@ import {
   differenceInDays,
   isValid,
   isPast,
+  format,
 } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const firestore = getFirestore(app);
@@ -57,6 +59,8 @@ export async function getNotifications(): Promise<Notification[]> {
     return undefined;
   }
 
+  const formatDate = (date: Date) => format(date, 'dd/MM/yyyy');
+
 
   try {
     const companiesSnapshot = await getDocs(collection(firestore, 'companies'));
@@ -69,9 +73,9 @@ export async function getNotifications(): Promise<Notification[]> {
         if (validityDate) {
           const daysLeft = differenceInDays(validityDate, today);
           if (daysLeft < 0) {
-            notifications.push({ id: `cert-expired-${doc.id}`, type: 'certificate_expired', title: 'Certificado Vencido', message: `O certificado A1 da empresa ${company.name} venceu.`, date: validityDate, link: '/empresas', severity: 'critical' });
+            notifications.push({ id: `cert-expired-${doc.id}`, type: 'certificate_expired', title: 'Certificado Vencido', message: `O A1 de ${company.name} venceu em ${formatDate(validityDate)}.`, date: validityDate, link: '/empresas', severity: 'critical' });
           } else if (daysLeft <= 60) {
-            notifications.push({ id: `cert-expiring-${doc.id}`, type: 'certificate_expiring', title: 'Certificado a Vencer', message: `O certificado A1 da empresa ${company.name} vencerá em ${daysLeft + 1} dias.`, date: validityDate, link: '/empresas', severity: daysLeft <= 30 ? 'high' : 'medium' });
+            notifications.push({ id: `cert-expiring-${doc.id}`, type: 'certificate_expiring', title: 'Certificado a Vencer', message: `O A1 de ${company.name} vencerá em ${formatDate(validityDate)}.`, date: validityDate, link: '/empresas', severity: daysLeft <= 30 ? 'high' : 'medium' });
           }
         }
       }
@@ -85,9 +89,9 @@ export async function getNotifications(): Promise<Notification[]> {
             if (validityDate) {
                 const daysLeft = differenceInDays(validityDate, today);
                 if (daysLeft < 0) {
-                    notifications.push({ id: `ecpf-expired-${doc.id}`, type: 'certificate_expired', title: 'e-CPF Vencido', message: `O e-CPF do sócio ${partner.name} venceu.`, date: validityDate, link: '/societario', severity: 'critical' });
+                    notifications.push({ id: `ecpf-expired-${doc.id}`, type: 'certificate_expired', title: 'e-CPF Vencido', message: `O e-CPF de ${partner.name} venceu em ${formatDate(validityDate)}.`, date: validityDate, link: '/societario', severity: 'critical' });
                 } else if (daysLeft <= 60) {
-                    notifications.push({ id: `ecpf-expiring-${doc.id}`, type: 'certificate_expiring', title: 'e-CPF a Vencer', message: `O e-CPF do sócio ${partner.name} vencerá em ${daysLeft + 1} dias.`, date: validityDate, link: '/societario', severity: daysLeft <= 30 ? 'high' : 'medium' });
+                    notifications.push({ id: `ecpf-expiring-${doc.id}`, type: 'certificate_expiring', title: 'e-CPF a Vencer', message: `O e-CPF de ${partner.name} vencerá em ${formatDate(validityDate)}.`, date: validityDate, link: '/societario', severity: daysLeft <= 30 ? 'high' : 'medium' });
                 }
             }
         }

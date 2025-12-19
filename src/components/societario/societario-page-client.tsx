@@ -92,6 +92,7 @@ export default function SocietarioPage() {
   const { toast } = useToast();
   const { profile } = useUser();
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
+  const [showAlertsOnly, setShowAlertsOnly] = useState(false);
 
   const firestore = useFirestore();
 
@@ -123,16 +124,24 @@ export default function SocietarioPage() {
 
   const filteredPartners = useMemo(() => {
     if (!partners) return [];
+    
+    let filtered = partners;
+
+    if (showAlertsOnly) {
+      const expiringIds = new Set(expiringCertificates.map(p => p.id));
+      filtered = partners.filter(p => expiringIds.has(p.id));
+    }
 
     const searchTermLower = searchTerm.toLowerCase();
     const hasLetters = /[a-zA-Z]/.test(searchTerm);
     const hasNumbers = /[0-9]/.test(searchTerm);
     
-    return partners.filter(partner => {
+    return filtered.filter(partner => {
       let searchMatch = false;
 
-      // Logic based on search term content
-      if (hasLetters && hasNumbers) { // Search only company names
+      if (searchTerm.trim() === '') {
+        searchMatch = true;
+      } else if (hasLetters && hasNumbers) { // Search only company names
         searchMatch = partner.associatedCompanies?.some(c => c.toLowerCase().includes(searchTermLower)) ?? false;
       } else if (hasLetters) { // Search partner name or company name
         const nameMatch = partner.name.toLowerCase().includes(searchTermLower);
@@ -140,7 +149,7 @@ export default function SocietarioPage() {
         searchMatch = nameMatch || companyMatch;
       } else { // Search only CPF (hasNumbers is implied)
         const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
-        searchMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : true; // show all if empty
+        searchMatch = cleanSearchTerm ? partner.cpf.replace(/[^\d]/g, '').includes(cleanSearchTerm) : true;
       }
       
       const ecpfMatch = ecpfFilter === 'Todos' || (ecpfFilter === 'Sim' && partner.hasECPF) || (ecpfFilter === 'Não' && !partner.hasECPF);
@@ -148,7 +157,7 @@ export default function SocietarioPage() {
 
       return searchMatch && ecpfMatch && validityMatch;
     });
-  }, [partners, searchTerm, ecpfFilter, validityFilter]);
+  }, [partners, searchTerm, ecpfFilter, validityFilter, showAlertsOnly, expiringCertificates]);
 
 
   const handleSyncPartners = async () => {
@@ -230,6 +239,16 @@ export default function SocietarioPage() {
     setSelectedPartner(partner);
     setIsDetailsDialogOpen(true);
   };
+
+  const handleAlertClick = () => {
+    setShowAlertsOnly(true);
+    setValidityFilter('Todos');
+  };
+
+  const clearAlertFilter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowAlertsOnly(false);
+  };
   
 
   return (
@@ -254,19 +273,25 @@ export default function SocietarioPage() {
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
         <div className="mb-4">
         {!isAlertDismissed && expiringCertificates.length > 0 && (
+          <div onClick={handleAlertClick} className="cursor-pointer">
             <Alert variant="destructive" className="relative">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Atenção: e-CPFs Vencendo!</AlertTitle>
-            <AlertDescription>
-                Você possui <strong>{expiringCertificates.length}</strong> certificados de sócios vencidos ou vencendo nos próximos 60 dias.
-            </AlertDescription>
-            <button
-                onClick={() => setIsAlertDismissed(true)}
-                className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-            >
-                <X className="h-4 w-4" />
-            </button>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Atenção: e-CPFs Vencendo!</AlertTitle>
+              <AlertDescription>
+                  Você possui <strong>{expiringCertificates.length}</strong> certificados de sócios vencidos ou vencendo nos próximos 60 dias. Clique aqui para vê-los.
+              </AlertDescription>
+              <button
+                  onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAlertDismissed(true);
+                      if (showAlertsOnly) setShowAlertsOnly(false);
+                  }}
+                  className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+              >
+                  <X className="h-4 w-4" />
+              </button>
             </Alert>
+          </div>
         )}
         </div>
         <Card>
@@ -333,6 +358,12 @@ export default function SocietarioPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {showAlertsOnly && (
+                <Button variant="ghost" onClick={clearAlertFilter} className="w-full md:w-auto justify-start">
+                    <X className="mr-2 h-4 w-4" />
+                    Limpar Filtro de Alerta
+                </Button>
+             )}
             </div>
             <div className="border rounded-md">
             <Table>
