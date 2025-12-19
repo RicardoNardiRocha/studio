@@ -179,23 +179,36 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
       const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
     
       try {
+        // Primeiro, deleta o registro do Firestore
         const docRef = doc(firestore, 'fiscalDocuments', document.id);
         await deleteDoc(docRef);
     
-        // Immediately show success and trigger UI updates.
+        // Se a exclusão do Firestore for bem-sucedida, mostre sucesso imediatamente
+        // e prossiga com a exclusão do arquivo em segundo plano.
         toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
         logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
         onDelete();
         onOpenChange(false);
     
-        // Try deleting from storage in the background. Errors will only be logged.
-        const fileRef = ref(storage, document.fileUrl);
-        deleteObject(fileRef).catch(storageError => {
-            console.error("Non-critical error deleting file from storage:", storageError.message);
-        });
+        // Tenta excluir o arquivo do Storage.
+        // Se falhar com um erro de "não autorizado", nós o ignoramos.
+        // Qualquer outro erro será logado no console.
+        try {
+          const fileRef = ref(storage, document.fileUrl);
+          await deleteObject(fileRef);
+        } catch (storageError: any) {
+          // Ignora especificamente o erro de permissão "fantasma"
+          if (storageError.code === 'storage/unauthorized' || storageError.code === 'storage/object-not-found') {
+            console.log(`Ignorando erro de storage secundário: ${storageError.code}`);
+          } else {
+            // Loga outros erros de storage, mas não mostra ao usuário, pois a operação principal foi um sucesso.
+            console.error("Erro não-crítico ao limpar arquivo do Storage:", storageError);
+          }
+        }
     
       } catch (firestoreError: any) {
-        console.error("Critical error deleting Firestore document:", firestoreError);
+        // Este catch lida com falhas na exclusão do Firestore, que é a operação crítica.
+        console.error("Erro crítico ao excluir documento do Firestore:", firestoreError);
         toast({ 
           id: toastId, 
           title: 'Erro!', 
