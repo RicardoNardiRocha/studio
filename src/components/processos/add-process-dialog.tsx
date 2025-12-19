@@ -29,13 +29,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon } from 'lucide-react';
+import { Loader2, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
@@ -89,6 +97,7 @@ export function AddProcessDialog({
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
+  const [companyPopoverOpen, setCompanyPopoverOpen] = useState(false)
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -258,13 +267,61 @@ export function AddProcessDialog({
                 control={form.control}
                 name="companyId"
                 render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Empresa</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!processType}>
-                        <FormControl><SelectTrigger><SelectValue placeholder={!processType ? "Selecione o tipo de processo primeiro" : "Selecione a empresa"} /></SelectTrigger></FormControl>
-                        <SelectContent>{companies?.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}</SelectContent>
-                    </Select>
-                    <FormMessage />
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Empresa</FormLabel>
+                        <Popover open={companyPopoverOpen} onOpenChange={setCompanyPopoverOpen}>
+                            <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                variant="outline"
+                                role="combobox"
+                                disabled={!processType}
+                                className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                >
+                                {field.value
+                                    ? companies?.find(
+                                        (company) => company.id === field.value
+                                    )?.name
+                                    : (!processType ? "Selecione o tipo de processo primeiro" : "Selecione a empresa")}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                            <Command>
+                                <CommandInput placeholder="Procurar empresa..." />
+                                <CommandList>
+                                <CommandEmpty>Nenhuma empresa encontrada.</CommandEmpty>
+                                <CommandGroup>
+                                    {companies?.map((company) => (
+                                    <CommandItem
+                                        value={company.name}
+                                        key={company.id}
+                                        onSelect={() => {
+                                        form.setValue("companyId", company.id)
+                                        setCompanyPopoverOpen(false)
+                                        }}
+                                    >
+                                        <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            company.id === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                        />
+                                        {company.name}
+                                    </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                                </CommandList>
+                            </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
                     </FormItem>
                 )}
                 />

@@ -48,7 +48,7 @@ const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructiv
   }
 };
 
-type CertificateStatus = 'Válido' | 'Vencendo em 60 dias' | 'Vencendo em 30 dias' | 'Vencido' | 'Não informado';
+type CertificateStatus = 'Válido' | 'Vencendo' | 'Vencido' | 'Não informado';
 
 const getCertificateStatusInfo = (validity?: string): { text: string; status: CertificateStatus; variant: 'default' | 'destructive' | 'secondary' | 'warning'; daysLeft?: number, Icon: React.ElementType, dateText: string } => {
   if (!validity) {
@@ -68,11 +68,8 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
     if (daysLeft < 0) {
       return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX, dateText };
     }
-    if (daysLeft <= 30) {
-      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 30 dias', variant: 'destructive', daysLeft, Icon: ShieldCheck, dateText };
-    }
     if (daysLeft <= 60) {
-      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo em 60 dias', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
+      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
     }
     return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck, dateText };
   } catch (e) {
@@ -81,7 +78,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 };
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
-const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo em 60 dias', 'Vencendo em 30 dias', 'Vencido', 'Não informado'];
+const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo', 'Vencido', 'Não informado'];
 const companyStatuses = ['Todos', 'ATIVA', 'INAPTA', 'BAIXADA'];
 
 function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetails: (company: Company) => void }) {
@@ -148,7 +145,7 @@ export function CompaniesClient() {
     if (!companies) return [];
     return companies.filter(c => {
       const statusInfo = getCertificateStatusInfo(c.certificateA1Validity);
-      return statusInfo.status === 'Vencido' || statusInfo.status === 'Vencendo em 30 dias' || statusInfo.status === 'Vencendo em 60 dias';
+      return statusInfo.status === 'Vencido' || statusInfo.status === 'Vencendo';
     });
   }, [companies]);
 
@@ -266,7 +263,7 @@ export function CompaniesClient() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-            <div className="relative flex-grow">
+            <div className="relative w-full md:flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome..."
@@ -288,7 +285,7 @@ export function CompaniesClient() {
                 </Select>
             </div>
             <div className="w-full md:w-auto md:min-w-[200px]">
-                <Select value={certificateStatusFilter} onValueChange={setCertificateStatusFilter}>
+                <Select value={certificateStatusFilter} onValueChange={(value: 'Todos' | CertificateStatus) => setCertificateStatusFilter(value)}>
                     <SelectTrigger>
                         <SelectValue placeholder="Filtrar por certificado..." />
                     </SelectTrigger>

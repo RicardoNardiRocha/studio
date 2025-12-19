@@ -22,12 +22,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import {
   Popover,
   PopoverContent,
@@ -35,7 +36,7 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarIcon, Upload } from 'lucide-react';
+import { Loader2, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
 import { addDoc, collection, doc, updateDoc, query, orderBy, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { Calendar } from '../ui/calendar';
@@ -79,6 +80,7 @@ export function AddObligationDialog({
   const storage = useStorage();
   const { user } = useUser();
   const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
+  const [companyPopoverOpen, setCompanyPopoverOpen] = useState(false)
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -201,18 +203,59 @@ export function AddObligationDialog({
               control={form.control}
               name="companyId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Empresa</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {companies?.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={companyPopoverOpen} onOpenChange={setCompanyPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value
+                            ? companies?.find(
+                                (company) => company.id === field.value
+                              )?.name
+                            : "Selecione a empresa"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] max-h-[--radix-popover-content-available-height] p-0">
+                      <Command>
+                        <CommandInput placeholder="Procurar empresa..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhuma empresa encontrada.</CommandEmpty>
+                          <CommandGroup>
+                            {companies?.map((company) => (
+                              <CommandItem
+                                value={company.name}
+                                key={company.id}
+                                onSelect={() => {
+                                  form.setValue("companyId", company.id)
+                                  setCompanyPopoverOpen(false)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    company.id === field.value
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                {company.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
@@ -239,7 +282,7 @@ export function AddObligationDialog({
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         </FormControl>
