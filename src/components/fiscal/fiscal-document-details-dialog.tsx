@@ -179,27 +179,22 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
       const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
     
       try {
-        // Step 1: Delete the Firestore document. This is the primary action for the user.
         const docRef = doc(firestore, 'fiscalDocuments', document.id);
         await deleteDoc(docRef);
     
-        // If Firestore deletion is successful, show success and proceed with storage deletion in the background.
+        // Immediately show success and trigger UI updates.
         toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
         logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
-        onDelete(); // Refresh UI
+        onDelete();
+        onOpenChange(false);
     
-        // Step 2: Try deleting the file from storage. Errors here will be logged but not shown to the user.
-        try {
-          const fileRef = ref(storage, document.fileUrl);
-          await deleteObject(fileRef);
-        } catch (storageError: any) {
-          // We only log this error to the console. We don't show a toast because the main operation succeeded.
-          // This prevents the "ghost error" message.
-          console.error("Non-critical error deleting file from storage:", storageError.message);
-        }
+        // Try deleting from storage in the background. Errors will only be logged.
+        const fileRef = ref(storage, document.fileUrl);
+        deleteObject(fileRef).catch(storageError => {
+            console.error("Non-critical error deleting file from storage:", storageError.message);
+        });
     
       } catch (firestoreError: any) {
-        // This catch block now only handles critical errors from the Firestore operation.
         console.error("Critical error deleting Firestore document:", firestoreError);
         toast({ 
           id: toastId, 
