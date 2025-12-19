@@ -181,7 +181,7 @@ export function CompaniesClient() {
           onCompanyDeleted={handleAction}
         />
       )}
-      <div className="mb-4">
+      <div className="space-y-4">
         {!isAlertDismissed && expiringCertificates.length > 0 && (
             <div onClick={handleAlertClick} className="cursor-pointer">
                 <Alert variant="destructive" className="relative">
@@ -203,7 +203,6 @@ export function CompaniesClient() {
                 </Alert>
             </div>
         )}
-      </div>
 
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -350,6 +349,7 @@ export function CompaniesClient() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </>
   );
 }
