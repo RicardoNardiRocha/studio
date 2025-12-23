@@ -59,7 +59,7 @@ export function ConfigureXmlCompaniesDialog({
   const filteredAndSortedCompanies = useMemo(() => {
     if (!companies) return [];
     return companies
-      .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(c => c && c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase()))
       .sort((a, b) => {
         if (sortOrder === 'asc') {
           return a.name.localeCompare(b.name);
