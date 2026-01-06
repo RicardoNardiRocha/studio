@@ -16,13 +16,11 @@ import '@/lib/dev/set-admin';
 
 
 function AppContent({ children }: { children: ReactNode }) {
-    return (
-        <main>
-            <div className="min-h-screen w-full">
-                {children}
-            </div>
-        </main>
-    );
+  return (
+    <div className="min-h-screen w-full">
+      {children}
+    </div>
+  );
 }
 
 function SidebarTrigger() {
@@ -50,16 +48,18 @@ function MainLayoutWrapper({ children }: { children: ReactNode }) {
     const isMobile = useIsMobile();
   
     const mainClass = cn(
-      "transition-all duration-300 ease-in-out",
+      "min-h-screen transition-all duration-300 ease-in-out",
       isMobile ? 'ml-0' : (isCollapsed ? 'ml-16' : 'ml-56')
     );
   
     return (
-      <div className={mainClass}>
+      <>
         <AppSidebar />
         <SidebarTrigger />
-        <AppContent>{children}</AppContent>
-      </div>
+        <main className={mainClass}>
+            <AppContent>{children}</AppContent>
+        </main>
+      </>
     );
 }
 

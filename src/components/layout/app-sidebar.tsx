@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -23,6 +24,7 @@ import type { UserProfile } from '@/firebase/provider';
 import { useSidebar } from '@/components/ui/sidebar';
 import { ThemeToggle } from './theme-toggle';
 import { Separator } from '../ui/separator';
+import { cn } from '@/lib/utils';
 
 const mainMenuItems = [
     { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
@@ -74,9 +76,10 @@ export function AppSidebar() {
 
   return (
       <aside
-        className={`group fixed top-0 left-0 h-full z-30 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out ${
+        className={cn(
+          "group fixed top-0 left-0 z-50 flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
           isCollapsed ? 'w-16' : 'w-56'
-        }`}
+        )}
         data-state={isCollapsed ? 'collapsed' : 'expanded'}
       >
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
