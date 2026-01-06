@@ -56,7 +56,6 @@ function SidebarTrigger() {
 export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
     const auth = useAuth();
-    const isMobile = useIsMobile();
 
     if (isUserLoading) {
         return (
