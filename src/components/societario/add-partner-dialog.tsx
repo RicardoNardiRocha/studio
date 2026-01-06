@@ -224,6 +224,7 @@ export function AddPartnerDialog({
                           menu: (base) => ({ ...base, zIndex: 100 }),
                           input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
                           multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
+                          multiValueLabel: (base) => ({...base, color: 'hsl(var(--secondary-foreground))'}),
                         }}
                       />
                   </FormControl>
