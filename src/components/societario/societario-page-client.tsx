@@ -444,7 +444,7 @@ export default function SocietarioPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    )
+                    );
                   })
                 ) : (
                   <TableRow>
