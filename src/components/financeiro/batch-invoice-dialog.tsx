@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -101,6 +100,8 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
     const [month, year] = referencePeriod.split('/').map(Number);
     const competenceDate = new Date(year, month - 1, 1);
     const dueDate = lastDayOfMonth(competenceDate);
+    const description = `Mensalidade ${referencePeriod}`;
+
 
     const invoicesRef = collection(firestore, 'invoices');
     const companiesToBill = [...companies];
@@ -111,7 +112,7 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
         const chunk = companiesToBill.slice(i, i + CHUNK_SIZE);
         const companyIds = chunk.map(c => c.id);
         
-        const q = query(invoicesRef, where('companyId', 'in', companyIds), where('referencePeriod', '==', referencePeriod));
+        const q = query(invoicesRef, where('companyId', 'in', companyIds), where('description', '==', description));
         const existingInvoicesSnap = await getDocs(q);
         const existingCompanyIds = new Set(existingInvoicesSnap.docs.map(d => d.data().companyId));
 
@@ -126,7 +127,7 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
                     id: newInvoiceRef.id,
                     companyId: company.id,
                     companyName: company.name,
-                    referencePeriod,
+                    description: description,
                     amount,
                     dueDate,
                     status: 'Pendente',
@@ -154,7 +155,7 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Gerar Faturas em Lote</DialogTitle>
+          <DialogTitle>Gerar Mensalidades em Lote</DialogTitle>
           <DialogDescription>
             Crie mensalidades para todas as empresas ativas para um período de competência.
           </DialogDescription>
@@ -167,7 +168,7 @@ export function BatchInvoiceDialog({ open, onOpenChange, onComplete }: BatchInvo
               <AlertDescription>
                 Esta ação criará faturas para{' '}
                 <strong>{companies?.length || 0} empresas</strong>. O sistema
-                ignora automaticamente empresas que já possuem fatura para o
+                ignora automaticamente empresas que já possuem uma mensalidade para o
                 mês selecionado.
               </AlertDescription>
             </Alert>

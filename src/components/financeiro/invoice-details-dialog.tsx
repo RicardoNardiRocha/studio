@@ -68,9 +68,10 @@ interface InvoiceDetailsDialogProps {
 }
 
 const invoiceStatuses: InvoiceStatus[] = ['Pendente', 'Paga', 'Atrasada', 'Cancelada'];
+const chargeDescriptions = ['Mensalidade', 'Abertura', 'Alteração', 'Encerramento', 'Décimo Terceiro'];
 
 const formSchema = z.object({
-  referencePeriod: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
+  description: z.string({ required_error: 'A descrição da cobrança é obrigatória.' }),
   amount: z.coerce.number().min(0.01, 'O valor deve ser maior que zero.'),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
   paymentDate: z.date().nullable().optional(),
@@ -97,29 +98,17 @@ export function InvoiceDetailsDialog({
   const firestore = useFirestore();
   const { user, profile } = useUser();
   const { toast } = useToast();
-  const [competenceInput, setCompetenceInput] = useState(invoice.referencePeriod);
-
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      referencePeriod: invoice.referencePeriod,
+      description: invoice.description,
       amount: invoice.amount,
       dueDate: toDate(invoice.dueDate),
       paymentDate: toDate(invoice.paymentDate),
       status: invoice.status,
     },
   });
-
-  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length > 2) {
-      value = value.slice(0, 2) + '/' + value.slice(2, 6);
-    }
-    setCompetenceInput(value);
-    form.setValue('referencePeriod', value);
-  };
-
 
   const handleDelete = () => {
     if (!firestore || !user) {
@@ -128,10 +117,10 @@ export function InvoiceDetailsDialog({
     }
     const invoiceRef = doc(firestore, 'invoices', invoice.id);
     deleteDocumentNonBlocking(invoiceRef);
-    logActivity(firestore, user, `excluiu a fatura de ${invoice.companyName} (Ref: ${invoice.referencePeriod}).`);
+    logActivity(firestore, user, `excluiu a cobrança de ${invoice.description} de ${invoice.companyName}.`);
     toast({
       title: 'Fatura Excluída',
-      description: `A fatura para ${invoice.companyName} foi removida.`,
+      description: `A cobrança para ${invoice.companyName} foi removida.`,
     });
     onInvoiceDeleted();
     onOpenChange(false);
@@ -153,11 +142,11 @@ export function InvoiceDetailsDialog({
       };
 
       setDocumentNonBlocking(invoiceRef, updatedData, { merge: true });
-      logActivity(firestore, user, `atualizou a fatura de ${invoice.companyName} (Ref: ${invoice.referencePeriod}) para o status ${values.status}.`);
+      logActivity(firestore, user, `atualizou a cobrança de ${invoice.companyName} para o status ${values.status}.`);
 
       toast({
         title: 'Fatura Atualizada!',
-        description: `Os dados da fatura foram salvos.`,
+        description: `Os dados da cobrança foram salvos.`,
       });
       onInvoiceUpdated();
       onOpenChange(false);
@@ -180,32 +169,32 @@ export function InvoiceDetailsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Detalhes da Fatura</DialogTitle>
+          <DialogTitle>Detalhes da Cobrança</DialogTitle>
           <DialogDescription>
-            Visualize e edite os dados da fatura para <span className='font-bold'>{invoice.companyName}</span>.
+            Visualize e edite os dados da cobrança para <span className='font-bold'>{invoice.companyName}</span>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
              <FormField
-              control={form.control}
-              name="referencePeriod"
-              render={({ field }) => (
-                  <FormItem>
-                  <FormLabel>Competência</FormLabel>
-                  <FormControl>
-                      <Input 
-                        placeholder="MM/AAAA"
-                        value={competenceInput}
-                        onChange={handleCompetenceChange}
-                        onClick={(e) => (e.target as HTMLInputElement).select()}
-                        maxLength={7}
-                        disabled={!canEdit}
-                      />
-                  </FormControl>
-                  <FormMessage />
-                  </FormItem>
-              )}
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Descrição da Cobrança</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {chargeDescriptions.map((desc) => (
+                            <SelectItem key={desc} value={desc}>{desc}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -314,7 +303,7 @@ export function InvoiceDetailsDialog({
                     <AlertDialogHeader>
                       <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente a fatura.
+                        Esta ação não pode ser desfeita. Isso irá excluir permanentemente a cobrança.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

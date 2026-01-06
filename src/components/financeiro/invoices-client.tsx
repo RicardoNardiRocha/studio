@@ -42,7 +42,7 @@ export interface Invoice {
   id: string;
   companyId: string;
   companyName: string;
-  referencePeriod: string; // "YYYY-MM"
+  description: string;
   amount: number;
   dueDate: Timestamp | Date;
   paymentDate?: Timestamp | Date | null;
@@ -75,7 +75,7 @@ export function InvoicesClient() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
-  const [competenceInput, setCompetenceInput] = useState('');
+  const [descriptionFilter, setDescriptionFilter] = useState('Todos');
   
   const firestore = useFirestore();
   const { profile } = useUser();
@@ -83,15 +83,7 @@ export function InvoicesClient() {
 
   const invoicesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-
     let q = query(collection(firestore, 'invoices'), orderBy('dueDate', 'desc'));
-    
-    // This is not a good way to filter by competence period, a proper text search engine would be better
-    // For now we will filter client side
-    // if (competenceFilter) {
-    //   q = query(q, where('referencePeriod', '==', competenceFilter));
-    // }
-
     return q;
   }, [firestore]);
 
@@ -109,14 +101,6 @@ export function InvoicesClient() {
     setIsDetailsDialogOpen(true);
   };
   
-  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length > 2) {
-      value = value.slice(0, 2) + '/' + value.slice(2, 6);
-    }
-    setCompetenceInput(value);
-  };
-
   const formatDate = (date: any): string => {
     if (!date) return 'N/A';
     const d = date instanceof Date ? date : (date as Timestamp).toDate();
@@ -139,11 +123,18 @@ export function InvoicesClient() {
         const effectiveStatus = i.displayStatus;
         const statusMatch = statusFilter === 'Todos' || effectiveStatus === statusFilter;
 
-        const competenceMatch = !competenceInput || i.referencePeriod === competenceInput;
+        const descriptionMatch = descriptionFilter === 'Todos' || i.description === descriptionFilter;
 
-        return searchMatch && statusMatch && competenceMatch;
+        return searchMatch && statusMatch && descriptionMatch;
     });
-  }, [invoices, searchTerm, statusFilter, competenceInput]);
+  }, [invoices, searchTerm, statusFilter, descriptionFilter]);
+  
+  const chargeDescriptions = useMemo(() => {
+      if(!invoices) return ['Todos'];
+      const descriptions = new Set(invoices.map(i => i.description));
+      return ['Todos', ...Array.from(descriptions)];
+  }, [invoices]);
+
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -179,10 +170,10 @@ export function InvoicesClient() {
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle className="font-headline">
-              Gestão de Faturas e Mensalidades
+              Gestão de Faturas e Cobranças
             </CardTitle>
             <CardDescription>
-              Controle os pagamentos de mensalidades de todos os clientes.
+              Controle os pagamentos de todos os clientes.
             </CardDescription>
           </div>
           {profile?.permissions.financeiro.create && (
@@ -193,7 +184,7 @@ export function InvoicesClient() {
               </Button>
               <Button onClick={() => setIsAddDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Nova Fatura
+                Nova Cobrança
               </Button>
             </div>
           )}
@@ -210,13 +201,16 @@ export function InvoicesClient() {
               />
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">
-              <Input
-                placeholder="Filtrar por Competência (MM/AAAA)"
-                value={competenceInput}
-                onChange={handleCompetenceChange}
-                onClick={(e) => (e.target as HTMLInputElement).select()}
-                maxLength={7}
-              />
+              <Select value={descriptionFilter} onValueChange={setDescriptionFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por descrição..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {chargeDescriptions.map(desc => (
+                    <SelectItem key={desc} value={desc}>{desc}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -238,7 +232,7 @@ export function InvoicesClient() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empresa</TableHead>
-                  <TableHead>Competência</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Vencimento</TableHead>
                   <TableHead>Status</TableHead>
@@ -261,7 +255,7 @@ export function InvoicesClient() {
                   filteredInvoices.map((invoice) => (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium">{invoice.companyName}</TableCell>
-                      <TableCell>{invoice.referencePeriod}</TableCell>
+                      <TableCell>{invoice.description}</TableCell>
                       <TableCell>{formatCurrency(invoice.amount)}</TableCell>
                       <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell>

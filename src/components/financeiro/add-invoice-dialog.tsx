@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -38,6 +37,13 @@ import { ptBR } from 'date-fns/locale';
 import { Input } from '../ui/input';
 import ReactSelect from 'react-select';
 import { logActivity } from '@/lib/activity-log';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AddInvoiceDialogProps {
   open: boolean;
@@ -45,9 +51,11 @@ interface AddInvoiceDialogProps {
   onInvoiceAdded: () => void;
 }
 
+const chargeDescriptions = ['Mensalidade', 'Abertura', 'Alteração', 'Encerramento', 'Décimo Terceiro'];
+
 const formSchema = z.object({
   companyId: z.string({ required_error: 'Selecione uma empresa.' }),
-  referencePeriod: z.string().regex(/^\d{2}\/\d{4}$/, "Formato inválido. Use MM/AAAA."),
+  description: z.string({ required_error: 'Selecione uma descrição para a cobrança.' }),
   amount: z.coerce.number().min(0.01, 'O valor deve ser maior que zero.'),
   dueDate: z.date({ required_error: 'A data de vencimento é obrigatória.' }),
 });
@@ -64,7 +72,6 @@ export function AddInvoiceDialog({
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
-  const [competenceInput, setCompetenceInput] = useState(format(new Date(), 'MM/yyyy'));
 
   const companiesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -81,19 +88,10 @@ export function AddInvoiceDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       companyId: '',
-      referencePeriod: format(new Date(), 'MM/yyyy'),
+      description: 'Mensalidade',
       amount: 0,
     },
   });
-
-  const handleCompetenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length > 2) {
-      value = value.slice(0, 2) + '/' + value.slice(2, 6);
-    }
-    setCompetenceInput(value);
-    form.setValue('referencePeriod', value);
-  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!firestore || !user) {
@@ -111,7 +109,7 @@ export function AddInvoiceDialog({
       const newInvoice = {
         companyId: values.companyId,
         companyName: company.name,
-        referencePeriod: values.referencePeriod,
+        description: values.description,
         amount: values.amount,
         dueDate: values.dueDate,
         status: 'Pendente',
@@ -122,21 +120,20 @@ export function AddInvoiceDialog({
       const docRef = await addDoc(invoiceCollectionRef, newInvoice);
       await updateDoc(doc(invoiceCollectionRef, docRef.id), { id: docRef.id });
 
-      logActivity(firestore, user, `criou uma fatura de R$ ${values.amount.toFixed(2)} para ${company.name}.`);
+      logActivity(firestore, user, `criou uma cobrança de ${values.description} (R$ ${values.amount.toFixed(2)}) para ${company.name}.`);
 
       toast({
         title: 'Fatura Adicionada!',
-        description: `A fatura para ${company.name} foi criada com sucesso.`,
+        description: `A cobrança para ${company.name} foi criada com sucesso.`,
       });
 
       onInvoiceAdded();
       form.reset({
         companyId: '',
-        referencePeriod: format(new Date(), 'MM/yyyy'),
+        description: 'Mensalidade',
         amount: 0,
         dueDate: undefined,
       });
-      setCompetenceInput(format(new Date(), 'MM/yyyy'));
       onOpenChange(false);
     } catch (error: any) {
       console.error(error);
@@ -150,9 +147,9 @@ export function AddInvoiceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Criar Nova Fatura</DialogTitle>
+          <DialogTitle>Criar Nova Cobrança</DialogTitle>
           <DialogDescription>
-            Preencha os dados para gerar uma nova fatura de mensalidade.
+            Preencha os dados para gerar uma nova cobrança.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -185,19 +182,20 @@ export function AddInvoiceDialog({
 
             <FormField
               control={form.control}
-              name="referencePeriod"
+              name="description"
               render={({ field }) => (
                   <FormItem>
-                  <FormLabel>Período de Competência</FormLabel>
-                  <FormControl>
-                      <Input 
-                        placeholder="MM/AAAA"
-                        value={competenceInput}
-                        onChange={handleCompetenceChange}
-                        onClick={(e) => (e.target as HTMLInputElement).select()}
-                        maxLength={7}
-                      />
-                  </FormControl>
+                  <FormLabel>Descrição da Cobrança</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Selecione o tipo de cobrança" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {chargeDescriptions.map(desc => (
+                        <SelectItem key={desc} value={desc}>{desc}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                   </FormItem>
               )}
@@ -250,7 +248,7 @@ export function AddInvoiceDialog({
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Salvar Fatura
+                Salvar Cobrança
               </Button>
             </DialogFooter>
           </form>
