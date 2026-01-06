@@ -29,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { Loader2, Trash2, ShieldCheck, UploadCloud, Download, MessageSquare, Phone, Mail } from 'lucide-react';
+import { Loader2, Trash2, UploadCloud, Download, MessageSquare, Phone, Mail, RefreshCw } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -138,6 +138,7 @@ const normalizeQsaData = (qsa: RawPartnerFromApi[] | undefined): NormalizedPartn
 
 export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpdated, onCompanyDeleted }: CompanyDetailsDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isCertUploadOpen, setIsCertUploadOpen] = useState(false);
   const firestore = useFirestore();
   const { user, profile } = useUser();
@@ -194,6 +195,70 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const handleCertificateUpdated = () => {
     onCompanyUpdated();
   }
+  
+  const handleSync = async () => {
+    if (!firestore || !user) return;
+    setIsSyncing(true);
+    const toastId = toast({ title: "Sincronizando dados...", description: `Buscando informações atualizadas para ${company.name}.`});
+
+    try {
+        const numericCnpj = company.cnpj.replace(/[^\d]/g, '');
+        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${numericCnpj}`);
+        if (!response.ok) {
+            throw new Error('Não foi possível consultar os dados na API da Receita Federal.');
+        }
+
+        const data = await response.json();
+        
+        let newTaxRegime = "Lucro Presumido / Real";
+        if (data.opcao_pelo_simples || data.simples_nacional) {
+            newTaxRegime = "Simples Nacional";
+        }
+
+        const updates: Partial<Company> = {
+            name: data.razao_social,
+            status: data.descricao_situacao_cadastral,
+            taxRegime: newTaxRegime,
+            address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/,  -/g,', '),
+        };
+
+        const companyRef = doc(firestore, 'companies', company.id);
+        setDocumentNonBlocking(companyRef, updates, { merge: true });
+
+        // Verifica se houve desenquadramento do Simples Nacional
+        if (company.taxRegime === 'Simples Nacional' && newTaxRegime !== 'Simples Nacional') {
+             toast({
+                id: toastId,
+                title: "🚨 Alerta de Desenquadramento!",
+                description: `A empresa ${company.name} não é mais optante pelo Simples Nacional. O regime foi atualizado.`,
+                variant: 'destructive',
+                duration: 10000,
+            });
+             logActivity(firestore, user, `detectou o desenquadramento do Simples Nacional para ${company.name}.`);
+        } else {
+            toast({
+                id: toastId,
+                title: "Sincronização Concluída!",
+                description: "Os dados da empresa foram atualizados com sucesso.",
+            });
+            logActivity(firestore, user, `sincronizou os dados da empresa ${company.name} com a Receita Federal.`);
+        }
+
+        onCompanyUpdated();
+
+    } catch (error: any) {
+        console.error(error);
+        toast({
+            id: toastId,
+            title: "Erro na Sincronização",
+            description: error.message || 'Ocorreu um erro inesperado.',
+            variant: "destructive",
+        });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
      if (!firestore) {
@@ -456,6 +521,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
             </Tabs>
 
           <DialogFooter className="p-6 pt-4 flex-row justify-between w-full border-t">
+            <div className='flex gap-2 items-center'>
               {profile?.permissions.empresas.delete ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -480,6 +546,13 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                   </AlertDialogContent>
                 </AlertDialog>
               ) : <div></div>}
+              {profile?.permissions.empresas.update && (
+                 <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+                    {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    Sincronizar com Receita
+                </Button>
+              )}
+            </div>
               <div className="flex gap-2">
                 <DialogClose asChild>
                   <Button type="button" variant="outline">Fechar</Button>
