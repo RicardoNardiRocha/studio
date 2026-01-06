@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -69,7 +70,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
       return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX, dateText };
     }
     if (daysLeft <= 60) {
-      return { text: `Vence em ${daysLeft}d`, status: 'Vencendo', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
+      return { text: 'Vencendo', status: 'Vencendo', variant: 'warning', daysLeft, Icon: ShieldCheck, dateText };
     }
     return { text: 'Válido', status: 'Válido', variant: 'default', daysLeft, Icon: ShieldCheck, dateText };
   } catch (e) {
@@ -80,6 +81,17 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo', 'Vencido', 'Não informado'];
 const companyStatuses = ['Todos', 'ATIVA', 'INAPTA', 'BAIXADA'];
+
+const cnpjMask = (value: string) => {
+    if (!value) return '';
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .slice(0, 18);
+  };
 
 function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetails: (company: Company) => void }) {
     const firestore = useFirestore();
@@ -95,7 +107,7 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
     return (
         <TableRow key={company.id}>
             <TableCell className="font-medium">{company.name}</TableCell>
-            <TableCell>{company.cnpj}</TableCell>
+            <TableCell>{cnpjMask(company.cnpj)}</TableCell>
             <TableCell>{company.taxRegime}</TableCell>
             <TableCell>
                 <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
@@ -125,7 +137,7 @@ export function CompaniesClient() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [taxRegimeFilter, setTaxRegimeFilter] = useState('Todos');
-  const [certificateStatusFilter, setCertificateStatusFilter] = useState('Todos');
+  const [certificateStatusFilter, setCertificateStatusFilter] = useState<'Todos' | CertificateStatus>('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const [showAlertsOnly, setShowAlertsOnly] = useState(false);

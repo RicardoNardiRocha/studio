@@ -44,6 +44,16 @@ interface Note {
   createdAt: any;
 }
 
+const cnpjMask = (value: string) => {
+    if (!value) return '';
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .slice(0, 18);
+  };
 
 function NotesTab({ document }: { document: FiscalDocument }) {
   const [newNote, setNewNote] = useState('');
@@ -171,52 +181,52 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
     };
 
     const handleDelete = async () => {
-      if (!firestore || !storage || !user) {
-        toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
-        return;
-      }
-    
-      const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
-    
-      try {
-        // Primeiro, deleta o registro do Firestore
-        const docRef = doc(firestore, 'fiscalDocuments', document.id);
-        await deleteDoc(docRef);
-    
-        // Se a exclusão do Firestore for bem-sucedida, mostre sucesso imediatamente
-        // e prossiga com a exclusão do arquivo em segundo plano.
-        toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
-        logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
-        onDelete();
-        onOpenChange(false);
-    
-        // Tenta excluir o arquivo do Storage.
-        // Se falhar com um erro de "não autorizado", nós o ignoramos.
-        // Qualquer outro erro será logado no console.
-        try {
-          const fileRef = ref(storage, document.fileUrl);
-          await deleteObject(fileRef);
-        } catch (storageError: any) {
-          // Ignora especificamente o erro de permissão "fantasma"
-          if (storageError.code === 'storage/unauthorized' || storageError.code === 'storage/object-not-found') {
-            console.log(`Ignorando erro de storage secundário: ${storageError.code}`);
-          } else {
-            // Loga outros erros de storage, mas não mostra ao usuário, pois a operação principal foi um sucesso.
-            console.error("Erro não-crítico ao limpar arquivo do Storage:", storageError);
-          }
+        if (!firestore || !storage || !user) {
+          toast({ title: 'Erro', description: 'Serviços indisponíveis.', variant: 'destructive' });
+          return;
         }
-    
-      } catch (firestoreError: any) {
-        // Este catch lida com falhas na exclusão do Firestore, que é a operação crítica.
-        console.error("Erro crítico ao excluir documento do Firestore:", firestoreError);
-        toast({ 
-          id: toastId, 
-          title: 'Erro!', 
-          description: 'Não foi possível excluir o documento. Verifique as permissões e tente novamente.', 
-          variant: 'destructive' 
-        });
-      }
-    };
+      
+        const toastId = toast({ title: 'Excluindo documento...', description: 'Aguarde...' });
+      
+        try {
+          // Primeiro, deleta o registro do Firestore
+          const docRef = doc(firestore, 'fiscalDocuments', document.id);
+          await deleteDoc(docRef);
+      
+          // Se a exclusão do Firestore for bem-sucedida, mostre sucesso imediatamente
+          // e prossiga com a exclusão do arquivo em segundo plano.
+          toast({ id: toastId, title: 'Sucesso!', description: 'Documento fiscal excluído.' });
+          logActivity(firestore, user, `excluiu o documento fiscal ${document.documentType} (${document.competencia}) de ${document.companyName}.`);
+          onDelete();
+          onOpenChange(false);
+      
+          // Tenta excluir o arquivo do Storage.
+          // Se falhar com um erro de "não autorizado", nós o ignoramos.
+          // Qualquer outro erro será logado no console.
+          try {
+            const fileRef = ref(storage, document.fileUrl);
+            await deleteObject(fileRef);
+          } catch (storageError: any) {
+            // Ignora especificamente o erro de permissão "fantasma"
+            if (storageError.code === 'storage/unauthorized' || storageError.code === 'storage/object-not-found') {
+              console.log(`Ignorando erro de storage secundário: ${storageError.code}`);
+            } else {
+              // Loga outros erros de storage, mas não mostra ao usuário, pois a operação principal foi um sucesso.
+              console.error("Erro não-crítico ao limpar arquivo do Storage:", storageError);
+            }
+          }
+      
+        } catch (firestoreError: any) {
+          // Este catch lida com falhas na exclusão do Firestore, que é a operação crítica.
+          console.error("Erro crítico ao excluir documento do Firestore:", firestoreError);
+          toast({ 
+            id: toastId, 
+            title: 'Erro!', 
+            description: 'Não foi possível excluir o documento. Verifique as permissões e tente novamente.', 
+            variant: 'destructive' 
+          });
+        }
+      };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -241,7 +251,7 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
                 </div>
                 <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">CNPJ</span>
-                    <span className="font-medium">{document.companyCnpj}</span>
+                    <span className="font-medium">{cnpjMask(document.companyCnpj)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Competência</span>
