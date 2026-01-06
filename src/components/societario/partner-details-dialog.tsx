@@ -48,7 +48,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Textarea } from '../ui/textarea';
 import { Separator } from '../ui/separator';
-import ReactSelect from 'react-select';
+import ReactSelect, { StylesConfig } from 'react-select';
 import { Badge } from '@/components/ui/badge';
 import { EcpfUploadDialog } from './ecpf-upload-dialog';
 import { logActivity } from '@/lib/activity-log';
@@ -75,6 +75,29 @@ interface PartnerDetailsDialogProps {
   onPartnerUpdated: () => void;
   onPartnerDeleted: () => void;
 }
+
+type CompanyOption = {
+  value: string;
+  label: string;
+};
+
+const selectStyles: StylesConfig<CompanyOption, true> = {
+    control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+    menu: (base) => ({ ...base, zIndex: 100, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }),
+    input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+    multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
+    multiValueLabel: (base) => ({...base, color: 'hsl(var(--secondary-foreground))'}),
+    option: (base, { isFocused, isSelected }) => ({
+      ...base,
+      backgroundColor: isSelected ? 'hsl(var(--primary))' : isFocused ? 'hsl(var(--accent))' : 'transparent',
+      color: isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+      ':active': {
+        backgroundColor: 'hsl(var(--primary))',
+        color: 'hsl(var(--primary-foreground))',
+      },
+    }),
+};
+
 
 const formSchema = z.object({
   name: z.string().min(3, { message: 'O nome deve ter pelo menos 3 caracteres.' }),
@@ -261,12 +284,7 @@ export function PartnerDetailsDialog({
                           placeholder="Selecione as empresas..."
                           noOptionsMessage={() => 'Nenhuma empresa encontrada'}
                           isDisabled={!canEdit}
-                          styles={{
-                            control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
-                            menu: (base) => ({ ...base, zIndex: 100 }),
-                            input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
-                            multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
-                          }}
+                          styles={selectStyles}
                         />
                     </FormControl>
                     <FormMessage />

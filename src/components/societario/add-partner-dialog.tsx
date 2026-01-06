@@ -34,7 +34,7 @@ import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import ReactSelect from 'react-select';
+import ReactSelect, { StylesConfig } from 'react-select';
 import { logActivity } from '@/lib/activity-log';
 
 interface AddPartnerDialogProps {
@@ -59,6 +59,23 @@ type CompanyOption = {
   value: string;
   label: string;
 }
+
+const selectStyles: StylesConfig<CompanyOption, true> = {
+    control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+    menu: (base) => ({ ...base, zIndex: 100, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }),
+    input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+    multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
+    multiValueLabel: (base) => ({...base, color: 'hsl(var(--secondary-foreground))'}),
+    option: (base, { isFocused, isSelected }) => ({
+      ...base,
+      backgroundColor: isSelected ? 'hsl(var(--primary))' : isFocused ? 'hsl(var(--accent))' : 'transparent',
+      color: isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+      ':active': {
+        backgroundColor: 'hsl(var(--primary))',
+        color: 'hsl(var(--primary-foreground))',
+      },
+    }),
+};
 
 const cpfMask = (value: string) => {
   const onlyDigits = (value || '').replace(/\D/g, '');
@@ -219,13 +236,7 @@ export function AddPartnerDialog({
                         options={companyOptions}
                         placeholder="Selecione as empresas..."
                         noOptionsMessage={() => 'Nenhuma empresa encontrada'}
-                        styles={{
-                          control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
-                          menu: (base) => ({ ...base, zIndex: 100 }),
-                          input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
-                          multiValue: (base) => ({ ...base, backgroundColor: 'hsl(var(--secondary))' }),
-                          multiValueLabel: (base) => ({...base, color: 'hsl(var(--secondary-foreground))'}),
-                        }}
+                        styles={selectStyles}
                       />
                   </FormControl>
                   <FormMessage />

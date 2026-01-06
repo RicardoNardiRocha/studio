@@ -36,7 +36,7 @@ import { Input } from '../ui/input';
 import { format } from 'date-fns';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logActivity } from '@/lib/activity-log';
-import ReactSelect from 'react-select';
+import ReactSelect, { StylesConfig } from 'react-select';
 
 interface UploadFiscalDocumentDialogProps {
   open: boolean;
@@ -59,6 +59,23 @@ const formSchema = z.object({
 
 type CompanyOption = { value: string; label: string; };
 type Company = { id: string; name: string, cnpj: string };
+
+const selectStyles: StylesConfig<CompanyOption, false> = {
+  control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
+  menu: (base) => ({ ...base, zIndex: 100, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }),
+  input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
+  singleValue: (base) => ({...base, color: 'hsl(var(--foreground))'}),
+  option: (base, { isFocused, isSelected }) => ({
+    ...base,
+    backgroundColor: isSelected ? 'hsl(var(--primary))' : isFocused ? 'hsl(var(--accent))' : 'transparent',
+    color: isSelected ? 'hsl(var(--primary-foreground))' : 'hsl(var(--foreground))',
+    ':active': {
+      backgroundColor: 'hsl(var(--primary))',
+      color: 'hsl(var(--primary-foreground))',
+    },
+  }),
+};
+
 
 export function UploadFiscalDocumentDialog({
   open,
@@ -192,12 +209,7 @@ export function UploadFiscalDocumentDialog({
                       noOptionsMessage={() => 'Nenhuma empresa encontrada'}
                       onChange={(option: CompanyOption | null) => field.onChange(option?.value || '')}
                       value={companyOptions.find(c => c.value === field.value)}
-                      styles={{
-                        control: (base) => ({ ...base, background: 'transparent', borderColor: 'hsl(var(--input))' }),
-                        menu: (base) => ({ ...base, zIndex: 100 }),
-                        input: (base) => ({ ...base, color: 'hsl(var(--foreground))' }),
-                        singleValue: (base) => ({...base, color: 'hsl(var(--foreground))'}),
-                      }}
+                      styles={selectStyles}
                     />
                   </FormControl>
                   <FormMessage />
