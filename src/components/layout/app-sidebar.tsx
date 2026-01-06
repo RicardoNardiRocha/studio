@@ -3,7 +3,6 @@
 
 import {
   ArrowLeftToLine,
-  ArrowRightToLine,
   BarChartBig,
   Building,
   Briefcase,
@@ -25,6 +24,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { ThemeToggle } from './theme-toggle';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const mainMenuItems = [
     { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
@@ -70,6 +70,8 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user, profile } = useUser();
   const { isCollapsed, toggleSidebar } = useSidebar();
+  const isMobile = useIsMobile();
+
 
   const visibleMainMenuItems = mainMenuItems.filter(item => hasAccess(item.id, profile));
   const visibleSettingsMenuItems = settingsMenuItems.filter(item => hasAccess(item.id, profile));
@@ -77,49 +79,55 @@ export function AppSidebar() {
   return (
       <aside
         className={cn(
-          "group fixed top-0 left-0 z-50 flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
-          isCollapsed ? 'w-16' : 'w-56'
+          "fixed top-0 left-0 z-50 flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
+          isMobile 
+            ? isCollapsed
+                ? "-translate-x-full w-56"
+                : "translate-x-0 w-56"
+            : isCollapsed 
+                ? "w-16" 
+                : "w-56"
         )}
         data-state={isCollapsed ? 'collapsed' : 'expanded'}
       >
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-4">
-            <Link href="/dashboard" className={`flex items-center gap-2 ${isCollapsed ? 'w-full justify-center' : ''}`}>
+            <Link href="/dashboard" className={`flex items-center gap-2 ${isCollapsed && !isMobile ? 'w-full justify-center' : ''}`}>
                 <Layers className="h-7 w-7 text-sidebar-primary" />
-                {!isCollapsed && <h1 className="text-xl font-bold">ContabilX</h1>}
+                {(!isCollapsed || isMobile) && <h1 className="text-xl font-bold">ContabilX</h1>}
             </Link>
-             <button onClick={toggleSidebar} className={`p-1 text-sidebar-foreground/70 hover:text-sidebar-foreground group-data-[state=collapsed]:hidden`}>
+             <button onClick={toggleSidebar} className={`p-1 text-sidebar-foreground/70 hover:text-sidebar-foreground ${isCollapsed && !isMobile ? 'hidden' : ''}`}>
                 <ArrowLeftToLine className="h-5 w-5" />
             </button>
         </header>
 
         <nav className="flex-grow space-y-1 p-2">
           {visibleMainMenuItems.map((item) => (
-            <NavLink key={item.id} {...item} isCollapsed={isCollapsed} pathname={pathname} />
+            <NavLink key={item.id} {...item} isCollapsed={isCollapsed && !isMobile} pathname={pathname} />
           ))}
         </nav>
 
         <footer className="shrink-0 border-t border-sidebar-border p-2 space-y-2">
-            <div className={`flex flex-col gap-1 ${isCollapsed ? 'items-center' : ''}`}>
+            <div className={`flex flex-col gap-1 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
                 {visibleSettingsMenuItems.map(item => (
-                     <NavLink key={item.id} {...item} isCollapsed={isCollapsed} pathname={pathname} />
+                     <NavLink key={item.id} {...item} isCollapsed={isCollapsed && !isMobile} pathname={pathname} />
                 ))}
             </div>
 
             <Separator className='bg-sidebar-border' />
 
-            <div className={`flex items-center ${isCollapsed ? 'justify-start' : 'justify-start'}`}>
+            <div className={`flex items-center ${isCollapsed && !isMobile ? 'justify-start' : 'justify-start'}`}>
                 <ThemeToggle />
             </div>
             
             <Separator className='bg-sidebar-border' />
 
             <Link href="/perfil">
-                <div className={`flex items-center gap-3 rounded-md p-2 ${isCollapsed ? 'justify-center' : ''}`}>
+                <div className={`flex items-center gap-3 rounded-md p-2 ${isCollapsed && !isMobile ? 'justify-center' : ''}`}>
                     <Avatar className="h-9 w-9 shrink-0">
                         <AvatarImage src={user?.photoURL || ''} alt="User avatar" />
                         <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
-                    {!isCollapsed && (
+                    {(!isCollapsed || isMobile) && (
                         <div className="overflow-hidden">
                             <p className="truncate font-semibold text-sm">{user?.displayName || 'Usuário'}</p>
                             <p className="truncate text-xs text-sidebar-foreground/70">{user?.email || 'email@exemplo.com'}</p>

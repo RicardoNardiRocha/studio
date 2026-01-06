@@ -1,3 +1,4 @@
+
 'use client';
 
 import { PanelLeft, Search, User as UserIcon } from 'lucide-react';
@@ -13,15 +14,16 @@ import { Button } from '../ui/button';
 import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { AppSidebar } from './app-sidebar';
 import { useState } from 'react';
 import { GlobalSearchDialog } from './global-search-dialog';
+import { useSidebar } from '@/components/ui/sidebar';
 
 export function AppHeader({ pageTitle }: { pageTitle: string }) {
   const auth = useAuth();
   const router = useRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const { toggleSidebar } = useSidebar();
+
 
   const handleLogout = async () => {
     if (auth) {
@@ -34,17 +36,10 @@ export function AppHeader({ pageTitle }: { pageTitle: string }) {
     <>
       <GlobalSearchDialog open={isSearchOpen} onOpenChange={setIsSearchOpen} />
       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 mb-4">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button size="icon" variant="outline" className="sm:hidden">
-              <PanelLeft className="h-5 w-5" />
-              <span className="sr-only">Toggle Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="sm:max-w-xs">
-            <AppSidebar />
-          </SheetContent>
-        </Sheet>
+        <Button size="icon" variant="outline" className="sm:hidden" onClick={toggleSidebar}>
+          <PanelLeft className="h-5 w-5" />
+          <span className="sr-only">Toggle Menu</span>
+        </Button>
 
         <div className="flex items-center">
           <h1 className="text-xl font-semibold md:text-2xl">{pageTitle}</h1>
@@ -58,6 +53,9 @@ export function AppHeader({ pageTitle }: { pageTitle: string }) {
             >
                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4" />
                 Buscar...
+                 <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                    <span className="text-xs">⌘</span>K
+                </kbd>
             </Button>
         </div>
 

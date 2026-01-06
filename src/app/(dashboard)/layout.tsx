@@ -44,7 +44,7 @@ function SidebarTrigger() {
 
 
 function MainLayoutWrapper({ children }: { children: ReactNode }) {
-    const { isCollapsed } = useSidebar();
+    const { isCollapsed, toggleSidebar } = useSidebar();
     const isMobile = useIsMobile();
   
     const mainClass = cn(
@@ -54,6 +54,12 @@ function MainLayoutWrapper({ children }: { children: ReactNode }) {
   
     return (
       <>
+        {isMobile && !isCollapsed && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={toggleSidebar}
+          />
+        )}
         <AppSidebar />
         <SidebarTrigger />
         <main className={mainClass}>
@@ -67,6 +73,7 @@ function MainLayoutWrapper({ children }: { children: ReactNode }) {
 export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
     const auth = useAuth();
+    const isMobile = useIsMobile();
 
     if (isUserLoading) {
         return (
@@ -93,7 +100,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <SidebarProvider>
+        <SidebarProvider defaultCollapsed={!isMobile}>
             <div className="text-foreground bg-background">
                 <MainLayoutWrapper>{children}</MainLayoutWrapper>
             </div>
