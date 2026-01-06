@@ -16,16 +16,8 @@ import '@/lib/dev/set-admin';
 
 
 function AppContent({ children }: { children: ReactNode }) {
-    const { isCollapsed } = useSidebar();
-    const isMobile = useIsMobile();
-
-    const mainClass = cn(
-      "transition-all duration-300 ease-in-out",
-      isMobile ? 'ml-0' : (isCollapsed ? 'ml-16' : 'ml-56')
-    )
-
     return (
-        <main className={mainClass}>
+        <main>
             <div className="min-h-screen w-full">
                 {children}
             </div>
@@ -49,6 +41,25 @@ function SidebarTrigger() {
         >
             <ArrowRightToLine className="h-5 w-5 opacity-70 transition-opacity group-hover:opacity-100" />
         </button>
+    );
+}
+
+
+function MainLayoutWrapper({ children }: { children: ReactNode }) {
+    const { isCollapsed } = useSidebar();
+    const isMobile = useIsMobile();
+  
+    const mainClass = cn(
+      "transition-all duration-300 ease-in-out",
+      isMobile ? 'ml-0' : (isCollapsed ? 'ml-16' : 'ml-56')
+    );
+  
+    return (
+      <div className={mainClass}>
+        <AppSidebar />
+        <SidebarTrigger />
+        <AppContent>{children}</AppContent>
+      </div>
     );
 }
 
@@ -84,9 +95,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     return (
         <SidebarProvider>
             <div className="text-foreground bg-background">
-                <AppSidebar />
-                <SidebarTrigger />
-                <AppContent>{children}</AppContent>
+                <MainLayoutWrapper>{children}</MainLayoutWrapper>
             </div>
         </SidebarProvider>
     );
