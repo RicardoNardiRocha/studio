@@ -10,6 +10,7 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AppHeader } from '@/components/layout/header'; // Importado aqui
 
 // Importa o script de desenvolvimento para que ele seja carregado no ambiente do cliente.
 import '@/lib/dev/set-admin';
@@ -63,6 +64,7 @@ function MainLayoutWrapper({ children }: { children: ReactNode }) {
         <AppSidebar />
         <SidebarTrigger />
         <main className={mainClass}>
+            <AppHeader pageTitle="ContabilX" />
             <AppContent>{children}</AppContent>
         </main>
       </>
@@ -100,7 +102,7 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <SidebarProvider defaultCollapsed={!isMobile}>
+        <SidebarProvider defaultCollapsed={isMobile}>
             <div className="text-foreground bg-background">
                 <MainLayoutWrapper>{children}</MainLayoutWrapper>
             </div>
