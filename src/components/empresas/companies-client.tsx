@@ -28,7 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
@@ -141,6 +141,7 @@ export function CompaniesClient() {
   const [taxRegimeFilter, setTaxRegimeFilter] = useState('Todos');
   const [certificateStatusFilter, setCertificateStatusFilter] = useState<'Todos' | CertificateStatus>('Todos');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const [showAlertsOnly, setShowAlertsOnly] = useState(false);
 
@@ -150,8 +151,8 @@ export function CompaniesClient() {
 
   const companiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'companies'), orderBy('name', 'asc'));
-  }, [firestore]);
+    return query(collection(firestore, 'companies'), orderBy('name', sortOrder));
+  }, [firestore, sortOrder]);
   
   const { data: companies, isLoading, forceRefetch } = useCollection<Company>(companiesQuery);
   
@@ -334,6 +335,9 @@ export function CompaniesClient() {
                     </SelectContent>
                 </Select>
             </div>
+             <Button variant="outline" size="icon" onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}>
+                {sortOrder === 'asc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
+            </Button>
              {showAlertsOnly && (
                 <Button variant="ghost" onClick={clearAlertFilter} className="w-full md:w-auto justify-start">
                     <X className="mr-2 h-4 w-4" />
