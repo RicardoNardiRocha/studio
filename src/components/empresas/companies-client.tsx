@@ -28,7 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
@@ -37,6 +37,7 @@ import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
 import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { BulkSyncDialog } from './bulk-sync-dialog';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -133,6 +134,7 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
 export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
+  const [isBulkSyncDialogOpen, setIsBulkSyncDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,6 +186,8 @@ export function CompaniesClient() {
   const handleAction = () => {
     forceRefetch();
     setIsDetailsDialogOpen(false);
+    setIsBulkAddDialogOpen(false);
+    setIsBulkSyncDialogOpen(false);
   };
 
   const handleOpenDetails = (company: Company) => {
@@ -213,6 +217,12 @@ export function CompaniesClient() {
         open={isBulkAddDialogOpen}
         onOpenChange={setIsBulkAddDialogOpen}
         onImportCompleted={handleAction}
+      />
+      <BulkSyncDialog
+        open={isBulkSyncDialogOpen}
+        onOpenChange={setIsBulkSyncDialogOpen}
+        onSyncCompleted={handleAction}
+        companies={companies || []}
       />
       {selectedCompany && (
          <CompanyDetailsDialog
@@ -262,6 +272,10 @@ export function CompaniesClient() {
           </div>
           {profile?.permissions.empresas.create && (
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <Button variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Sincronizar Todas
+              </Button>
               <Button variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
                 <Upload className="mr-2 h-4 w-4" />
                 Importar em Lote
