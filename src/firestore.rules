@@ -45,10 +45,6 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return hasPermission('usuarios', 'update');
-    }
-    
     function getUserProfile(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
@@ -56,6 +52,10 @@ service cloud.firestore {
     function hasPermission(module, permission) {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid))
              && getUserProfile(request.auth.uid).permissions[module][permission] == true;
+    }
+
+    function isAdmin() {
+      return hasPermission('usuarios', 'update');
     }
 
     function isCompanyMember(companyId) {
@@ -98,8 +98,22 @@ service cloud.firestore {
       allow delete: if (isAdmin() || isCompanyMember(companyId)) && resource != null;
 
       match /certificates/{certificateId} {
-        allow read: if canReadCompanyData(companyId);
-        allow write: if isAdmin() || isCompanyMember(companyId);
+        allow read: if hasPermission('empresas', 'read');
+        allow write: if hasPermission('empresas', 'update');
+      }
+
+      match /taxObligations/{taxObligationId} {
+        allow read: if hasPermission('obrigacoes', 'read');
+        allow create: if hasPermission('obrigacoes', 'create');
+        allow update: if hasPermission('obrigacoes', 'update');
+        allow delete: if hasPermission('obrigacoes', 'delete');
+      }
+
+      match /documents/{documentId} {
+        allow read: if hasPermission('documentos', 'read');
+        allow create: if hasPermission('documentos', 'create');
+        allow update: if hasPermission('documentos', 'update');
+        allow delete: if hasPermission('documentos', 'delete');
       }
     }
     
@@ -128,27 +142,13 @@ service cloud.firestore {
     }
 
     match /xmlStatus/{statusId} {
-        allow read: if hasPermission('fiscal', 'read');
+        allow read: if isSignedIn();
         allow write: if hasPermission('fiscal', 'update');
     }
 
     match /activities/{activityId} {
         allow read, create: if isSignedIn();
         allow update, delete: if false;
-    }
-
-    match /companies/{companyId}/taxObligations/{taxObligationId} {
-      allow read: if hasPermission('obrigacoes', 'read');
-      allow create: if hasPermission('obrigacoes', 'create');
-      allow update: if hasPermission('obrigacoes', 'update');
-      allow delete: if hasPermission('obrigacoes', 'delete');
-    }
-
-    match /companies/{companyId}/documents/{documentId} {
-      allow read: if hasPermission('documentos', 'read');
-      allow create: if hasPermission('documentos', 'create');
-      allow update: if hasPermission('documentos', 'update');
-      allow delete: if hasPermission('documentos', 'delete');
     }
 
      match /corporateProcesses/{processId} {
