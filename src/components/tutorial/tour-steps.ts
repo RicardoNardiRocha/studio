@@ -44,9 +44,15 @@ export const tourSteps: Record<string, Step[]> = {
     },
     {
         target: '#company-table',
-        content: 'Aqui você visualiza todas as empresas cadastradas. Clique no botão de ações (...) em qualquer linha para ver detalhes, gerenciar certificados e mais.',
+        content: "Aqui você visualiza todas as empresas. Clique no botão de ações ('...') em qualquer linha para abrir os detalhes da empresa.",
         placement: 'top',
         title: 'Tabela de Empresas',
+    },
+    {
+        target: 'body',
+        placement: 'center',
+        title: 'Detalhes da Empresa',
+        content: 'Na tela de detalhes, você pode editar contatos, gerenciar o Certificado A1, visualizar o Quadro de Sócios e acessar todos os documentos da empresa.',
     }
   ],
   '/fiscal': [
