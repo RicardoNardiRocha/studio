@@ -148,12 +148,7 @@ export function FiscalClient() {
       />
       <ConfigureXmlCompaniesDialog open={isConfigureOpen} onOpenChange={setIsConfigureOpen} onSave={handleAction} />
       {selectedDocument && (
-        <FiscalDocumentDetailsDialog
-          document={selectedDocument}
-          open={!!selectedDocument}
-          onOpenChange={() => setSelectedDocument(null)}
-          onDelete={handleAction}
-        />
+        <FiscalDocumentDetailsDialog document={selectedDocument} open={!!selectedDocument} onOpenChange={() => setSelectedDocument(null)} onDelete={handleAction}/>
       )}
       <Card>
         <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -173,7 +168,7 @@ export function FiscalClient() {
                     Configurar Empresas
                 </Button>
             )}
-            <Button onClick={() => setIsUploadOpen(true)} className="w-full sm:w-auto">
+            <Button id="upload-document-button" onClick={() => setIsUploadOpen(true)} className="w-full sm:w-auto">
               <Upload className="mr-2 h-4 w-4" />
               Enviar Documento
             </Button>
@@ -181,7 +176,7 @@ export function FiscalClient() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="controle" onValueChange={setActiveTab}>
-            <TabsList>
+            <TabsList id="fiscal-tabs">
               <TabsTrigger value="controle">Controle</TabsTrigger>
               <TabsTrigger value="saida">Livros de Saída</TabsTrigger>
               <TabsTrigger value="entrada">Livros de Entrada</TabsTrigger>
@@ -189,7 +184,7 @@ export function FiscalClient() {
             </TabsList>
 
             {(activeTab === 'saida' || activeTab === 'entrada' || activeTab === 'notas') && (
-              <div className="flex flex-wrap items-center gap-4 mt-4">
+              <div id="fiscal-filters" className="flex flex-wrap items-center gap-4 mt-4">
                 <div className="relative flex-grow">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input

@@ -277,11 +277,11 @@ export function CompaniesClient() {
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Sincronizar Todas
               </Button>
-              <Button variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
+              <Button id="bulk-import-button" variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
                 <Upload className="mr-2 h-4 w-4" />
                 Importar em Lote
               </Button>
-              <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
+              <Button id="add-company-button" onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nova Empresa
               </Button>
@@ -289,7 +289,7 @@ export function CompaniesClient() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+          <div id="company-filters" className="flex flex-col md:flex-row items-center gap-4 mb-4">
             <div className="relative w-full md:flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -345,7 +345,7 @@ export function CompaniesClient() {
                 </Button>
              )}
           </div>
-          <div className="border rounded-md">
+          <div id="company-table" className="border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>

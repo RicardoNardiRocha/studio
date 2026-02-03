@@ -13,14 +13,14 @@ export default function DashboardPage() {
   return (
     <>
       <main className="flex-1 space-y-4 p-4 sm:px-6 sm:py-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div id="kpi-cards-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
            <KpiCards />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
+          <div id="notifications-card" className="lg:col-span-2 space-y-4">
               <Notifications />
           </div>
-          <div className="space-y-4">
+          <div id="quick-actions-card" className="space-y-4">
             <QuickActions />
             {profile?.permissions.usuarios.read && (
               <Card>
