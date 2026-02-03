@@ -46,6 +46,7 @@ const defaultPermissions = {
   documentos: { read: false, create: false, update: false, delete: false },
   financeiro: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
+  tutorial: { read: true, create: false, update: false, delete: false },
 };
 
 const adminPermissions = {
@@ -58,6 +59,7 @@ const adminPermissions = {
   documentos: allPermissions,
   financeiro: allPermissions,
   usuarios: allPermissions,
+  tutorial: allPermissions,
 };
 
 

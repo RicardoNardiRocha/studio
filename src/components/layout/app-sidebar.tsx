@@ -14,6 +14,7 @@ import {
   User,
   Layers,
   Users,
+  HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -35,6 +36,10 @@ const mainMenuItems = [
     { id: 'fiscal', href: '/fiscal', label: 'Fiscal', icon: FileCog },
     { id: 'documentos', href: '/documentos', label: 'Documentos', icon: FolderOpen },
     { id: 'financeiro', href: '/financeiro', label: 'Financeiro', icon: Landmark },
+];
+
+const helpMenuItems = [
+    { id: 'tutorial', href: '/tutorial', label: 'Tutorial', icon: HelpCircle },
 ];
 
 const settingsMenuItems = [
@@ -74,6 +79,7 @@ export function AppSidebar() {
 
 
   const visibleMainMenuItems = mainMenuItems.filter(item => hasAccess(item.id, profile));
+  const visibleHelpMenuItems = helpMenuItems.filter(item => hasAccess(item.id, profile));
   const visibleSettingsMenuItems = settingsMenuItems.filter(item => hasAccess(item.id, profile));
 
   return (
@@ -107,6 +113,14 @@ export function AppSidebar() {
         </nav>
 
         <footer className="shrink-0 border-t border-sidebar-border p-2 space-y-2">
+            <div className={`flex flex-col gap-1 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
+                {visibleHelpMenuItems.map(item => (
+                     <NavLink key={item.id} {...item} isCollapsed={isCollapsed && !isMobile} pathname={pathname} />
+                ))}
+            </div>
+
+            <Separator className='bg-sidebar-border' />
+
             <div className={`flex flex-col gap-1 ${isCollapsed && !isMobile ? 'items-center' : ''}`}>
                 {visibleSettingsMenuItems.map(item => (
                      <NavLink key={item.id} {...item} isCollapsed={isCollapsed && !isMobile} pathname={pathname} />

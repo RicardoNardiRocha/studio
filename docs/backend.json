@@ -1,56 +1,63 @@
 
 {
   "entities": {
-    "Activity": {
+    "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Activity",
+      "title": "User",
       "type": "object",
-      "description": "Represents a single user activity log entry in the system.",
+      "description": "Represents a user of the system, defining their identity and permissions.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "userId": {
-          "type": "string"
-        },
-        "userName": {
-          "type": "string"
-        },
-        "userAvatarUrl": {
+        "uid": {
           "type": "string",
-          "format": "uri"
+          "description": "The unique identifier from the authentication provider (Firebase Auth UID)."
         },
-        "timestamp": {
+        "displayName": {
           "type": "string",
-          "format": "date-time"
+          "description": "The user's full name."
         },
-        "relatedEntityType": {
+        "email": {
           "type": "string",
-          "enum": [
-            "Company",
-            "Partner",
-            "TaxObligation",
-            "CorporateProcess",
-            "Invoice",
-            "User"
-          ]
+          "description": "The user's email address, used for login.",
+          "format": "email"
         },
-        "relatedEntityId": {
-          "type": "string"
+        "permissions": {
+          "type": "object",
+          "description": "A map of granular, module-based permissions.",
+          "properties": {
+            "dashboard": { "$ref": "#/entities/ModulePermissions" },
+            "empresas": { "$ref": "#/entities/ModulePermissions" },
+            "societario": { "$ref": "#/entities/ModulePermissions" },
+            "processos": { "$ref": "#/entities/ModulePermissions" },
+            "obrigacoes": { "$ref": "#/entities/ModulePermissions" },
+            "fiscal": { "$ref": "#/entities/ModulePermissions" },
+            "documentos": { "$ref": "#/entities/ModulePermissions" },
+            "financeiro": { "$ref": "#/entities/ModulePermissions" },
+            "usuarios": { "$ref": "#/entities/ModulePermissions" },
+            "tutorial": { "$ref": "#/entities/ModulePermissions" }
+          }
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's profile picture."
         }
       },
-      "required": [
-        "id",
-        "description",
-        "userId",
-        "userName",
-        "timestamp"
-      ]
+      "required": [ "uid", "displayName", "email", "permissions" ]
     },
-    "Company": {
+    "ModulePermissions": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ModulePermissions",
+        "type": "object",
+        "description": "Defines the CRUD permissions for a single module.",
+        "properties": {
+            "read": { "type": "boolean" },
+            "create": { "type": "boolean" },
+            "update": { "type": "boolean" },
+            "delete": { "type": "boolean" }
+        },
+        "required": ["read", "create", "update", "delete"]
+    },
+     "Company": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Company",
       "type": "object",
@@ -84,7 +91,7 @@
           "type": "string",
           "description": "Assessment regime of the company."
         },
-        "registrationStatus": {
+        "status": {
           "type": "string",
           "description": "Registration status of the company (e.g., Apto, Inapto, Baixado)."
         },
@@ -106,6 +113,23 @@
           "type": "string",
           "format": "uri",
           "description": "URL of the A1 certificate file in Firebase Storage."
+        },
+        "members": {
+          "type": "object",
+          "description": "Map of user UIDs to their roles within this company for access control. Example: { 'uid1': 'admin', 'uid2': 'viewer' }."
+        },
+        "internalEmail": {
+          "type": "string",
+          "format": "email",
+          "description": "Internal contact email for the company."
+        },
+        "internalPhone": {
+          "type": "string",
+          "description": "Internal contact phone number for the company."
+        },
+        "whatsappGroup": {
+          "type": "string",
+          "description": "Internal contact for the company's WhatsApp group."
         }
       },
       "required": [
@@ -113,78 +137,11 @@
         "name",
         "cnpj",
         "taxRegime",
-        "registrationStatus",
+        "status",
         "startDate"
       ]
     },
-    "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
-      "type": "object",
-      "description": "Represents a user of the system, either internal or a client.",
-      "properties": {
-        "uid": {
-          "type": "string",
-          "description": "Unique identifier for the User entity, matches Firebase Auth UID."
-        },
-        "displayName": {
-          "type": "string",
-          "description": "Name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the user.",
-          "format": "email"
-        },
-        "roleId": {
-          "type": "string",
-          "description": "Reference to the Role entity that defines the user's permissions."
-        },
-        "photoURL": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL of the user's profile picture."
-        }
-      },
-      "required": [
-        "uid",
-        "displayName",
-        "email",
-        "roleId"
-      ]
-    },
-    "Role": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Role",
-      "type": "object",
-      "description": "Defines a set of permissions for a user role.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Role."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the role (e.g., 'Administrador', 'Contador')."
-        },
-        "permissions": {
-          "type": "object",
-          "description": "A map of granular permissions.",
-          "properties": {
-            "dashboard": { "type": "object", "properties": { "view": { "type": "boolean" } } },
-            "companies": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "partners": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "obligations": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "processes": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "documents": { "type": "object", "properties": { "view": { "type": "boolean" }, "upload": { "type": "boolean" }, "download": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "users": { "type": "object", "properties": { "view": { "type": "boolean" }, "create": { "type": "boolean" }, "edit": { "type": "boolean" }, "delete": { "type": "boolean" } } },
-            "settings": { "type": "object", "properties": { "view": { "type": "boolean" }, "edit": { "type": "boolean" } } }
-          }
-        }
-      },
-      "required": ["id", "name", "permissions"]
-    },
-    "Partner": {
+     "Partner": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Partner",
       "type": "object",
@@ -247,158 +204,28 @@
         "hasECPF"
       ]
     },
-    "TaxObligation": {
+     "TaxObligation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "TaxObligation",
       "type": "object",
       "description": "Represents a tax obligation for a specific company, including its history and related documents.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the TaxObligation entity."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "Reference to Company. Company to which the tax obligation belongs."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "Denormalized name of the company for quick display."
-        },
-        "nome": {
-          "type": "string",
-          "description": "Name of the obligation (e.g., DAS, DEFIS, SPED ECF)."
-        },
-        "categoria": {
-          "type": "string",
-          "description": "Category of the obligation.",
-          "enum": ["Fiscal", "Contábil", "DP", "Societário"]
-        },
-        "periodicidade": {
-          "type": "string",
-          "description": "Frequency of the obligation.",
-          "enum": ["Mensal", "Trimestral", "Anual", "Eventual"]
-        },
-        "periodo": {
-          "type": "string",
-          "description": "The competence period of the obligation (e.g., '2024-08')."
-        },
-        "dataVencimento": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Due date for the obligation."
-        },
-        "dataEntrega": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Date the obligation was completed/filed."
-        },
-        "status": {
-          "type": "string",
-          "description": "Current status of the obligation.",
-          "enum": ["Pendente", "Em Andamento", "Entregue", "Atrasada"]
-        },
-        "responsavelId": {
-          "type": "string",
-          "description": "Reference to User. User responsible for this obligation."
-        },
-        "responsavelNome": {
-          "type": "string",
-          "description": "Denormalized name of the responsible user."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp of when the obligation was created."
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp of the last update."
-        },
-        "historico": {
-          "type": "array",
-          "description": "List of events related to the obligation (status changes, comments, etc.).",
-          "items": {
-            "type": "object",
-            "properties": {
-              "timestamp": {"type": "string", "format": "date-time"},
-              "userId": {"type": "string"},
-              "userName": {"type": "string"},
-              "action": {"type": "string"},
-              "details": {"type": "string"}
-            }
-          }
-        },
-        "comprovantes": {
-          "type": "array",
-          "description": "List of objects representing uploaded proof of delivery files in Firebase Storage.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "fileName": { "type": "string" },
-              "fileUrl": { "type": "string", "format": "uri"},
-              "uploadedAt": { "type": "string", "format": "date-time" },
-              "uploadedBy": { "type": "string" }
-            }
-          }
-        }
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "nome": { "type": "string" },
+        "categoria": { "type": "string", "enum": ["Fiscal", "Contábil", "DP", "Outros"] },
+        "periodicidade": { "type": "string", "enum": ["Mensal", "Anual", "Eventual"] },
+        "periodo": { "type": "string" },
+        "dataVencimento": { "type": "string", "format": "date-time" },
+        "dataEntrega": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Pendente", "Em Andamento", "Entregue", "Atrasada", "Cancelada"] },
+        "responsavelId": { "type": "string" },
+        "responsavelNome": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "companyId", "companyName", "nome", "categoria", "periodicidade", "periodo", "dataVencimento", "status", "createdAt", "updatedAt"]
-    },
-    "Document": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Document",
-      "type": "object",
-      "description": "Represents a document stored in the system.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Document entity."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "Reference to Company. Company to which the document belongs. (Relationship: Company 1:N Document)"
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the document."
-        },
-        "type": {
-          "type": "string",
-          "description": "Type of document (e.g., Contract, Certificate, Fiscal Archive)."
-        },
-        "uploadDate": {
-          "type": "string",
-          "description": "Date when the document was uploaded.",
-          "format": "date-time"
-        },
-        "expirationDate": {
-          "type": "string",
-          "description": "Expiration date of the document, if applicable.",
-          "format": "date-time"
-        },
-        "responsibleUserId": {
-          "type": "string",
-          "description": "Reference to User. User responsible for this document. (Relationship: User 1:N Document)"
-        },
-        "fileUrl": {
-          "type": "string",
-          "format": "uri"
-        },
-        "fileName": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "companyId",
-        "name",
-        "type",
-        "uploadDate",
-        "fileUrl",
-        "fileName"
-      ]
     },
     "CorporateProcess": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -406,116 +233,85 @@
       "type": "object",
       "description": "Represents a corporate process related to opening, altering, or closing a company.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the CorporateProcess entity."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "Reference to Company. Company to which the corporate process belongs. (Relationship: Company 1:N CorporateProcess)"
-        },
-        "companyName": {
-            "type": "string",
-            "description": "Denormalized name of the company."
-        },
-        "processType": {
-          "type": "string",
-          "description": "Type of corporate process (e.g., Opening, Alteration, Closing)."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "Start date of the corporate process.",
-          "format": "date-time"
-        },
-        "protocolDate": {
-          "type": "string",
-          "description": "Protocol date of the corporate process.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "Current status of the corporate process (e.g., In Analysis, In Requirement, Concluded, Canceled)."
-        },
-        "responsibleUserId": {
-          "type": "string",
-          "description": "Reference to User. User responsible for this corporate process. (Relationship: User 1:N CorporateProcess)"
-        }
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "processType": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "protocolDate": { "type": "string", "format": "date-time" },
+        "completionDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Aguardando Documentação", "Em Análise", "Em Preenchimento", "Protocolado", "Em Andamento Externo", "Aguardando Cliente", "Aguardando Órgão", "Concluído", "Cancelado"] },
+        "priority": { "type": "string", "enum": ["Baixa", "Média", "Alta"] },
+        "notes": { "type": "string" }
       },
-      "required": [
-        "id",
-        "companyId",
-        "companyName",
-        "processType",
-        "startDate",
-        "status"
-      ]
+      "required": ["id", "companyId", "companyName", "processType", "startDate", "status", "priority"]
     },
     "Invoice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Invoice",
       "type": "object",
-      "description": "Represents a monthly fee or invoice for a company.",
+      "description": "Represents a fee or invoice for a company.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Invoice."
-        },
-        "companyId": {
-          "type": "string",
-          "description": "ID of the company this invoice belongs to."
-        },
-        "companyName": {
-          "type": "string",
-          "description": "Denormalized name of the company for display."
-        },
-        "referencePeriod": {
-          "type": "string",
-          "description": "The reference period for the invoice (e.g., '2024-08').",
-          "pattern": "^\\d{4}-\\d{2}$"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The total amount of the invoice."
-        },
-        "dueDate": {
-          "type": "string",
-          "format": "date",
-          "description": "The due date for the payment."
-        },
-        "paymentDate": {
-          "type": "string",
-          "format": "date",
-          "description": "The date the invoice was paid."
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the invoice.",
-          "enum": ["Pendente", "Paga", "Atrasada", "Cancelada"]
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "description": { "type": "string", "description": "Description of the charge (e.g., 'Mensalidade', 'Abertura')." },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "paymentDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Pendente", "Paga", "Atrasada", "Cancelada"] }
       },
-      "required": [
-        "id",
-        "companyId",
-        "companyName",
-        "referencePeriod",
-        "amount",
-        "dueDate",
-        "status"
-      ]
+      "required": ["id", "companyId", "companyName", "description", "amount", "dueDate", "status"]
+    },
+    "FiscalDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FiscalDocument",
+      "type": "object",
+      "description": "Represents a fiscal document like an invoice or tax ledger.",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "companyCnpj": { "type": "string" },
+        "documentType": { "type": "string", "enum": ["Livro de Entrada", "Livro de Saída", "Nota Fiscal de Entrada", "Nota Fiscal de Saída"] },
+        "status": { "type": "string", "enum": ["Ativa", "Cancelada", "Inutilizada", "Denegada", "Rejeitada"] },
+        "uploadedAt": { "type": "string", "format": "date-time" },
+        "fileUrl": { "type": "string", "format": "uri" },
+        "competencia": { "type": "string" }
+      },
+      "required": ["id", "companyId", "companyName", "documentType", "status", "uploadedAt", "fileUrl", "competencia"]
+    },
+    "Note": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Note",
+      "type": "object",
+      "description": "Represents a single note or comment attached to another entity.",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "text", "userId", "userName", "createdAt"]
+    },
+    "XmlStatus": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "XmlStatus",
+      "type": "object",
+      "description": "Tracks the XML submission status for a company for a given month/year.",
+      "properties": {
+        "id": { "type": "string", "description": "Composite key: {companyId}_{month}_{year}" },
+        "companyId": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendente", "Aguardando Reenvio", "Enviado"] }
+      },
+      "required": ["id", "companyId", "month", "year", "status"]
     }
   },
   "auth": {
-    "providers": [
-      "password"
-    ]
+    "providers": ["password"]
   },
   "firestore": {
     "structure": [
@@ -523,96 +319,30 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Collection to store user profiles, including their role ID for RBAC.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The UID of the user."
-            }
-          ]
-        }
-      },
-       {
-        "path": "/roles/{roleId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Collection to store roles and their associated granular permissions.",
-          "params": [
-            {
-              "name": "roleId",
-              "description": "The unique identifier for the role."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_finance/{userId}",
-        "definition": {
-          "description": "Collection for granting finance module access. The existence of a document with the user's UID grants access. Only owners can manage this collection.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The UID of the user to grant finance access to."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/partners/{partnerId}",
-        "definition": {
-          "entityName": "Partner",
-          "schema": {
-            "$ref": "#/backend/entities/Partner"
-          },
-          "description": "Collection to store partner and administrator information.",
-          "params": [
-            {
-              "name": "partnerId",
-              "description": "The unique identifier for the partner, typically their CPF."
-            }
-          ]
+          "schema": { "$ref": "#/entities/User" },
+          "description": "Stores user profiles. This is the single source of truth for permissions."
         }
       },
       {
         "path": "/companies/{companyId}",
         "definition": {
           "entityName": "Company",
-          "schema": {
-            "$ref": "#/backend/entities/Company"
-          },
-          "description": "Collection to store company information. Includes a 'members' map containing user roles within the company for authorization independence.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "The unique identifier for the company."
-            }
-          ]
+          "schema": { "$ref": "#/entities/Company" },
+          "description": "Collection for all client companies."
+        }
+      },
+       {
+        "path": "/companies/{companyId}/certificates/{certificateId}",
+        "definition": {
+          "description": "Subcollection to store certificate details like validity and URL."
         }
       },
       {
         "path": "/companies/{companyId}/taxObligations/{taxObligationId}",
         "definition": {
           "entityName": "TaxObligation",
-          "schema": {
-            "$ref": "#/backend/entities/TaxObligation"
-          },
-          "description": "Subcollection to store tax obligations for a specific company. Access control based on the 'members' map denormalized from the parent company document.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "The unique identifier for the company."
-            },
-            {
-              "name": "taxObligationId",
-              "description": "The unique identifier for the tax obligation."
-            }
-          ]
+          "schema": { "$ref": "#/entities/TaxObligation" },
+          "description": "Subcollection to store tax obligations for a specific company."
         }
       },
       {
@@ -620,74 +350,71 @@
         "definition": {
           "entityName": "Document",
           "schema": {
-            "$ref": "#/backend/entities/Document"
+            "$ref": "#/entities/Document"
           },
-          "description": "Subcollection to store documents related to a specific company. Access control based on the 'members' map denormalized from the parent company document.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "The unique identifier for the company."
-            },
-            {
-              "name": "documentId",
-              "description": "The unique identifier for the document."
-            }
-          ]
+          "description": "Subcollection to store documents related to a specific company."
         }
       },
       {
-        "path": "/companies/{companyId}/corporateProcesses/{corporateProcessId}",
+        "path": "/partners/{partnerId}",
         "definition": {
-          "entityName": "CorporateProcess",
-          "schema": {
-            "$ref": "#/backend/entities/CorporateProcess"
-          },
-          "description": "Subcollection to store corporate processes for a specific company. Access control based on the 'members' map denormalized from the parent company document.",
-          "params": [
-            {
-              "name": "companyId",
-              "description": "The unique identifier for the company."
-            },
-            {
-              "name": "corporateProcessId",
-              "description": "The unique identifier for the corporate process."
-            }
-          ]
+          "entityName": "Partner",
+          "schema": { "$ref": "#/entities/Partner" },
+          "description": "Collection to store partner and administrator information."
         }
       },
       {
         "path": "/invoices/{invoiceId}",
         "definition": {
           "entityName": "Invoice",
-          "schema": {
-            "$ref": "#/backend/entities/Invoice"
-          },
-          "description": "Collection to store all financial invoices for all companies. Access is restricted to users with the finance role.",
-          "params": [
-            {
-              "name": "invoiceId",
-              "description": "The unique identifier for the invoice."
-            }
-          ]
+          "schema": { "$ref": "#/entities/Invoice" },
+          "description": "Collection for all financial invoices."
         }
       },
       {
-        "path": "/activities/{activityId}",
+        "path": "/fiscalDocuments/{documentId}",
         "definition": {
-          "entityName": "Activity",
-          "schema": {
-            "$ref": "#/backend/entities/Activity"
-          },
-          "description": "Collection to store global activity log entries. Accessible by all signed-in users.",
-          "params": [
-            {
-              "name": "activityId",
-              "description": "The unique identifier for the activity log entry."
-            }
-          ]
+          "entityName": "FiscalDocument",
+          "schema": { "$ref": "#/entities/FiscalDocument" },
+          "description": "Collection for all fiscal documents."
+        }
+      },
+      {
+        "path": "/fiscalDocuments/{documentId}/notes/{noteId}",
+        "definition": {
+            "entityName": "Note",
+            "schema": { "$ref": "#/entities/Note" },
+            "description": "Subcollection for notes on a fiscal document."
+        }
+      },
+      {
+        "path": "/xmlStatus/{statusId}",
+        "definition": {
+          "entityName": "XmlStatus",
+          "schema": { "$ref": "#/entities/XmlStatus" },
+          "description": "Collection to track XML submission status."
+        }
+      },
+       {
+        "path": "/corporateProcesses/{processId}",
+        "definition": {
+          "entityName": "CorporateProcess",
+          "schema": { "$ref": "#/entities/CorporateProcess" },
+          "description": "Collection for all corporate processes."
+        }
+      },
+      {
+        "path": "/corporateProcesses/{processId}/history/{historyId}",
+        "definition": {
+          "description": "Subcollection to store the history of a corporate process."
+        }
+      },
+      {
+        "path": "/corporateProcesses/{processId}/attachments/{attachmentId}",
+        "definition": {
+          "description": "Subcollection to store attachments for a corporate process."
         }
       }
-    ],
-    "reasoning": "The Firestore data structure is designed to support the features of the ContaFlow ERP system, focusing on security, scalability, and maintainability. Key considerations include role-based access control, efficient data retrieval, and support for the core features like fiscal document processing, tax obligation management, corporate lifecycle management, financial data integration, and comprehensive document repository.\n\nAuthorization Independence is achieved through denormalization. For example, instead of relying on nested `get()` calls to verify a user's role within a company, the user's role (or relevant permissions) are copied into documents where authorization is required. Specifically:\n\n*   **Company Membership:** A `members` map within the `companies/{companyId}` document stores user roles for that company.  This is then copied to subcollections if needed.\n*   **User Roles:** Global roles (Admin, etc.) are managed using existence checks in dedicated collections (e.g., `/roles_admin/{userId}`).\n\nThis design supports the required QAPs (Rules are not Filters) by:\n\n*   **Structural Segregation:** Data with different access requirements are stored in separate collections.  User-specific data (like settings) resides under `/users/{userId}`, while company-specific data resides under `/companies/{companyId}`.\n*   **Membership Model:** Collaborative data (e.g., documents, tax obligations) associated with a company uses the `members` map denormalized from the company document for access control.\n\nFurthermore, the structure facilitates:\n\n*   **Efficient Queries:** By avoiding nested `get()` calls, queries are more efficient and scalable.\n*   **Simplified Security Rules:** Rules are more straightforward to write and debug because authorization logic is localized.\n*   **Atomic Operations:** Transactions and batch writes are supported because authorization checks do not depend on hierarchical data.\n\nEach entity has a dedicated collection, and relationships between entities are managed via document references. This approach ensures clarity, consistency, and ease of maintenance."
+    ]
   }
 }
