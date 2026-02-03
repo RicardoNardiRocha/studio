@@ -76,6 +76,8 @@ export function AppHeader({ pageTitle }: { pageTitle: string }) {
         continuous
         showProgress
         showSkipButton
+        scrollToFirstStep
+        disableScrollParentFix
         locale={{
           back: 'Voltar',
           close: 'Fechar',

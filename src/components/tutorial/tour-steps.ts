@@ -7,6 +7,7 @@ export const tourSteps: Record<string, Step[]> = {
       content: 'Estes são os Indicadores Chave de Desempenho (KPIs). Eles oferecem uma visão geral e rápida da saúde do seu escritório.',
       placement: 'bottom',
       title: 'Seus KPIs',
+      disableBeacon: true,
     },
     {
       target: '#notifications-card',
@@ -27,6 +28,7 @@ export const tourSteps: Record<string, Step[]> = {
       content: 'Clique aqui para adicionar uma nova empresa individualmente. Você só precisa do CNPJ e o sistema busca os dados automaticamente.',
       placement: 'bottom',
       title: 'Adicionar Empresa',
+      disableBeacon: true,
     },
     {
         target: '#bulk-import-button',
@@ -53,6 +55,7 @@ export const tourSteps: Record<string, Step[]> = {
         content: 'Navegue entre as abas para monitorar o status do XML e DAS na aba "Controle", ou para gerenciar livros e notas fiscais.',
         placement: 'bottom',
         title: 'Navegação do Módulo',
+        disableBeacon: true,
     },
     {
         target: '#fiscal-filters',
