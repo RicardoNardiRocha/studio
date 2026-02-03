@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const tutorialData = [
+export const tutorialData = [
   {
     title: "1. Primeiros Passos e Acesso",
     content: [
@@ -124,7 +124,7 @@ const tutorialData = [
   }
 ];
 
-const FormattedText = ({ text }: { text: string }) => {
+export const FormattedText = ({ text }: { text: string }) => {
   return (
     <div className="space-y-2 text-sm text-muted-foreground prose-sm dark:prose-invert">
       {text.split('\n').map((line, index) => {
