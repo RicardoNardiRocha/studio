@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -163,7 +164,7 @@ export function FiscalClient() {
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
              {activeTab === 'controle' && (
-                <Button onClick={() => setIsConfigureOpen(true)} variant="outline">
+                <Button id="configure-companies-button" onClick={() => setIsConfigureOpen(true)} variant="outline">
                     <Settings className="mr-2 h-4 w-4" />
                     Configurar Empresas
                 </Button>

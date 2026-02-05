@@ -273,7 +273,7 @@ export function CompaniesClient() {
           </div>
           {profile?.permissions.empresas.create && (
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              <Button variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
+              <Button id="sync-all-button" variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Sincronizar Todas
               </Button>
