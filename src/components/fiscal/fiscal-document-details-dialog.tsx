@@ -241,10 +241,10 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
         <Tabs defaultValue="details">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="details">Detalhes</TabsTrigger>
-            <TabsTrigger value="notes">Notas</TabsTrigger>
+            <TabsTrigger value="notes" id="fiscal-document-details-notes-tab-trigger">Notas</TabsTrigger>
           </TabsList>
           <TabsContent value="details" className="pt-4">
-            <div className="space-y-4">
+            <div className="space-y-4" id="fiscal-document-details-info">
                 <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Empresa</span>
                     <span className="font-medium">{document.companyName}</span>
@@ -274,7 +274,7 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
         
         <DialogFooter className='sm:justify-between pt-4 border-t'>
             <div className="flex gap-2">
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" id="fiscal-document-details-download-button">
                     <a href={document.fileUrl} target="_blank" rel="noopener noreferrer">
                         <Download className="mr-2 h-4 w-4" />
                         Baixar Arquivo
@@ -283,7 +283,7 @@ export function FiscalDocumentDetailsDialog({ document, open, onOpenChange, onDe
                 {profile?.permissions.fiscal.delete && (
                      <AlertDialog>
                         <AlertDialogTrigger asChild>
-                           <Button variant="destructive">
+                           <Button variant="destructive" id="fiscal-document-details-delete-button">
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
                             </Button>

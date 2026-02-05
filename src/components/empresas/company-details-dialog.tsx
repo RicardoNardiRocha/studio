@@ -325,11 +325,11 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
             </div>
           </DialogHeader>
           
-           <Tabs defaultValue="details" className="w-full flex-grow overflow-hidden flex flex-col">
+           <Tabs defaultValue="details" className="w-full flex-grow overflow-hidden flex flex-col" id="company-details-tabs">
               <div className='px-6 border-b'>
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="details">Detalhes da Empresa</TabsTrigger>
-                    <TabsTrigger value="documents">Documentos</TabsTrigger>
+                    <TabsTrigger value="documents" id="company-details-documents-tab-trigger">Documentos</TabsTrigger>
                 </TabsList>
               </div>
               <div className="flex-grow overflow-y-auto px-6">
@@ -391,7 +391,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                       
                       <Separator/>
                       
-                       <div>
+                       <div id="company-details-internal-contact">
                         <h3 className="font-semibold font-headline mb-4">Contato Interno</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                            <FormField
@@ -456,7 +456,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                     
                     <Separator />
 
-                    <div>
+                    <div id="company-details-certificate">
                         <h3 className="font-semibold font-headline mb-2">Certificado Digital A1</h3>
                         <div className="flex items-center justify-between rounded-lg border p-4 gap-4">
                             <div className="space-y-1">
@@ -482,7 +482,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                         </div>
                     </div>
                 
-                    <div>
+                    <div id="company-details-qsa">
                       <h3 className='font-semibold font-headline mb-2'>Quadro de Sócios e Administradores (QSA)</h3>
                       <div className="border rounded-md">
                           <Table>
@@ -525,7 +525,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
               {profile?.permissions.empresas.delete ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button type="button" variant="destructive">
+                    <Button type="button" variant="destructive" id="company-details-delete-button">
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir Empresa
                     </Button>
@@ -547,7 +547,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                 </AlertDialog>
               ) : <div></div>}
               {profile?.permissions.empresas.update && (
-                 <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+                 <Button variant="outline" onClick={handleSync} disabled={isSyncing} id="company-details-sync-button">
                     {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                     Sincronizar com Receita
                 </Button>
@@ -558,7 +558,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                   <Button type="button" variant="outline">Fechar</Button>
                 </DialogClose>
                 {profile?.permissions.empresas.update && (
-                  <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>
+                  <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading} id="company-details-save-button">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Salvar Alterações
                   </Button>

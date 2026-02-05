@@ -1,4 +1,3 @@
-
 import type { Step } from 'react-joyride';
 
 export const tourSteps: Record<string, Step[]> = {
@@ -51,16 +50,46 @@ export const tourSteps: Record<string, Step[]> = {
     },
     {
         target: '#company-table',
-        content: "Aqui você visualiza todas as empresas. As linhas coloridas indicam certificados vencendo ou vencidos. Clique no botão de ações ('...') em qualquer linha para ver os detalhes.",
+        content: "Aqui você visualiza todas as empresas. As linhas coloridas indicam certificados vencendo ou vencidos. Clique no botão de ações ('...') na primeira linha para ver os detalhes e continuar o tour.",
         placement: 'top',
         title: 'Tabela de Empresas',
     },
+     {
+      target: '#company-details-internal-contact',
+      content: 'Nesta seção, você pode adicionar e editar informações de contato internas, como e-mail e telefone, para facilitar a comunicação da sua equipe com o cliente.',
+      placement: 'bottom',
+      title: 'Contato Interno',
+    },
     {
-        target: 'body',
-        placement: 'center',
-        title: 'Explorando os Detalhes da Empresa',
-        content: "Ao clicar em '...', você abre a central de informações da empresa. Lá dentro, você pode:\n- **Editar Contatos Internos:** Modifique o e-mail, telefone e grupo de WhatsApp para comunicação interna.\n- **Gerenciar Certificado A1:** Use os botões para fazer o upload de um novo certificado .pfx (a senha não é salva) ou baixar o certificado atual.\n- **Visualizar QSA:** Consulte a lista completa de Sócios e Administradores vinda da Receita Federal.\n- **Sincronizar:** Clique no botão 'Sincronizar com Receita' para atualizar dados como status cadastral e regime tributário em tempo real.\n- **Navegar para Documentos:** Use a aba 'Documentos' para ver e gerenciar todos os arquivos específicos desta empresa.",
-    }
+      target: '#company-details-certificate',
+      content: 'Gerencie o Certificado Digital A1 da empresa. Clique em "Adicionar/Atualizar" para fazer o upload do arquivo .pfx e da senha (ela não é salva). O sistema valida o CNPJ e extrai a data de validade automaticamente.',
+      placement: 'bottom',
+      title: 'Certificado Digital A1',
+    },
+    {
+      target: '#company-details-qsa',
+      content: 'Consulte o Quadro de Sócios e Administradores (QSA) conforme os dados mais recentes obtidos da Receita Federal. Esta informação é apenas para visualização.',
+      placement: 'top',
+      title: 'Quadro de Sócios',
+    },
+    {
+      target: '#company-details-sync-button',
+      content: 'Clique aqui para forçar uma sincronização dos dados desta empresa específica com a Receita Federal, atualizando status, endereço e regime tributário em tempo real.',
+      placement: 'left',
+      title: 'Sincronizar com a Receita',
+    },
+    {
+      target: '#company-details-documents-tab-trigger',
+      content: 'Navegue para a aba "Documentos" para ver, adicionar ou remover todos os arquivos relacionados exclusivamente a esta empresa.',
+      placement: 'bottom',
+      title: 'Documentos da Empresa',
+    },
+    {
+      target: '#company-details-save-button',
+      content: 'Após realizar qualquer alteração nos campos editáveis, clique aqui para salvá-las no sistema.',
+      placement: 'left',
+      title: 'Salvar Alterações',
+    },
   ],
   '/fiscal': [
     {
@@ -90,9 +119,21 @@ export const tourSteps: Record<string, Step[]> = {
     },
     {
         target: '#upload-document-button',
-        content: 'Nas outras abas, use este botão para enviar novos documentos fiscais (livros, notas). O sistema já sugere o tipo de documento baseado na aba em que você está.',
+        content: 'Use este botão para enviar novos documentos fiscais (livros, notas). O sistema já sugere o tipo de documento baseado na aba em que você está.',
         placement: 'left',
         title: 'Enviar Documento Fiscal',
+    },
+    {
+        target: '#fiscal-filters',
+        content: 'Nas abas de Livros e Notas, use os filtros para refinar sua busca por empresa, competência e status.',
+        placement: 'bottom',
+        title: 'Filtragem de Documentos'
+    },
+    {
+        target: 'body',
+        placement: 'center',
+        title: 'Detalhes do Documento Fiscal',
+        content: "Ao clicar no botão '...' de um documento, você poderá:\n- **Ver Detalhes:** Conferir informações como empresa, competência e status.\n- **Adicionar Notas:** Use a aba 'Notas' para adicionar observações e comentários sobre o documento.\n- **Baixar e Excluir:** Faça o download do arquivo original ou exclua o registro do sistema.",
     }
   ],
   '/societario': [
@@ -116,17 +157,35 @@ export const tourSteps: Record<string, Step[]> = {
       title: 'Filtros de Sócios',
     },
     {
-      target: '#partner-table',
-      content: 'Esta tabela lista todos os sócios. A cor da linha indica o status do certificado e-CPF (vermelho para vencido, amarelo para vencendo). Clique no botão "..." para ver os detalhes.',
-      placement: 'top',
+      target: '#partner-table tbody tr:first-child button',
+      content: 'Esta tabela lista todos os sócios. A cor da linha indica o status do e-CPF. Clique no botão "..." para ver os detalhes e continuar o tour.',
+      placement: 'left',
       title: 'Lista de Sócios',
     },
     {
-        target: 'body',
-        placement: 'center',
-        title: 'Gerenciando um Sócio',
-        content: "Dentro dos detalhes, você tem controle total:\n- **Editar Dados:** Altere nome, empresas associadas e credenciais do GOV.BR.\n- **Gerenciar e-CPF:** Use os botões para fazer upload de um novo e-CPF (o sistema valida o CPF e extrai a validade) ou baixar o arquivo existente.\n- **Notas:** Use o campo 'Outros Dados' para anotações importantes sobre o sócio.\n- **Excluir:** Remova o sócio do sistema, mas atenção, a ação é permanente.",
-    }
+        target: '#partner-details-companies',
+        content: 'Associe este sócio a uma ou mais empresas cadastradas no sistema para facilitar a organização.',
+        placement: 'bottom',
+        title: 'Empresas Associadas',
+    },
+    {
+        target: '#partner-details-ecpf',
+        content: 'Gerencie o e-CPF do sócio. Faça o upload do arquivo .pfx para que o sistema valide o CPF, extraia a data de validade e armazene o certificado com segurança.',
+        placement: 'top',
+        title: 'Certificado e-CPF',
+    },
+    {
+        target: '#partner-details-govbr',
+        content: 'Armazene as credenciais do portal GOV.BR do sócio aqui. A senha fica oculta por padrão por segurança.',
+        placement: 'top',
+        title: 'Acesso GOV.BR',
+    },
+    {
+        target: '#partner-details-other-data',
+        content: 'Use este campo para adicionar quaisquer informações ou observações relevantes sobre este sócio.',
+        placement: 'top',
+        title: 'Outros Dados',
+    },
   ],
   '/processos': [
     {
@@ -154,12 +213,30 @@ export const tourSteps: Record<string, Step[]> = {
       placement: 'top',
       title: 'Quadro de Processos',
     },
+     {
+      target: 'body',
+      content: "Clique no botão '...' de um processo na lista para abrir seus detalhes e continuar o tour.",
+      placement: 'center',
+      title: 'Acessando Detalhes do Processo',
+    },
     {
-        target: 'body',
-        placement: 'center',
-        title: 'Acompanhamento Detalhado do Processo',
-        content: "Na tela de detalhes, você gerencia o ciclo de vida do processo:\n- **Aba Detalhes:** Altere o status, a prioridade e as datas. Adicione observações importantes no campo 'Notas Internas'.\n- **Aba Anexos:** Faça upload de arquivos essenciais (documentos, protocolos, etc.), baixe ou exclua anexos existentes.\n- **Aba Histórico:** Veja um registro cronológico de todas as mudanças de status e quem as realizou, garantindo total rastreabilidade.",
-    }
+        target: '#process-details-form',
+        content: "Na aba 'Detalhes', você pode alterar o status, a prioridade, as datas do processo e adicionar notas internas importantes.",
+        placement: 'bottom',
+        title: 'Gerenciando Detalhes',
+    },
+    {
+        target: '#process-details-attachments-tab-trigger',
+        content: "Clique na aba 'Anexos' para fazer upload de arquivos essenciais (documentos, protocolos, etc.), baixar ou excluir anexos existentes.",
+        placement: 'bottom',
+        title: 'Anexos do Processo',
+    },
+    {
+        target: '#process-details-history-tab-trigger',
+        content: "A aba 'Histórico' mostra um registro cronológico de todas as mudanças de status e quem as realizou, garantindo total rastreabilidade.",
+        placement: 'bottom',
+        title: 'Histórico de Alterações',
+    },
   ],
   '/obrigacoes': [
     {
@@ -183,15 +260,15 @@ export const tourSteps: Record<string, Step[]> = {
     },
     {
       target: '#obligation-board',
-      content: 'Visualize e gerencie todas as obrigações do período. Você pode atualizar o status de cada uma diretamente no cartão ou na lista, clicando no seletor de status.',
+      content: 'Visualize e gerencie todas as obrigações do período. Você pode atualizar o status de cada uma diretamente no cartão ou na lista, clicando no seletor de status. Clique em um card para ver os detalhes.',
       placement: 'top',
       title: 'Quadro de Obrigações',
     },
      {
         target: 'body',
+        content: 'Ao clicar em uma obrigação, você pode ajustar todos os seus detalhes: o nome, categoria, datas, responsável e status. Todas as alterações são salvas imediatamente.',
         placement: 'center',
         title: 'Editando uma Obrigação',
-        content: "Ao clicar em uma obrigação, você pode:\n- **Ajustar Detalhes:** Modificar o nome, categoria, periodicidade e competência.\n- **Alterar Datas:** Mudar a data de vencimento.\n- **Mudar o Responsável:** Atribuir a tarefa para outro usuário do sistema.\n- **Atualizar Status:** Marcar como 'Entregue', 'Cancelada', etc.",
     }
   ],
   '/documentos': [
@@ -230,16 +307,16 @@ export const tourSteps: Record<string, Step[]> = {
       title: 'Filtros de Faturas',
     },
     {
-        target: '#invoice-table',
-        content: 'A tabela lista todas as cobranças. O status "Atrasada" é aplicado automaticamente se uma fatura "Pendente" passar do vencimento. Clique no botão "..." para editar uma fatura, marcar como paga e registrar a data do pagamento.',
-        placement: 'top',
+        target: '#invoice-table tbody tr:first-child button',
+        content: 'A tabela lista todas as cobranças. O status "Atrasada" é aplicado automaticamente. Clique no botão "..." para editar a fatura e continuar o tour.',
+        placement: 'left',
         title: 'Lista de Cobranças',
     },
     {
-        target: 'body',
-        placement: 'center',
+        target: '#invoice-details-form',
+        content: "Na tela de detalhes, você pode editar a descrição, valor e datas. Para registrar um pagamento, mude o status para 'Paga' e informe a 'Data de Pagamento'.",
+        placement: 'bottom',
         title: 'Gerenciando uma Cobrança',
-        content: "Dentro dos detalhes da fatura, você pode:\n- **Editar Informações:** Alterar a descrição e o valor da cobrança.\n- **Mudar Status:** O mais importante! Marque uma fatura como 'Paga' para que ela saia da pendência.\n- **Registrar Pagamento:** Ao marcar como 'Paga', você pode (e deve) registrar a data em que o pagamento foi efetuado para controle do fluxo de caixa.",
     }
   ],
    '/usuarios': [

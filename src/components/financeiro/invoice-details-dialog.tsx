@@ -175,7 +175,7 @@ export function InvoiceDetailsDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4" id="invoice-details-form">
              <FormField
                 control={form.control}
                 name="description"
@@ -294,7 +294,7 @@ export function InvoiceDetailsDialog({
               {canDelete ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button type="button" variant="destructive" size="sm">
+                    <Button type="button" variant="destructive" size="sm" id="invoice-details-delete-button">
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir
                     </Button>
@@ -320,7 +320,7 @@ export function InvoiceDetailsDialog({
                   <Button type="button" variant="ghost">Fechar</Button>
                 </DialogClose>
                 {canEdit && (
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading} id="invoice-details-save-button">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Salvar
                   </Button>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -263,14 +262,14 @@ export function ProcessDetailsDialog({
         <Tabs defaultValue="details" className="flex-grow overflow-hidden flex flex-col">
             <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="details">Detalhes</TabsTrigger>
-                <TabsTrigger value="attachments">Anexos</TabsTrigger>
-                <TabsTrigger value="history">Histórico</TabsTrigger>
+                <TabsTrigger value="attachments" id="process-details-attachments-tab-trigger">Anexos</TabsTrigger>
+                <TabsTrigger value="history" id="process-details-history-tab-trigger">Histórico</TabsTrigger>
             </TabsList>
 
             <div className="flex-grow overflow-y-auto">
                 <TabsContent value="details">
                      <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4">
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-4" id="process-details-form">
                         <div className='grid grid-cols-2 gap-4'>
                          <FormField control={form.control} name="processType" render={({ field }) => (<FormItem><FormLabel>Tipo de Processo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} disabled={true}><FormControl><SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger></FormControl><SelectContent>{processTypes.map((type) => (<SelectItem key={type} value={type}>{type}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)}/>
                          <FormField 
@@ -312,7 +311,7 @@ export function ProcessDetailsDialog({
                     </Form>
                 </TabsContent>
                 
-                <TabsContent value="attachments" className="p-4 space-y-4">
+                <TabsContent value="attachments" className="p-4 space-y-4" id="process-details-attachments-content">
                      {canEdit && (
                         <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                             {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
@@ -341,7 +340,7 @@ export function ProcessDetailsDialog({
                     </ul>
                 </TabsContent>
                 
-                <TabsContent value="history" className="p-4">
+                <TabsContent value="history" className="p-4" id="process-details-history-content">
                      <ul className="space-y-4">
                         {isLoadingHistory && Array.from({length:3}).map((_, i) => <li key={i}><Skeleton className="h-12 w-full"/></li>)}
                         {history?.map(entry => (
@@ -362,10 +361,10 @@ export function ProcessDetailsDialog({
         </Tabs>
         <DialogFooter className="pt-4 flex-row justify-between w-full border-t">
           {canDelete ? (
-            <AlertDialog><AlertDialogTrigger asChild><Button type="button" variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4" />Excluir</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita. Isso irá excluir permanentemente o processo.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Sim, excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+            <AlertDialog><AlertDialogTrigger asChild><Button type="button" variant="destructive" size="sm" id="process-details-delete-button"><Trash2 className="mr-2 h-4 w-4" />Excluir</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita. Isso irá excluir permanentemente o processo.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Sim, excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
           ) : <div></div>}
           <div className="flex gap-2"><DialogClose asChild><Button type="button" variant="ghost">Fechar</Button></DialogClose>
-          {canEdit && <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>}
+          {canEdit && <Button type="button" id="process-details-save-button" onClick={form.handleSubmit(onSubmit)} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>}
           </div>
         </DialogFooter>
       </DialogContent>

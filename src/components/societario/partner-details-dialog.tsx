@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -270,29 +269,32 @@ export function PartnerDetailsDialog({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="associatedCompanies"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Empresas Associadas</FormLabel>
-                    <FormControl>
-                       <ReactSelect
-                          {...field}
-                          isMulti
-                          options={companyOptions}
-                          placeholder="Selecione as empresas..."
-                          noOptionsMessage={() => 'Nenhuma empresa encontrada'}
-                          isDisabled={!canEdit}
-                          styles={selectStyles}
-                        />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div id="partner-details-companies">
+                <FormField
+                  control={form.control}
+                  name="associatedCompanies"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Empresas Associadas</FormLabel>
+                      <FormControl>
+                        <ReactSelect
+                            {...field}
+                            isMulti
+                            options={companyOptions}
+                            placeholder="Selecione as empresas..."
+                            noOptionsMessage={() => 'Nenhuma empresa encontrada'}
+                            isDisabled={!canEdit}
+                            styles={selectStyles}
+                          />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-              <div className="rounded-lg border p-4 space-y-4">
+
+              <div className="rounded-lg border p-4 space-y-4" id="partner-details-ecpf">
                   <div className="flex flex-row items-center justify-between">
                     <div className="space-y-0.5">
                       <h3 className="font-medium">Certificado Digital (e-CPF)</h3>
@@ -321,70 +323,75 @@ export function PartnerDetailsDialog({
                   </div>
               </div>
 
-               <FormField
-                control={form.control}
-                name="govBrLogin"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Login GOV.BR</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Login do portal GOV.BR" {...field} disabled={!canEdit} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="govBrPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Senha GOV.BR</FormLabel>
-                     <div className="relative">
+               <div id="partner-details-govbr">
+                <FormField
+                  control={form.control}
+                  name="govBrLogin"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Login GOV.BR</FormLabel>
                       <FormControl>
-                        <Input
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Não altere se não for necessário"
+                        <Input placeholder="Login do portal GOV.BR" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="govBrPassword"
+                  render={({ field }) => (
+                    <FormItem className='mt-4'>
+                      <FormLabel>Senha GOV.BR</FormLabel>
+                      <div className="relative">
+                        <FormControl>
+                          <Input
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Não altere se não for necessário"
+                            {...field}
+                            disabled={!canEdit}
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff /> : <Eye />}
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+               <FormItem id="partner-details-other-data">
+                <FormField
+                  control={form.control}
+                  name="otherData"
+                  render={({ field }) => (
+                    <>
+                      <FormLabel>Outros Dados do Sócio</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Informações adicionais, contatos, etc."
                           {...field}
                           disabled={!canEdit}
                         />
                       </FormControl>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff /> : <Eye />}
-                      </Button>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="otherData"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Outros Dados do Sócio</FormLabel>
-                     <FormControl>
-                      <Textarea
-                        placeholder="Informações adicionais, contatos, etc."
-                        {...field}
-                        disabled={!canEdit}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </>
+                  )}
+                />
+              </FormItem>
               
               <Separator className="my-4" />
               
               <div>
-                <h3 className="text-sm font-medium mb-2">Empresas Associadas</h3>
+                <h3 className="text-sm font-medium mb-2">Empresas Associadas (Visualização)</h3>
                 {partner.associatedCompanies && partner.associatedCompanies.length > 0 ? (
                   <ul className="flex flex-wrap gap-2">
                     {partner.associatedCompanies.map((company, index) => (
@@ -402,7 +409,7 @@ export function PartnerDetailsDialog({
                 {canDelete ? (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="destructive">
+                      <Button type="button" variant="destructive" id="partner-details-delete-button">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Excluir Sócio
                       </Button>
@@ -428,7 +435,7 @@ export function PartnerDetailsDialog({
                     <Button type="button" variant="ghost">Cancelar</Button>
                   </DialogClose>
                   {canEdit && (
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading} id="partner-details-save-button">
                       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Salvar Alterações
                     </Button>

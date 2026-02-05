@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -203,7 +202,7 @@ export function ObligationDetailsDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4" id="obligation-details-form">
              <FormField
               control={form.control}
               name="nome"
@@ -359,7 +358,7 @@ export function ObligationDetailsDialog({
               {canDelete ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button type="button" variant="destructive" size="sm">
+                    <Button type="button" variant="destructive" size="sm" id="obligation-details-delete-button">
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir
                     </Button>
@@ -385,7 +384,7 @@ export function ObligationDetailsDialog({
                   <Button type="button" variant="ghost">Fechar</Button>
                 </DialogClose>
                 {canEdit && (
-                  <Button type="submit" disabled={isLoading}>
+                  <Button type="submit" disabled={isLoading} id="obligation-details-save-button">
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Salvar
                   </Button>
