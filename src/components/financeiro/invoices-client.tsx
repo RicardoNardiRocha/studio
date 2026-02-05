@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -178,11 +179,11 @@ export function InvoicesClient() {
           </div>
           {profile?.permissions.financeiro.create && (
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto mt-4 md:mt-0">
-              <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
+              <Button id="batch-invoice-button" variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
                   <FilePlus2 className="mr-2 h-4 w-4" />
                   Gerar Mensalidades
               </Button>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Button id="add-invoice-button" onClick={() => setIsAddDialogOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Nova Cobrança
               </Button>
@@ -190,7 +191,7 @@ export function InvoicesClient() {
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+          <div id="invoice-filters" className="flex flex-col md:flex-row items-center gap-4 mb-4">
             <div className="relative w-full md:flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -227,7 +228,7 @@ export function InvoicesClient() {
             </div>
           </div>
 
-          <div className="border rounded-md">
+          <div id="invoice-table" className="border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>

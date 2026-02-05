@@ -305,7 +305,7 @@ export default function SocietarioPage() {
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                <Button variant="outline" onClick={handleSyncPartners} disabled={isSyncing}>
+                <Button id="sync-partners-button" variant="outline" onClick={handleSyncPartners} disabled={isSyncing}>
                   {isSyncing ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
@@ -313,14 +313,14 @@ export default function SocietarioPage() {
                   )}
                   Sincronizar Sócios via QSA
                 </Button>
-                <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Button id="add-partner-button" onClick={() => setIsAddDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Adicionar Sócio
                 </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+            <div id="partner-filters" className="flex flex-col md:flex-row items-center gap-4 mb-4">
               <div className="relative w-full md:flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -365,7 +365,7 @@ export default function SocietarioPage() {
                 </Button>
              )}
             </div>
-            <div className="border rounded-md">
+            <div id="partner-table" className="border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>

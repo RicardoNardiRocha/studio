@@ -199,7 +199,7 @@ export function ProfileClient() {
 
   return (
     <div className="space-y-6">
-       <Card>
+       <Card id="profile-photo-card">
         <CardHeader>
           <CardTitle>Foto de Perfil</CardTitle>
           <CardDescription>Atualize sua foto de perfil.</CardDescription>
@@ -238,7 +238,7 @@ export function ProfileClient() {
         </CardContent>
        </Card>
 
-      <Card>
+      <Card id="profile-info-card">
         <CardHeader>
           <CardTitle>Informações do Perfil</CardTitle>
           <CardDescription>Atualize seu nome e endereço de e-mail.</CardDescription>
@@ -268,7 +268,7 @@ export function ProfileClient() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="profile-password-card">
         <CardHeader>
           <CardTitle>Alterar Senha</CardTitle>
           <CardDescription>Para sua segurança, você precisa informar sua senha atual.</CardDescription>

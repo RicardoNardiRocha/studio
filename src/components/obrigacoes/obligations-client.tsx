@@ -318,7 +318,7 @@ export function ObligationsClient() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div id="obligations-kpis" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <KpiCard title="Total do Mês" value={kpis.total} icon={CalendarClock} colorClass="bg-gray-500" onClick={() => setStatusFilter('Todos')} isActive={statusFilter === 'Todos'} />
             <KpiCard title="Pendentes" value={kpis.pendente} icon={Clock} colorClass="bg-yellow-500" onClick={() => setStatusFilter('Pendente')} isActive={statusFilter === 'Pendente'} />
             <KpiCard title="Atrasadas" value={kpis.atrasada} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => setStatusFilter('Atrasada')} isActive={statusFilter === 'Atrasada'} />
@@ -326,7 +326,7 @@ export function ObligationsClient() {
         </div>
 
         <Card>
-            <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center">
+            <CardContent id="obligations-filters" className="p-4 flex flex-col md:flex-row gap-4 items-center">
                  <Input
                     placeholder="MM/AAAA"
                     value={competenceInput}
@@ -349,7 +349,7 @@ export function ObligationsClient() {
                     <Button variant={viewType === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setViewType('list')}><List/></Button>
                  </div>
                  {profile?.permissions.obrigacoes.create && (
-                    <Button onClick={() => setIsAddDialogOpen(true)} className="w-full md:w-auto">
+                    <Button id="add-obligation-button" onClick={() => setIsAddDialogOpen(true)} className="w-full md:w-auto">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Nova Obrigação
                     </Button>
@@ -357,6 +357,7 @@ export function ObligationsClient() {
             </CardContent>
         </Card>
         
+        <div id="obligation-board">
         {isLoading || isLoadingCompanies ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {Array.from({length: 10}).map((_, i) => (
@@ -426,7 +427,7 @@ export function ObligationsClient() {
                 </CardContent>
              </Card>
         )}
-
+        </div>
       </div>
     </>
   );

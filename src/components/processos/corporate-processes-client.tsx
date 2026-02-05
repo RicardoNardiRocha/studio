@@ -250,7 +250,7 @@ export function CorporateProcessesClient() {
         />
       )}
       
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
+       <div id="processes-kpis" className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
             <KpiCard title="Em Andamento" value={kpiValues.inProgress} icon={Loader2} colorClass="bg-blue-500" onClick={() => { setStatusFilter('Em Andamento'); setPriorityFilter('Todos'); setTypeFilter('Todos'); }} isActive={statusFilter === 'Em Andamento' && priorityFilter === 'Todos' && typeFilter === 'Todos'} />
             <KpiCard title="Aberturas" value={kpiValues.openings} icon={FilePlus} colorClass="bg-cyan-500" onClick={() => { setTypeFilter('Abertura'); setStatusFilter('Em Andamento'); }} isActive={typeFilter === 'Abertura' && statusFilter === 'Em Andamento'} />
             <KpiCard title="Prioridade Alta" value={kpiValues.highPriority} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => { setPriorityFilter('Alta'); setStatusFilter('Em Andamento'); }} isActive={priorityFilter === 'Alta' && statusFilter === 'Em Andamento'} />
@@ -269,14 +269,14 @@ export function CorporateProcessesClient() {
             </CardDescription>
           </div>
           {profile?.permissions.processos.create && (
-            <Button onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
+            <Button id="add-process-button" onClick={() => setIsAddDialogOpen(true)} className="w-full mt-4 md:mt-0 md:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" />
               Novo Processo
             </Button>
           )}
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div id="process-filters" className="flex flex-wrap items-center gap-4 mb-4">
             <div className="relative flex-grow min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -304,6 +304,7 @@ export function CorporateProcessesClient() {
             </div>
           </div>
           
+          <div id="process-board">
            {isLoading ? (
              <div className="border rounded-md">
                 <Table>
@@ -417,6 +418,7 @@ export function CorporateProcessesClient() {
                 </div>
             )
           }
+          </div>
         </CardContent>
       </Card>
     </>

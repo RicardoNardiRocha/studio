@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -63,7 +64,7 @@ export function UserManagement() {
       )}
 
       <div className="space-y-6">
-        <Card>
+        <Card id="user-list-card">
             <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>Gerenciamento de Usuários</CardTitle>
@@ -135,7 +136,7 @@ export function UserManagement() {
         </Card>
 
         {canViewLog && (
-           <Card>
+           <Card id="activity-log-card">
             <CardHeader>
                 <div className='flex items-center gap-2'>
                     <History className="h-5 w-5" />

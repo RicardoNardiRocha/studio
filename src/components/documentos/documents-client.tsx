@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -245,7 +246,7 @@ export function DocumentsClient() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col gap-4 mb-4">
+        <div id="documents-filters" className="flex flex-col gap-4 mb-4">
             <div className="relative w-full">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -291,7 +292,7 @@ export function DocumentsClient() {
             </div>
         </div>
 
-        <div className="border rounded-md">
+        <div id="documents-table" className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
