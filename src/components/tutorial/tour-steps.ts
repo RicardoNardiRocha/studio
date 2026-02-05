@@ -58,8 +58,8 @@ export const tourSteps: Record<string, Step[]> = {
     {
         target: 'body',
         placement: 'center',
-        title: 'O que há nos Detalhes da Empresa?',
-        content: 'Ao clicar no botão "...", você abrirá uma tela completa onde poderá: Editar contatos internos; Gerenciar o Certificado A1 (fazer upload e ver validade); Visualizar o Quadro de Sócios (QSA); Sincronizar dados daquela empresa específica; e acessar uma aba com todos os documentos já anexados a ela.',
+        title: 'Explorando os Detalhes da Empresa',
+        content: "Ao clicar em '...', você abre a central de informações da empresa. Lá dentro, você pode:\n- **Editar Contatos Internos:** Modifique o e-mail, telefone e grupo de WhatsApp para comunicação interna.\n- **Gerenciar Certificado A1:** Use os botões para fazer o upload de um novo certificado .pfx (a senha não é salva) ou baixar o certificado atual.\n- **Visualizar QSA:** Consulte a lista completa de Sócios e Administradores vinda da Receita Federal.\n- **Sincronizar:** Clique no botão 'Sincronizar com Receita' para atualizar dados como status cadastral e regime tributário em tempo real.\n- **Navegar para Documentos:** Use a aba 'Documentos' para ver e gerenciar todos os arquivos específicos desta empresa.",
     }
   ],
   '/fiscal': [
@@ -124,8 +124,8 @@ export const tourSteps: Record<string, Step[]> = {
     {
         target: 'body',
         placement: 'center',
-        title: 'O que há nos Detalhes do Sócio?',
-        content: 'Na tela de detalhes, você pode: Editar nome e outros dados; Gerenciar o e-CPF (fazer upload, ver validade e baixar); Editar credenciais do GOV.BR; e Associar/desassociar o sócio de empresas.',
+        title: 'Gerenciando um Sócio',
+        content: "Dentro dos detalhes, você tem controle total:\n- **Editar Dados:** Altere nome, empresas associadas e credenciais do GOV.BR.\n- **Gerenciar e-CPF:** Use os botões para fazer upload de um novo e-CPF (o sistema valida o CPF e extrai a validade) ou baixar o arquivo existente.\n- **Notas:** Use o campo 'Outros Dados' para anotações importantes sobre o sócio.\n- **Excluir:** Remova o sócio do sistema, mas atenção, a ação é permanente.",
     }
   ],
   '/processos': [
@@ -157,8 +157,8 @@ export const tourSteps: Record<string, Step[]> = {
     {
         target: 'body',
         placement: 'center',
-        title: 'O que há nos Detalhes do Processo?',
-        content: 'Ao clicar para ver os detalhes de um processo, você pode: Editar todas as informações; Adicionar notas internas; Anexar e baixar arquivos importantes; e visualizar o histórico completo de alterações.',
+        title: 'Acompanhamento Detalhado do Processo',
+        content: "Na tela de detalhes, você gerencia o ciclo de vida do processo:\n- **Aba Detalhes:** Altere o status, a prioridade e as datas. Adicione observações importantes no campo 'Notas Internas'.\n- **Aba Anexos:** Faça upload de arquivos essenciais (documentos, protocolos, etc.), baixe ou exclua anexos existentes.\n- **Aba Histórico:** Veja um registro cronológico de todas as mudanças de status e quem as realizou, garantindo total rastreabilidade.",
     }
   ],
   '/obrigacoes': [
@@ -190,8 +190,8 @@ export const tourSteps: Record<string, Step[]> = {
      {
         target: 'body',
         placement: 'center',
-        title: 'O que há nos Detalhes da Obrigação?',
-        content: 'Ao clicar em uma obrigação, você pode editar todos os seus detalhes, como nome, categoria, datas e o responsável pela tarefa.',
+        title: 'Editando uma Obrigação',
+        content: "Ao clicar em uma obrigação, você pode:\n- **Ajustar Detalhes:** Modificar o nome, categoria, periodicidade e competência.\n- **Alterar Datas:** Mudar a data de vencimento.\n- **Mudar o Responsável:** Atribuir a tarefa para outro usuário do sistema.\n- **Atualizar Status:** Marcar como 'Entregue', 'Cancelada', etc.",
     }
   ],
   '/documentos': [
@@ -235,6 +235,12 @@ export const tourSteps: Record<string, Step[]> = {
         placement: 'top',
         title: 'Lista de Cobranças',
     },
+    {
+        target: 'body',
+        placement: 'center',
+        title: 'Gerenciando uma Cobrança',
+        content: "Dentro dos detalhes da fatura, você pode:\n- **Editar Informações:** Alterar a descrição e o valor da cobrança.\n- **Mudar Status:** O mais importante! Marque uma fatura como 'Paga' para que ela saia da pendência.\n- **Registrar Pagamento:** Ao marcar como 'Paga', você pode (e deve) registrar a data em que o pagamento foi efetuado para controle do fluxo de caixa.",
+    }
   ],
    '/usuarios': [
      {
@@ -243,6 +249,12 @@ export const tourSteps: Record<string, Step[]> = {
       placement: 'bottom',
       title: 'Gerenciamento de Usuários',
       disableBeacon: true,
+    },
+    {
+        target: 'body',
+        placement: 'center',
+        title: 'Configurando Permissões',
+        content: "Ao clicar em 'Gerenciar Permissões', você entra na tela de controle de acesso:\n- **Tabela de Módulos:** Cada linha representa um módulo do sistema.\n- **Permissões Granulares:** Marque as caixas para dar acesso de 'Ver', 'Criar', 'Editar' ou 'Excluir'. Desmarcar 'Ver' desabilita as outras.\n- **Atalhos Rápidos:** Use o botão 'Tornar Administrador' para dar acesso total, ou o menu 'Configurações' em cada linha para aplicar perfis pré-definidos (Admin, Usuário, Nenhum).",
     },
     {
       target: '#activity-log-card',
