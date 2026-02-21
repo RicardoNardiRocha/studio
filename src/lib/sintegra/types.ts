@@ -19,6 +19,7 @@ export interface SintegraJob {
   status: 'QUEUED' | 'PENDING' | 'DONE' | 'ERROR' | 'TIMEOUT';
   requestId?: string;
   data?: any;
+  rawData?: string;
   error?: string;
 }
 

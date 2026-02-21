@@ -104,7 +104,7 @@ export async function startSintegraJob(
  */
 export async function getSintegraStatus(
   requestId: string
-): Promise<{ status: 'PENDING' | 'DONE' | 'ERROR'; data: any | null; error: any | null }> {
+): Promise<{ status: 'PENDING' | 'DONE' | 'ERROR'; data: any | null; rawData?: string; error: any | null }> {
   try {
     const headers = await getSintegraHeaders();
     const response = await fetch(`${SINTEGRA_API_URL}/requests/${requestId}`, {
@@ -117,8 +117,8 @@ export async function getSintegraStatus(
        throw new Error(`API retornou status ${response.status}`);
     }
 
-    const rawData = await response.json();
-    const parsed = GetStatusResponseSchema.safeParse(rawData);
+    const rawApiData = await response.json();
+    const parsed = GetStatusResponseSchema.safeParse(rawApiData);
 
     if (!parsed.success) {
       console.error("Failed to parse Sintegra status response:", parsed.error);
@@ -127,10 +127,12 @@ export async function getSintegraStatus(
     
     // If the job is done and the data is a string, parse it into an object.
     if (parsed.data.status === 'DONE' && typeof parsed.data.data === 'string') {
-        const parsedTextData = parseSintegraText(parsed.data.data);
+        const rawText = parsed.data.data;
+        const parsedTextData = parseSintegraText(rawText);
         return {
             status: 'DONE',
             data: parsedTextData,
+            rawData: rawText,
             error: null,
         };
     }
@@ -139,6 +141,7 @@ export async function getSintegraStatus(
     return {
       status: parsed.data.status,
       data: parsed.data.data,
+      rawData: typeof parsed.data.data === 'string' ? parsed.data.data : JSON.stringify(parsed.data.data, null, 2),
       error: parsed.data.error,
     };
   } catch (error) {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -14,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search, CheckCircle2, XCircle, Clock, AlertTriangle, FileSearch } from 'lucide-react';
+import { Loader2, Search, CheckCircle2, XCircle, Clock, AlertTriangle, FileSearch, FileJson2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
@@ -25,6 +24,7 @@ import type { Company } from './company-details-dialog';
 import { useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const CONCURRENCY_LIMIT = 5;
 const POLLING_INTERVAL_MS = 2500;
@@ -139,11 +139,11 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
                     setDocumentNonBlocking(companyRef, updates, { merge: true });
                 }
 
-                setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'DONE', data: statusResult.data }}));
+                setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'DONE', data: statusResult.data, rawData: statusResult.rawData }}));
                 clearInterval(intervalId);
                 resolve();
               } else if (statusResult.status === 'ERROR') {
-                setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'ERROR', error: statusResult.error?.message || 'Erro desconhecido na API.' }}));
+                setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'ERROR', error: statusResult.error?.message || 'Erro desconhecido na API.', rawData: statusResult.rawData }}));
                 clearInterval(intervalId);
                 resolve();
               }
@@ -152,7 +152,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
               console.error(`Polling error for ${company.cnpj}:`, pollError);
               retries--;
               if (retries <= 0) {
-                setJobs(prev => ({ ...prev, [company.id]: {...prev[company.id], status: 'ERROR', error: 'Falha ao consultar o status.' }}));
+                setJobs(prev => ({ ...prev, [company.id]: {...prev[company.id], status: 'ERROR', error: 'Falha ao consultar o status.', rawData: `Polling failed after multiple retries.` }}));
                 clearInterval(intervalId);
                 resolve();
               }
@@ -164,7 +164,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
             setTimeout(() => {
                 setJobs(prev => {
                     if (prev[company.id]?.status === 'PENDING') {
-                        return {...prev, [company.id]: {...prev[company.id], status: 'TIMEOUT', error: 'A consulta excedeu o tempo limite.' }};
+                        return {...prev, [company.id]: {...prev[company.id], status: 'TIMEOUT', error: 'A consulta excedeu o tempo limite.', rawData: 'Timeout' }};
                     }
                     return prev;
                 });
@@ -339,17 +339,34 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
               <Card><CardContent className="p-2"><p className="text-lg font-bold text-destructive">{progressStats.error}</p><p className="text-xs text-muted-foreground">Falhas</p></CardContent></Card>
             </div>
             <ScrollArea className="flex-grow border rounded-md">
-                <div className="p-4 space-y-2">
-                    {Object.values(jobs).map(({ company, status, error }) => (
-                         <div key={company.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                             <div className="flex items-center space-x-3">
-                                <JobStatusIcon status={status} />
-                                <div>
-                                    <p className="font-medium">{company.name}</p>
-                                    <p className="text-xs text-muted-foreground">{error || `${status}...`}</p>
+                <div className="p-4 space-y-1">
+                    {Object.values(jobs).map(({ company, status, error, rawData }) => (
+                         <Collapsible key={company.id} asChild>
+                            <div className="p-2 rounded-md hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        <JobStatusIcon status={status} />
+                                        <div>
+                                            <p className="font-medium">{company.name}</p>
+                                            <p className="text-xs text-muted-foreground">{error || `${status}...`}</p>
+                                        </div>
+                                    </div>
+                                    {rawData && (
+                                        <CollapsibleTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                                <FileJson2 className="h-4 w-4" />
+                                                <span className="sr-only">Ver dados brutos</span>
+                                            </Button>
+                                        </CollapsibleTrigger>
+                                    )}
                                 </div>
-                             </div>
-                         </div>
+                                <CollapsibleContent>
+                                    <pre className="mt-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-xs overflow-x-auto">
+                                        <code>{rawData}</code>
+                                    </pre>
+                                </CollapsibleContent>
+                            </div>
+                        </Collapsible>
                     ))}
                 </div>
             </ScrollArea>
