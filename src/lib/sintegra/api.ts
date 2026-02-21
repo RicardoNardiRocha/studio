@@ -125,25 +125,38 @@ export async function getSintegraStatus(
       throw new Error('Resposta de status inesperada da API.');
     }
     
-    // If the job is done and the data is a string, parse it into an object.
-    if (parsed.data.status === 'DONE' && typeof parsed.data.data === 'string') {
-        const rawText = parsed.data.data;
-        const parsedTextData = parseSintegraText(rawText);
+    if (parsed.data.status === 'DONE') {
+      const responseData = parsed.data.data;
+      const rawDataForDebug = JSON.stringify(responseData, null, 2);
+
+      // Check if the response is an object with the 'normalizedText' field
+      if (responseData && typeof responseData === 'object' && 'normalizedText' in responseData && typeof responseData.normalizedText === 'string') {
+        const parsedTextData = parseSintegraText(responseData.normalizedText);
         return {
-            status: 'DONE',
-            data: parsedTextData,
-            rawData: rawText,
-            error: null,
+          status: 'DONE',
+          data: parsedTextData,
+          rawData: rawDataForDebug,
+          error: null,
         };
+      }
+      
+      // Fallback for an unexpected 'DONE' structure (e.g., if it's already a parsed object)
+      return {
+        status: 'DONE',
+        data: responseData,
+        rawData: rawDataForDebug,
+        error: null,
+      };
     }
 
-    // For PENDING, ERROR, or already-object data, return as is.
+    // For PENDING or ERROR statuses
     return {
       status: parsed.data.status,
       data: parsed.data.data,
-      rawData: typeof parsed.data.data === 'string' ? parsed.data.data : JSON.stringify(parsed.data.data, null, 2),
+      rawData: JSON.stringify(parsed.data.data, null, 2),
       error: parsed.data.error,
     };
+
   } catch (error) {
      console.error(`Falha ao obter status para o request ID ${requestId}:`, error);
      if (error instanceof Error) {
