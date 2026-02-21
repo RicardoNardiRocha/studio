@@ -22,6 +22,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { getSintegraStatus, startSintegraJob } from '@/lib/sintegra/api';
 import type { CompanyForSintegra, SintegraJob } from '@/lib/sintegra/types';
 import type { Company } from './company-details-dialog';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const CONCURRENCY_LIMIT = 5;
 const POLLING_INTERVAL_MS = 2500;
@@ -44,6 +47,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
   const [selectedCompanies, setSelectedCompanies] = useState<Record<string, boolean>>({});
   const [jobs, setJobs] = useState<Record<string, SintegraJob>>({});
   const { toast } = useToast();
+  const firestore = useFirestore();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const companiesForSintegra = useMemo((): CompanyForSintegra[] => {
@@ -116,6 +120,25 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
             try {
               const statusResult = await getSintegraStatus(requestId);
               if (statusResult.status === 'DONE') {
+                 const sintegraData = statusResult.data;
+
+                if (firestore && sintegraData) {
+                    const companyRef = doc(firestore, 'companies', company.id);
+                    const updates: any = {
+                        sintegraIE: sintegraData['IE'],
+                        sintegraDataSituacaoCadastral: sintegraData['Data da Situação Cadastral'],
+                        sintegraSituacaoCadastral: sintegraData['Situação Cadastral'],
+                        sintegraOcorrenciaFiscal: sintegraData['Ocorrência Fiscal'],
+                        sintegraPostoFiscal: sintegraData['Posto Fiscal'],
+                    };
+            
+                    if (updates.sintegraSituacaoCadastral !== 'Ativo' && updates.sintegraOcorrenciaFiscal !== 'Ativa') {
+                        updates.status = 'Inapta';
+                    }
+                    
+                    setDocumentNonBlocking(companyRef, updates, { merge: true });
+                }
+
                 setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'DONE', data: statusResult.data }}));
                 clearInterval(intervalId);
                 resolve();
@@ -173,7 +196,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
     };
     
     processQueue();
-  }, []);
+  }, [firestore]);
   
   useEffect(() => {
     const jobValues = Object.values(jobs);

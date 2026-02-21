@@ -81,6 +81,11 @@ export interface Company {
     internalEmail?: string;
     internalPhone?: string;
     whatsappGroup?: string;
+    sintegraIE?: string;
+    sintegraDataSituacaoCadastral?: string;
+    sintegraSituacaoCadastral?: string;
+    sintegraOcorrenciaFiscal?: string;
+    sintegraPostoFiscal?: string;
 }
 
 interface CompanyDetailsDialogProps {
@@ -513,6 +518,24 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                           </Table>
                       </div>
                     </div>
+
+                    <Separator />
+
+                    <div id="company-details-sintegra">
+                        <h3 className="font-semibold font-headline mb-2">Informações Sintegra</h3>
+                        {company.sintegraIE ? (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                                <div><Label className='text-muted-foreground'>Inscrição Estadual (IE)</Label><p className="font-medium">{company.sintegraIE}</p></div>
+                                <div><Label className='text-muted-foreground'>Situação Cadastral</Label><p className="font-medium">{company.sintegraSituacaoCadastral}</p></div>
+                                <div><Label className='text-muted-foreground'>Data da Situação</Label><p className="font-medium">{company.sintegraDataSituacaoCadastral}</p></div>
+                                <div className='col-span-2'><Label className='text-muted-foreground'>Ocorrência Fiscal</Label><p className="font-medium">{company.sintegraOcorrenciaFiscal}</p></div>
+                                <div><Label className='text-muted-foreground'>Posto Fiscal</Label><p className="font-medium">{company.sintegraPostoFiscal}</p></div>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">Nenhuma informação do Sintegra encontrada. Realize a consulta no módulo de Empresas.</p>
+                        )}
+                    </div>
+
                 </TabsContent>
                 <TabsContent value="documents">
                     <CompanyDocumentsTab company={company} />
