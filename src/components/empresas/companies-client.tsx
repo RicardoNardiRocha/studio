@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -28,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
@@ -38,6 +36,7 @@ import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
 import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { BulkSyncDialog } from './bulk-sync-dialog';
+import { SintegraConsultDialog } from './sintegra-consult-dialog';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -135,6 +134,7 @@ export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
   const [isBulkSyncDialogOpen, setIsBulkSyncDialogOpen] = useState(false);
+  const [isSintegraDialogOpen, setIsSintegraDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -225,6 +225,11 @@ export function CompaniesClient() {
         onSyncCompleted={handleAction}
         companies={companies || []}
       />
+      <SintegraConsultDialog
+        open={isSintegraDialogOpen}
+        onOpenChange={setIsSintegraDialogOpen}
+        companies={companies || []}
+      />
       {selectedCompany && (
          <CompanyDetailsDialog
           key={selectedCompany.id}
@@ -273,6 +278,10 @@ export function CompaniesClient() {
           </div>
           {profile?.permissions.empresas.create && (
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+               <Button id="sintegra-consult-button" variant="outline" onClick={() => setIsSintegraDialogOpen(true)} disabled={!companies || companies.length === 0}>
+                <FileSearch className="mr-2 h-4 w-4" />
+                Consultar Sintegra
+              </Button>
               <Button id="sync-all-button" variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Sincronizar Todas
