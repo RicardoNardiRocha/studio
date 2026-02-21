@@ -125,11 +125,11 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
                 if (firestore && sintegraData) {
                     const companyRef = doc(firestore, 'companies', company.id);
                     const updates: any = {
-                        sintegraIE: sintegraData['IE'],
-                        sintegraDataSituacaoCadastral: sintegraData['Data da Situação Cadastral'],
-                        sintegraSituacaoCadastral: sintegraData['Situação Cadastral'],
-                        sintegraOcorrenciaFiscal: sintegraData['Ocorrência Fiscal'],
-                        sintegraPostoFiscal: sintegraData['Posto Fiscal'],
+                        sintegraIE: sintegraData['IE'] ?? null,
+                        sintegraDataSituacaoCadastral: sintegraData['Data da Situação Cadastral'] ?? null,
+                        sintegraSituacaoCadastral: sintegraData['Situação Cadastral'] ?? null,
+                        sintegraOcorrenciaFiscal: sintegraData['Ocorrência Fiscal'] ?? null,
+                        sintegraPostoFiscal: sintegraData['Posto Fiscal'] ?? null,
                     };
             
                     if (updates.sintegraSituacaoCadastral !== 'Ativo' && updates.sintegraOcorrenciaFiscal !== 'Ativa') {
