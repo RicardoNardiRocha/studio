@@ -34,6 +34,29 @@ async function getSintegraHeaders() {
 }
 
 /**
+ * Helper function to parse the plain text response from the Sintegra API.
+ * @param text The raw text block returned by the API.
+ * @returns A structured object with the parsed key-value pairs.
+ */
+function parseSintegraText(text: string): Record<string, string> {
+  const data: Record<string, string> = {};
+  // Normalize the text by removing section headers and replacing tabs with newlines
+  const cleanedText = text.replace(/===.*?===/g, '').replace(/\t/g, '\n').trim();
+  const lines = cleanedText.split('\n').filter(line => line.trim() !== '');
+
+  for (const line of lines) {
+    const parts = line.split(':');
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      const value = parts.slice(1).join(':').trim();
+      data[key] = value;
+    }
+  }
+  return data;
+}
+
+
+/**
  * Starts a new Sintegra consultation job by sending a POST request.
  * @param cnpj The company's CNPJ.
  * @param uf The company's state (UF).
@@ -94,12 +117,25 @@ export async function getSintegraStatus(
        throw new Error(`API retornou status ${response.status}`);
     }
 
-    const data = await response.json();
-    const parsed = GetStatusResponseSchema.safeParse(data);
+    const rawData = await response.json();
+    const parsed = GetStatusResponseSchema.safeParse(rawData);
+
     if (!parsed.success) {
+      console.error("Failed to parse Sintegra status response:", parsed.error);
       throw new Error('Resposta de status inesperada da API.');
     }
+    
+    // If the job is done and the data is a string, parse it into an object.
+    if (parsed.data.status === 'DONE' && typeof parsed.data.data === 'string') {
+        const parsedTextData = parseSintegraText(parsed.data.data);
+        return {
+            status: 'DONE',
+            data: parsedTextData,
+            error: null,
+        };
+    }
 
+    // For PENDING, ERROR, or already-object data, return as is.
     return {
       status: parsed.data.status,
       data: parsed.data.data,
