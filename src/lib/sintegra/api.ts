@@ -1,8 +1,9 @@
 'use server';
 
 import { z } from 'zod';
+import type { SintegraApiPayload } from './types';
 
-// Zod schemas for validating API responses, ensuring type safety.
+
 const CreateJobResponseSchema = z.object({
   status: z.string(),
   requestId: z.string(),
@@ -17,11 +18,7 @@ const GetStatusResponseSchema = z.object({
 
 const SINTEGRA_API_URL = 'https://controle-bots.vercel.app/api/sintegra';
 
-/**
- * Retrieves the necessary headers for making requests to the Sintegra API,
- * including the API key from environment variables.
- * @throws {Error} If the SINTEGRA_API_KEY is not configured.
- */
+
 async function getSintegraHeaders() {
   const apiKey = process.env.SINTEGRA_API_KEY;
   if (!apiKey) {
@@ -33,36 +30,6 @@ async function getSintegraHeaders() {
   };
 }
 
-/**
- * Helper function to parse the plain text response from the Sintegra API.
- * @param text The raw text block returned by the API.
- * @returns A structured object with the parsed key-value pairs.
- */
-function parseSintegraText(text: string): Record<string, string> {
-  const data: Record<string, string> = {};
-  // Normalize the text by removing section headers and replacing tabs with newlines
-  const cleanedText = text.replace(/===.*?===/g, '').replace(/\t/g, '\n').trim();
-  const lines = cleanedText.split('\n').filter(line => line.trim() !== '');
-
-  for (const line of lines) {
-    const parts = line.split(':');
-    if (parts.length >= 2) {
-      const key = parts[0].trim();
-      const value = parts.slice(1).join(':').trim();
-      data[key] = value;
-    }
-  }
-  return data;
-}
-
-
-/**
- * Starts a new Sintegra consultation job by sending a POST request.
- * @param cnpj The company's CNPJ.
- * @param uf The company's state (UF).
- * @returns A promise that resolves to an object containing the requestId.
- * @throws {Error} If the API call fails or returns an unexpected response.
- */
 export async function startSintegraJob(
   cnpj: string,
   uf: string
@@ -96,21 +63,15 @@ export async function startSintegraJob(
   }
 }
 
-/**
- * Fetches the current status of a Sintegra consultation job.
- * @param requestId The ID of the job to check.
- * @returns A promise that resolves to the job's status, data, and error information.
- * @throws {Error} If the API call fails or returns an unexpected response.
- */
 export async function getSintegraStatus(
   requestId: string
-): Promise<{ status: 'PENDING' | 'DONE' | 'ERROR'; data: any | null; rawData?: string; error: any | null }> {
+): Promise<{ status: 'PENDING' | 'DONE' | 'ERROR'; payload: SintegraApiPayload | null; error: string | null }> {
   try {
     const headers = await getSintegraHeaders();
     const response = await fetch(`${SINTEGRA_API_URL}/requests/${requestId}`, {
       method: 'GET',
       headers,
-      cache: 'no-store', // Ensure we always get the latest status
+      cache: 'no-store',
     });
     
     if (!response.ok) {
@@ -119,42 +80,16 @@ export async function getSintegraStatus(
 
     const rawApiData = await response.json();
     const parsed = GetStatusResponseSchema.safeParse(rawApiData);
-
+    
     if (!parsed.success) {
       console.error("Failed to parse Sintegra status response:", parsed.error);
       throw new Error('Resposta de status inesperada da API.');
     }
     
-    if (parsed.data.status === 'DONE') {
-      const responseData = parsed.data.data;
-      const rawDataForDebug = JSON.stringify(responseData, null, 2);
-
-      // Check if the response is an object with the 'normalizedText' field
-      if (responseData && typeof responseData === 'object' && 'normalizedText' in responseData && typeof responseData.normalizedText === 'string') {
-        const parsedTextData = parseSintegraText(responseData.normalizedText);
-        return {
-          status: 'DONE',
-          data: parsedTextData,
-          rawData: rawDataForDebug,
-          error: null,
-        };
-      }
-      
-      // Fallback for an unexpected 'DONE' structure (e.g., if it's already a parsed object)
-      return {
-        status: 'DONE',
-        data: responseData,
-        rawData: rawDataForDebug,
-        error: null,
-      };
-    }
-
-    // For PENDING or ERROR statuses
     return {
       status: parsed.data.status,
-      data: parsed.data.data,
-      rawData: JSON.stringify(parsed.data.data, null, 2),
-      error: parsed.data.error,
+      payload: parsed.data.data,
+      error: parsed.data.error ? JSON.stringify(parsed.data.error) : null,
     };
 
   } catch (error) {

@@ -41,8 +41,8 @@ import { CertificateUploadDialog } from './certificate-upload-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompanyDocumentsTab } from './company-documents-tab';
 import { logActivity } from '@/lib/activity-log';
+import type { SintegraResult } from '@/lib/sintegra/types';
 
-// Interface para os dados brutos da API
 interface RawPartnerFromApi {
   nome_socio: string;
   qualificacao_socio: string;
@@ -51,11 +51,10 @@ interface RawPartnerFromApi {
   percentual_capital_social?: number;
 }
 
-// Interface para os dados normalizados que usaremos no app
 interface NormalizedPartner {
     name: string;
     qualification: string;
-    entryDate: string; // Formato dd/MM/yyyy
+    entryDate: string;
     cpfCnpj: string;
     sharePercent: number | null;
 }
@@ -75,17 +74,13 @@ export interface Company {
     capital?: number;
     legalNature?: string;
     porte?: string;
-    qsa?: RawPartnerFromApi[]; // Usamos a interface de dados brutos aqui
+    qsa?: RawPartnerFromApi[];
     certificateA1Validity?: string;
     certificateA1Url?: string;
     internalEmail?: string;
     internalPhone?: string;
     whatsappGroup?: string;
-    sintegraIE?: string;
-    sintegraDataSituacaoCadastral?: string;
-    sintegraSituacaoCadastral?: string;
-    sintegraOcorrenciaFiscal?: string;
-    sintegraPostoFiscal?: string;
+    sintegra?: SintegraResult;
 }
 
 interface CompanyDetailsDialogProps {
@@ -113,7 +108,6 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
     }
 }
 
-// Função para normalizar os dados do QSA
 const normalizeQsaData = (qsa: RawPartnerFromApi[] | undefined): NormalizedPartner[] => {
     if (!qsa) {
         return [];
@@ -125,9 +119,7 @@ const normalizeQsaData = (qsa: RawPartnerFromApi[] | undefined): NormalizedPartn
             try {
                 const [year, month, day] = socio.data_entrada_sociedade.split('-');
                 entryDateFormatted = `${day}/${month}/${year}`;
-            } catch (e) {
-                // Mantém N/A se a data for inválida
-            }
+            } catch (e) {}
         }
 
         return {
@@ -149,7 +141,6 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const { user, profile } = useUser();
   const { toast } = useToast();
 
-  // Hook para ouvir em tempo real as atualizações do certificado
   const certificateRef = useMemoFirebase(() => 
     firestore ? doc(firestore, `companies/${company.id}/certificates/A1`) : null,
     [firestore, company.id]
@@ -230,7 +221,6 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
         const companyRef = doc(firestore, 'companies', company.id);
         setDocumentNonBlocking(companyRef, updates, { merge: true });
 
-        // Verifica se houve desenquadramento do Simples Nacional
         if (company.taxRegime === 'Simples Nacional' && newTaxRegime !== 'Simples Nacional') {
              toast({
                 id: toastId,
@@ -521,16 +511,21 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
 
                     <Separator />
 
-                    <div id="company-details-sintegra">
+                     <div id="company-details-sintegra">
                         <h3 className="font-semibold font-headline mb-2">Informações Sintegra</h3>
-                        {company.sintegraIE ? (
+                        {company.sintegra && company.sintegra.status === 'DONE' && company.sintegra.data ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                                <div><Label className='text-muted-foreground'>Inscrição Estadual (IE)</Label><p className="font-medium">{company.sintegraIE}</p></div>
-                                <div><Label className='text-muted-foreground'>Situação Cadastral</Label><p className="font-medium">{company.sintegraSituacaoCadastral}</p></div>
-                                <div><Label className='text-muted-foreground'>Data da Situação</Label><p className="font-medium">{company.sintegraDataSituacaoCadastral}</p></div>
-                                <div className='col-span-2'><Label className='text-muted-foreground'>Ocorrência Fiscal</Label><p className="font-medium">{company.sintegraOcorrenciaFiscal}</p></div>
-                                <div><Label className='text-muted-foreground'>Posto Fiscal</Label><p className="font-medium">{company.sintegraPostoFiscal}</p></div>
+                                <div><Label className='text-muted-foreground'>Inscrição Estadual (IE)</Label><p className="font-medium">{company.sintegra.data.ie || 'N/A'}</p></div>
+                                <div><Label className='text-muted-foreground'>Situação Cadastral</Label><p className="font-medium">{company.sintegra.data.situacaoCadastral || 'N/A'}</p></div>
+                                <div><Label className='text-muted-foreground'>Data da Situação</Label><p className="font-medium">{company.sintegra.data.dataSituacaoCadastral || 'N/A'}</p></div>
+                                <div className='col-span-1'><Label className='text-muted-foreground'>Ocorrência Fiscal</Label><p className="font-medium">{company.sintegra.data.ocorrenciaFiscal || 'N/A'}</p></div>
+                                <div className='col-span-1'><Label className='text-muted-foreground'>Regime Apuração</Label><p className="font-medium">{company.sintegra.data.regimeApuracao || 'N/A'}</p></div>
+                                <div><Label className='text-muted-foreground'>Posto Fiscal</Label><p className="font-medium">{company.sintegra.data.postoFiscal || 'N/A'}</p></div>
                             </div>
+                        ) : company.sintegra && company.sintegra.status === 'PENDING' ? (
+                            <p className="text-sm text-muted-foreground">Consulta Sintegra em andamento...</p>
+                        ) : company.sintegra && (company.sintegra.status === 'ERROR' || company.sintegra.status === 'TIMEOUT') ? (
+                             <p className="text-sm text-destructive">Falha na consulta do Sintegra: {company.sintegra.error}</p>
                         ) : (
                             <p className="text-sm text-muted-foreground">Nenhuma informação do Sintegra encontrada. Realize a consulta no módulo de Empresas.</p>
                         )}

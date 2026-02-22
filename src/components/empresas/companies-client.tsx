@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
@@ -37,6 +37,7 @@ import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { BulkSyncDialog } from './bulk-sync-dialog';
 import { SintegraConsultDialog } from './sintegra-consult-dialog';
+import type { SintegraResult } from '@/lib/sintegra/types';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -190,6 +191,19 @@ export function CompaniesClient() {
     setIsBulkAddDialogOpen(false);
     setIsBulkSyncDialogOpen(false);
   };
+  
+  const handleSintegraConsultationComplete = (companyId: string, result: SintegraResult) => {
+    if (!firestore) return;
+    const companyRef = doc(firestore, 'companies', companyId);
+    setDoc(companyRef, { sintegra: result }, { merge: true });
+
+    // Auto-update company status if Sintegra result needs attention
+    if (result.status === 'DONE' && result.data?.needsAttention) {
+        setDoc(companyRef, { status: 'Inapta' }, { merge: true });
+    }
+
+    forceRefetch();
+  };
 
   const handleOpenDetails = (company: Company) => {
     setSelectedCompany(company);
@@ -197,13 +211,12 @@ export function CompaniesClient() {
   };
 
   const handleAlertClick = () => {
-    // Ativa o filtro de alertas e limpa outros filtros que possam conflitar
     setShowAlertsOnly(true);
-    setCertificateStatusFilter('Todos'); // Garante que não haja conflito
+    setCertificateStatusFilter('Todos');
   };
 
   const clearAlertFilter = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Impede que o clique no botão propague para o alerta
+    e.stopPropagation();
     setShowAlertsOnly(false);
   };
 
@@ -229,6 +242,7 @@ export function CompaniesClient() {
         open={isSintegraDialogOpen}
         onOpenChange={setIsSintegraDialogOpen}
         companies={companies || []}
+        onConsultationComplete={handleSintegraConsultationComplete}
       />
       {selectedCompany && (
          <CompanyDetailsDialog

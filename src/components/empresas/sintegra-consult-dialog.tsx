@@ -13,27 +13,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search, CheckCircle2, XCircle, Clock, AlertTriangle, FileSearch, FileJson2 } from 'lucide-react';
+import { Loader2, Search, CheckCircle2, XCircle, Clock, FileSearch } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSintegraStatus, startSintegraJob } from '@/lib/sintegra/api';
-import type { CompanyForSintegra, SintegraJob } from '@/lib/sintegra/types';
+import type { CompanyForSintegra, SintegraJob, SintegraResult, SintegraApiPayload } from '@/lib/sintegra/types';
 import type { Company } from './company-details-dialog';
-import { useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 
 const CONCURRENCY_LIMIT = 5;
-const POLLING_INTERVAL_MS = 2500;
-const JOB_TIMEOUT_MS = 180000; // 3 minutes
+const POLLING_INTERVAL_MS = 3000;
+const MAX_ATTEMPTS = 30; // 30 attempts * 3s interval = 90s timeout
 
 interface SintegraConsultDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companies: Company[];
+  onConsultationComplete: (companyId: string, result: SintegraResult) => void;
 }
 
 const getUfFromAddress = (address: string = ''): string => {
@@ -41,14 +39,14 @@ const getUfFromAddress = (address: string = ''): string => {
   return match ? match[1] : '';
 };
 
-export function SintegraConsultDialog({ open, onOpenChange, companies }: SintegraConsultDialogProps) {
+export function SintegraConsultDialog({ open, onOpenChange, companies, onConsultationComplete }: SintegraConsultDialogProps) {
   const [step, setStep] = useState<'select' | 'progress' | 'complete'>('select');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompanies, setSelectedCompanies] = useState<Record<string, boolean>>({});
   const [jobs, setJobs] = useState<Record<string, SintegraJob>>({});
   const { toast } = useToast();
-  const firestore = useFirestore();
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const activePolls = useRef(new Set<string>());
+
 
   const companiesForSintegra = useMemo((): CompanyForSintegra[] => {
     return companies
@@ -58,7 +56,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
         cnpj: c.cnpj.replace(/\D/g, ''),
         uf: getUfFromAddress(c.address),
       }))
-      .filter(c => c.uf); // Only include companies where we could parse the UF
+      .filter(c => c.uf);
   }, [companies]);
 
   const filteredCompanies = useMemo(() => {
@@ -79,6 +77,65 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
     setSelectedCompanies(prev => ({ ...prev, ...newSelection }));
   };
 
+  const processJob = useCallback(async (company: CompanyForSintegra) => {
+    setJobs(prev => ({ ...prev, [company.id]: { company, status: 'PENDING' } }));
+    
+    try {
+        const { requestId } = await startSintegraJob(company.cnpj, company.uf);
+        setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'PENDING', requestId } }));
+
+        let attempts = 0;
+        const intervalId = setInterval(async () => {
+            if (!activePolls.current.has(requestId)) {
+                clearInterval(intervalId);
+                return;
+            }
+
+            attempts++;
+            if (attempts > MAX_ATTEMPTS) {
+                clearInterval(intervalId);
+                activePolls.current.delete(requestId);
+                const result: SintegraResult = { status: 'TIMEOUT', requestId, data: null, updatedAt: new Date(), error: 'Tempo de consulta excedido.' };
+                setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'TIMEOUT', error: result.error, result } }));
+                onConsultationComplete(company.id, result);
+                return;
+            }
+
+            try {
+                const { status, payload, error } = await getSintegraStatus(requestId);
+                if (status === 'DONE') {
+                    clearInterval(intervalId);
+                    activePolls.current.delete(requestId);
+                    const normalizedData = normalizeAndSanitizeSintegraPayload(payload || {});
+                    const result: SintegraResult = { status: 'DONE', requestId, data: normalizedData, updatedAt: new Date(), raw: payload };
+                    setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'DONE', result } }));
+                    onConsultationComplete(company.id, result);
+                } else if (status === 'ERROR') {
+                    clearInterval(intervalId);
+                    activePolls.current.delete(requestId);
+                    const result: SintegraResult = { status: 'ERROR', requestId, data: null, updatedAt: new Date(), error: error || 'Erro desconhecido na API.' };
+                    setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
+                    onConsultationComplete(company.id, result);
+                }
+                // If PENDING, do nothing and let it poll again.
+            } catch (pollError: any) {
+                clearInterval(intervalId);
+                activePolls.current.delete(requestId);
+                const result: SintegraResult = { status: 'ERROR', requestId, data: null, updatedAt: new Date(), error: pollError.message || 'Falha ao consultar status.' };
+                setJobs(prev => ({...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
+                onConsultationComplete(company.id, result);
+            }
+        }, POLLING_INTERVAL_MS);
+        activePolls.current.add(requestId);
+
+    } catch (startError: any) {
+        const result: SintegraResult = { status: 'ERROR', requestId: 'N/A', data: null, updatedAt: new Date(), error: startError.message || 'Falha ao iniciar a consulta.' };
+        setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
+        onConsultationComplete(company.id, result);
+    }
+  }, [onConsultationComplete]);
+
+
   const startConsultations = useCallback((companiesToRun: CompanyForSintegra[]) => {
     if (companiesToRun.length === 0) {
       setStep('complete');
@@ -86,9 +143,6 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
     }
     
     setStep('progress');
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-    
     const initialJobs = companiesToRun.reduce((acc, company) => {
       acc[company.id] = { company, status: 'QUEUED' };
       return acc;
@@ -98,105 +152,20 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
     const queue = [...companiesToRun];
     let running = 0;
 
-    const processJob = async (company: CompanyForSintegra) => {
-      if (signal.aborted) return;
-      
-      // --- Start Job ---
-      try {
-        const { requestId } = await startSintegraJob(company.cnpj, company.uf);
-        setJobs(prev => ({
-          ...prev,
-          [company.id]: { ...prev[company.id], status: 'PENDING', requestId },
-        }));
-
-        // --- Poll for Status ---
-        const pollPromise = new Promise<void>(async (resolve) => {
-          let retries = 2;
-          const intervalId = setInterval(async () => {
-            if (signal.aborted) {
-              clearInterval(intervalId);
-              return resolve();
-            }
-            try {
-              const statusResult = await getSintegraStatus(requestId);
-              if (statusResult.status === 'DONE') {
-                 const sintegraData = statusResult.data;
-
-                if (firestore && sintegraData) {
-                    const companyRef = doc(firestore, 'companies', company.id);
-                    const updates: any = {
-                        sintegraIE: sintegraData['IE'] ?? null,
-                        sintegraDataSituacaoCadastral: sintegraData['Data da Situação Cadastral'] ?? null,
-                        sintegraSituacaoCadastral: sintegraData['Situação Cadastral'] ?? null,
-                        sintegraOcorrenciaFiscal: sintegraData['Ocorrência Fiscal'] ?? null,
-                        sintegraPostoFiscal: sintegraData['Posto Fiscal'] ?? null,
-                    };
-            
-                    if (updates.sintegraSituacaoCadastral !== 'Ativo' && updates.sintegraOcorrenciaFiscal !== 'Ativa') {
-                        updates.status = 'Inapta';
-                    }
-                    
-                    setDocumentNonBlocking(companyRef, updates, { merge: true });
-                }
-
-                setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'DONE', data: statusResult.data, rawData: statusResult.rawData }}));
-                clearInterval(intervalId);
-                resolve();
-              } else if (statusResult.status === 'ERROR') {
-                setJobs(prev => ({...prev, [company.id]: {...prev[company.id], status: 'ERROR', error: statusResult.error?.message || 'Erro desconhecido na API.', rawData: statusResult.rawData }}));
-                clearInterval(intervalId);
-                resolve();
-              }
-              // If PENDING, just continue polling
-            } catch (pollError) {
-              console.error(`Polling error for ${company.cnpj}:`, pollError);
-              retries--;
-              if (retries <= 0) {
-                setJobs(prev => ({ ...prev, [company.id]: {...prev[company.id], status: 'ERROR', error: 'Falha ao consultar o status.', rawData: `Polling failed after multiple retries.` }}));
-                clearInterval(intervalId);
-                resolve();
-              }
-            }
-          }, POLLING_INTERVAL_MS);
-        });
-
-        const timeoutPromise = new Promise<void>((resolve) => {
-            setTimeout(() => {
-                setJobs(prev => {
-                    if (prev[company.id]?.status === 'PENDING') {
-                        return {...prev, [company.id]: {...prev[company.id], status: 'TIMEOUT', error: 'A consulta excedeu o tempo limite.', rawData: 'Timeout' }};
-                    }
-                    return prev;
-                });
-                resolve();
-            }, JOB_TIMEOUT_MS);
-        });
-
-        await Promise.race([pollPromise, timeoutPromise]);
-
-      } catch (startError: any) {
-        setJobs(prev => ({
-          ...prev,
-          [company.id]: { ...prev[company.id], status: 'ERROR', error: startError.message || 'Falha ao iniciar a consulta.' },
-        }));
-      } finally {
-        running--;
-        processQueue();
-      }
-    };
-
     const processQueue = () => {
       while (running < CONCURRENCY_LIMIT && queue.length > 0) {
         const companyToProcess = queue.shift();
         if (companyToProcess) {
           running++;
-          processJob(companyToProcess);
+          processJob(companyToProcess).finally(() => {
+            running--;
+            processQueue();
+          });
         }
       }
     };
-    
     processQueue();
-  }, [firestore]);
+  }, [processJob]);
   
   useEffect(() => {
     const jobValues = Object.values(jobs);
@@ -230,11 +199,8 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
   };
   
   const handleClose = () => {
-     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    activePolls.current.forEach(id => activePolls.current.delete(id));
     onOpenChange(false);
-    // Reset state after a short delay to allow dialog to close smoothly
     setTimeout(() => {
         setStep('select');
         setSelectedCompanies({});
@@ -340,33 +306,16 @@ export function SintegraConsultDialog({ open, onOpenChange, companies }: Sintegr
             </div>
             <ScrollArea className="flex-grow border rounded-md">
                 <div className="p-4 space-y-1">
-                    {Object.values(jobs).map(({ company, status, error, rawData }) => (
-                         <Collapsible key={company.id} asChild>
-                            <div className="p-2 rounded-md hover:bg-muted/50 transition-colors">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <JobStatusIcon status={status} />
-                                        <div>
-                                            <p className="font-medium">{company.name}</p>
-                                            <p className="text-xs text-muted-foreground">{error || `${status}...`}</p>
-                                        </div>
-                                    </div>
-                                    {rawData && (
-                                        <CollapsibleTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <FileJson2 className="h-4 w-4" />
-                                                <span className="sr-only">Ver dados brutos</span>
-                                            </Button>
-                                        </CollapsibleTrigger>
-                                    )}
+                    {Object.values(jobs).map(({ company, status, error }) => (
+                        <div key={company.id} className="p-2 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <JobStatusIcon status={status} />
+                                <div>
+                                    <p className="font-medium">{company.name}</p>
+                                    <p className="text-xs text-muted-foreground">{error || `${status}...`}</p>
                                 </div>
-                                <CollapsibleContent>
-                                    <pre className="mt-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-xs overflow-x-auto">
-                                        <code>{rawData}</code>
-                                    </pre>
-                                </CollapsibleContent>
                             </div>
-                        </Collapsible>
+                        </div>
                     ))}
                 </div>
             </ScrollArea>
