@@ -93,7 +93,6 @@ export function BulkSyncDialog({ open, onOpenChange, onSyncCompleted, companies 
             }
 
             const updates: Partial<Company> = {
-                status: data.descricao_situacao_cadastral,
                 taxRegime: newTaxRegime,
                 address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/,  -/g,', '),
             };

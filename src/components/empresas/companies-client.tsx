@@ -38,14 +38,13 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { BulkSyncDialog } from './bulk-sync-dialog';
 import { SintegraConsultDialog } from './sintegra-consult-dialog';
 import type { SintegraResult } from '@/lib/sintegra/types';
+import { getSintegraAptStatus } from '@/lib/sintegra/status';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
   switch (status.toLowerCase()) {
-    case 'ativa': return 'default';
     case 'apto': return 'default';
-    case 'inapta': return 'destructive';
-    case 'baixada': return 'outline';
+    case 'inapto': return 'destructive';
     default: return 'secondary';
   }
 };
@@ -81,7 +80,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo', 'Vencido', 'Não informado'];
-const companyStatuses = ['Todos', 'ATIVA', 'INAPTA', 'BAIXADA'];
+const companyStatuses = ['Todos', 'Apto', 'Inapto'];
 
 const cnpjMask = (value: string) => {
     if (!value) return '';
@@ -104,6 +103,7 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
 
     const displayValidity = certificateData?.validity || company.certificateA1Validity;
     const certStatus = getCertificateStatusInfo(displayValidity);
+    const sintegraStatus = getSintegraAptStatus(company.sintegra);
 
     return (
         <TableRow key={company.id}>
@@ -111,7 +111,7 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
             <TableCell>{cnpjMask(company.cnpj)}</TableCell>
             <TableCell>{company.taxRegime}</TableCell>
             <TableCell>
-                <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
+                <Badge variant={getStatusVariant(sintegraStatus)}>{sintegraStatus}</Badge>
             </TableCell>
             <TableCell className="space-y-1">
                 <Badge variant={certStatus.variant} className="gap-1.5 whitespace-nowrap">
@@ -179,7 +179,10 @@ export function CompaniesClient() {
       const nameMatch = company.name.toLowerCase().includes(searchTerm.toLowerCase());
       const taxRegimeMatch = taxRegimeFilter === 'Todos' || company.taxRegime === taxRegimeFilter;
       const certStatusMatch = certificateStatusFilter === 'Todos' || getCertificateStatusInfo(company.certificateA1Validity).status === certificateStatusFilter;
-      const statusMatch = statusFilter === 'Todos' || company.status.toUpperCase() === statusFilter;
+      
+      const sintegraStatus = getSintegraAptStatus(company.sintegra);
+      const statusMatch = statusFilter === 'Todos' || sintegraStatus === statusFilter;
+      
       return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
     });
   }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter, showAlertsOnly, expiringCertificates]);
@@ -195,13 +198,11 @@ export function CompaniesClient() {
   const handleSintegraConsultationComplete = (companyId: string, result: SintegraResult) => {
     if (!firestore) return;
     const companyRef = doc(firestore, 'companies', companyId);
-    setDoc(companyRef, { sintegra: result }, { merge: true });
+    
+    // Determine the final status based on the result.
+    const sintegraStatus = getSintegraAptStatus(result);
 
-    // Auto-update company status if Sintegra result needs attention
-    if (result.status === 'DONE' && result.data?.needsAttention) {
-        setDoc(companyRef, { status: 'Inapta' }, { merge: true });
-    }
-
+    setDoc(companyRef, { sintegra: result, status: sintegraStatus }, { merge: true });
     forceRefetch();
   };
 
@@ -353,7 +354,7 @@ export function CompaniesClient() {
                     </SelectTrigger>
                     <SelectContent>
                         {companyStatuses.map(status => (
-                        <SelectItem key={status} value={status}>{status === 'Todos' ? 'Todas as Situações' : status.charAt(0) + status.slice(1).toLowerCase()}</SelectItem>
+                        <SelectItem key={status} value={status}>{status === 'Todos' ? 'Todas as Situações' : status}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>

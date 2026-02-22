@@ -42,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompanyDocumentsTab } from './company-documents-tab';
 import { logActivity } from '@/lib/activity-log';
 import type { SintegraResult } from '@/lib/sintegra/types';
+import { getSintegraAptStatus } from '@/lib/sintegra/status';
 
 interface RawPartnerFromApi {
   nome_socio: string;
@@ -101,9 +102,8 @@ const formSchema = z.object({
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
     if (!status) return 'secondary';
     switch(status.toLowerCase()) {
-        case 'ativa': return 'default';
-        case 'inapta': return 'destructive';
-        case 'baixada': return 'outline';
+        case 'apto': return 'default';
+        case 'inapto': return 'destructive';
         default: return 'secondary';
     }
 }
@@ -213,7 +213,6 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
 
         const updates: Partial<Company> = {
             name: data.razao_social,
-            status: data.descricao_situacao_cadastral,
             taxRegime: newTaxRegime,
             address: `${data.logradouro || ''}, ${data.numero || ''}, ${data.complemento || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, ${data.cep || ''}`.replace(/ ,/g, '').replace(/,  -/g,', '),
         };
@@ -298,6 +297,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
 
   const displayValidity = certificateData?.validity || company.certificateA1Validity;
   const displayUrl = certificateData?.url || company.certificateA1Url;
+  const sintegraStatus = getSintegraAptStatus(company.sintegra);
 
 
   return (
@@ -316,7 +316,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                 <DialogTitle className='font-headline text-2xl'>{company.name}</DialogTitle>
                 <DialogDescription>{company.fantasyName || 'Sem nome fantasia'}</DialogDescription>
               </div>
-              <Badge variant={getStatusVariant(company.status)}>{company.status}</Badge>
+              <Badge variant={getStatusVariant(sintegraStatus)}>{sintegraStatus}</Badge>
             </div>
           </DialogHeader>
           
