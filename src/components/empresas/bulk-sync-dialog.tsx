@@ -13,8 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Info, AlertTriangle } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
 import { Progress } from '../ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { ScrollArea } from '../ui/scroll-area';
@@ -67,6 +66,8 @@ export function BulkSyncDialog({ open, onOpenChange, onSyncCompleted, companies 
     const localFailed: { name: string; reason: string }[] = [];
 
     const totalCompanies = companies.length;
+    let batch = writeBatch(firestore);
+    let writeCount = 0;
 
     for (let i = 0; i < totalCompanies; i++) {
         const company = companies[i];
@@ -98,14 +99,27 @@ export function BulkSyncDialog({ open, onOpenChange, onSyncCompleted, companies 
             };
 
             const companyRef = doc(firestore, 'companies', company.id);
-            setDocumentNonBlocking(companyRef, updates, { merge: true });
+            batch.update(companyRef, updates);
+            writeCount++;
             successCount++;
+
+            // Commit the batch when it's full (Firestore limit is 500 writes)
+            if (writeCount >= 499) {
+                await batch.commit();
+                batch = writeBatch(firestore);
+                writeCount = 0;
+            }
 
         } catch (error: any) {
             localFailed.push({ name: company.name, reason: error.message || 'Erro desconhecido' });
         } finally {
             setProgress(((i + 1) / totalCompanies) * 100);
         }
+    }
+
+    // Commit any remaining writes in the last batch
+    if (writeCount > 0) {
+        await batch.commit();
     }
 
     setUnframedCompanies(localUnframed);
