@@ -36,28 +36,83 @@ const normalizeAddress = (data: any) => {
     };
 };
 
+const parseSintegraText = (text: string): Record<string, any> => {
+    const lines = text.split('\n');
+    const data: Record<string, any> = { atividadesEconomicas: [] };
+    let currentSection = '';
+
+    const patterns = {
+        ie: /IE:\s*(.*)/i,
+        cnpj: /CNPJ:\s*(.*)/i,
+        nomeEmpresarial: /Nome Empresarial:\s*(.*)/i,
+        nomeFantasia: /Nome Fantasia:\s*(.*)/i,
+        naturezaJuridica: /Natureza Jurídica:\s*(.*)/i,
+        logradouro: /Logradouro:\s*(.*)/i,
+        numero: /Nº:\s*(.*)/i,
+        complemento: /Complemento:\s*(.*)/i,
+        cep: /CEP:\s*(.*)/i,
+        bairro: /Bairro:\s*(.*)/i,
+        municipio: /Município:\s*(.*)/i,
+        uf: /UF:\s*([A-Z]{2})/i,
+        situacaoCadastral: /Situação Cadastral:\s*(.*?)\s*Data/i,
+        dataSituacaoCadastral: /Data da Situação Cadastral:\s*(.*)/i,
+        ocorrenciaFiscal: /Ocorrência Fiscal:\s*(.*?)\s*Posto/i,
+        postoFiscal: /Posto Fiscal:\s*(.*)/i,
+        regimeApuracao: /Regime de Apuração:\s*(.*)/i,
+    };
+
+    let isActivitySection = false;
+
+    for (const line of lines) {
+        if (line.includes('=== ESTABELECIMENTO ===')) {
+            currentSection = 'establishment';
+            continue;
+        }
+        if (line.includes('=== ENDEREÇO ===')) {
+            currentSection = 'address';
+            continue;
+        }
+        if (line.includes('=== INFORMAÇÕES COMPLEMENTARES ===')) {
+            currentSection = 'complementary';
+            isActivitySection = false; // reset
+            continue;
+        }
+        if (line.includes('Atividades Econômicas:')) {
+            isActivitySection = true;
+            const parts = line.split('Atividades Econômicas:');
+            if (parts[1] && parts[1].trim()) {
+                data.atividadesEconomicas.push(parts[1].trim());
+            }
+            continue;
+        }
+
+        if (isActivitySection) {
+            if (line.trim()) data.atividadesEconomicas.push(line.trim());
+            continue;
+        }
+
+        for (const [key, regex] of Object.entries(patterns)) {
+            const match = line.match(regex);
+            if (match && match[1]) {
+                data[key] = match[1].trim();
+                break; // move to next line once a match is found
+            }
+        }
+    }
+    return data;
+};
+
 
 export const normalizeAndSanitizeSintegraPayload = (payload: SintegraApiPayload): SintegraFinal | null => {
-  const source = payload.sintegra || payload.parsed;
+  let source = payload.sintegra || payload.parsed;
+
+  if (!source && payload.raw?.normalizedText) {
+      source = parseSintegraText(payload.raw.normalizedText);
+  }
 
   if (!source || typeof source !== 'object') {
     return null;
   }
-
-  // Fallback for text-based payload if structured data is missing
-  if (!source.ie && payload.raw?.normalizedText) {
-      // Basic text parsing as a last resort
-      const text = payload.raw.normalizedText;
-      const ieMatch = text.match(/IE:\s*([^\n\t]+)/);
-      const cnpjMatch = text.match(/CNPJ:\s*([^\n\t]+)/);
-      const situacaoMatch = text.match(/Situação Cadastral:\s*([^\t\n]+)/);
-      // ... add more regex matches as needed ...
-
-      source.ie = ieMatch ? ieMatch[1].trim() : null;
-      source.cnpj = cnpjMatch ? cnpjMatch[1].trim() : null;
-      source.situacaoCadastral = situacaoMatch ? situacaoMatch[1].trim() : null;
-  }
-
 
   const situacao = cleanString(source.situacaoCadastral);
   const ocorrencia = cleanString(source.ocorrenciaFiscal);
