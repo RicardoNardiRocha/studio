@@ -8,12 +8,19 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogCancel,
+  AlertDialogFooter,
+  AlertDialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Search, CheckCircle2, XCircle, Clock, FileSearch } from 'lucide-react';
+import { Loader2, Search, CheckCircle2, XCircle, Clock, FileSearch, Hourglass, Check, AlertTriangle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
@@ -27,11 +34,18 @@ const CONCURRENCY_LIMIT = 5;
 const POLLING_INTERVAL_MS = 3000;
 const MAX_ATTEMPTS = 30; // 30 attempts * 3s interval = 90s timeout
 
+type JobStatusFilter = 'all' | 'pending' | 'success' | 'failed';
+
 interface SintegraConsultDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companies: Company[];
   onConsultationComplete: (companyId: string, result: SintegraResult) => void;
+  jobs: Record<string, SintegraJob>;
+  setJobs: React.Dispatch<React.SetStateAction<Record<string, SintegraJob>>>;
+  step: 'select' | 'progress' | 'complete';
+  setStep: React.Dispatch<React.SetStateAction<'select' | 'progress' | 'complete'>>;
+  onNewQuery: () => void;
 }
 
 const getUfFromAddress = (address: string = ''): string => {
@@ -39,14 +53,22 @@ const getUfFromAddress = (address: string = ''): string => {
   return match ? match[1] : '';
 };
 
-export function SintegraConsultDialog({ open, onOpenChange, companies, onConsultationComplete }: SintegraConsultDialogProps) {
-  const [step, setStep] = useState<'select' | 'progress' | 'complete'>('select');
+export function SintegraConsultDialog({
+  open,
+  onOpenChange,
+  companies,
+  onConsultationComplete,
+  jobs,
+  setJobs,
+  step,
+  setStep,
+  onNewQuery,
+}: SintegraConsultDialogProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompanies, setSelectedCompanies] = useState<Record<string, boolean>>({});
-  const [jobs, setJobs] = useState<Record<string, SintegraJob>>({});
+  const [jobFilter, setJobFilter] = useState<JobStatusFilter>('all');
   const { toast } = useToast();
   const activePolls = useRef(new Set<string>());
-
 
   const companiesForSintegra = useMemo((): CompanyForSintegra[] => {
     return companies
@@ -59,7 +81,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
       .filter(c => c.uf);
   }, [companies]);
 
-  const filteredCompanies = useMemo(() => {
+  const filteredCompaniesForSelection = useMemo(() => {
     if (!searchTerm) return companiesForSintegra;
     const lowercasedFilter = searchTerm.toLowerCase();
     return companiesForSintegra.filter(
@@ -71,15 +93,13 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
 
   const handleToggleAll = (checked: boolean) => {
     const newSelection: Record<string, boolean> = {};
-    filteredCompanies.forEach(c => {
+    filteredCompaniesForSelection.forEach(c => {
       newSelection[c.id] = checked;
     });
     setSelectedCompanies(prev => ({ ...prev, ...newSelection }));
   };
 
   const processJob = useCallback(async (company: CompanyForSintegra) => {
-    setJobs(prev => ({ ...prev, [company.id]: { company, status: 'PENDING' } }));
-    
     try {
         const { requestId } = await startSintegraJob(company.cnpj, company.uf);
         setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'PENDING', requestId } }));
@@ -95,9 +115,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
             if (attempts > MAX_ATTEMPTS) {
                 clearInterval(intervalId);
                 activePolls.current.delete(requestId);
-                const result: SintegraResult = { status: 'TIMEOUT', requestId, data: null, updatedAt: new Date(), error: 'Tempo de consulta excedido.' };
-                setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'TIMEOUT', error: result.error, result } }));
-                onConsultationComplete(company.id, result);
+                setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'TIMEOUT', error: 'Tempo de consulta excedido.' } }));
                 return;
             }
 
@@ -108,32 +126,29 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
                     activePolls.current.delete(requestId);
                     const normalizedData = normalizeAndSanitizeSintegraPayload(payload || {});
                     const result: SintegraResult = { status: 'DONE', requestId, data: normalizedData, updatedAt: new Date(), raw: payload };
-                    setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'DONE', result } }));
-                    onConsultationComplete(company.id, result);
+                    const finalStatus = result.data ? 'DONE' : 'DONE_NO_DATA';
+                    setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: finalStatus, result } }));
+                    if (finalStatus === 'DONE') {
+                       onConsultationComplete(company.id, result);
+                    }
                 } else if (status === 'ERROR') {
                     clearInterval(intervalId);
                     activePolls.current.delete(requestId);
                     const result: SintegraResult = { status: 'ERROR', requestId, data: null, updatedAt: new Date(), error: error || 'Erro desconhecido na API.' };
                     setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
-                    onConsultationComplete(company.id, result);
                 }
-                // If PENDING, do nothing and let it poll again.
             } catch (pollError: any) {
                 clearInterval(intervalId);
                 activePolls.current.delete(requestId);
-                const result: SintegraResult = { status: 'ERROR', requestId, data: null, updatedAt: new Date(), error: pollError.message || 'Falha ao consultar status.' };
-                setJobs(prev => ({...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
-                onConsultationComplete(company.id, result);
+                setJobs(prev => ({...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: pollError.message || 'Falha ao consultar status.' } }));
             }
         }, POLLING_INTERVAL_MS);
         activePolls.current.add(requestId);
 
     } catch (startError: any) {
-        const result: SintegraResult = { status: 'ERROR', requestId: 'N/A', data: null, updatedAt: new Date(), error: startError.message || 'Falha ao iniciar a consulta.' };
-        setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
-        onConsultationComplete(company.id, result);
+        setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: startError.message || 'Falha ao iniciar a consulta.' } }));
     }
-  }, [onConsultationComplete]);
+  }, [setJobs, onConsultationComplete]);
 
 
   const startConsultations = useCallback((companiesToRun: CompanyForSintegra[]) => {
@@ -165,7 +180,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
       }
     };
     processQueue();
-  }, [processJob]);
+  }, [processJob, setStep, setJobs]);
   
   useEffect(() => {
     const jobValues = Object.values(jobs);
@@ -179,7 +194,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
         });
         setStep('complete');
     }
-  }, [jobs, step, toast]);
+  }, [jobs, step, toast, setStep]);
 
 
   const handleStart = () => {
@@ -190,46 +205,56 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
     }
     startConsultations(companiesToRun);
   };
-
-  const handleRerun = () => {
-    const failedCompanies = Object.values(jobs)
-        .filter(j => j.status === 'ERROR' || j.status === 'TIMEOUT')
-        .map(j => j.company);
-    startConsultations(failedCompanies);
-  };
   
   const handleClose = () => {
-    activePolls.current.forEach(id => activePolls.current.delete(id));
     onOpenChange(false);
-    setTimeout(() => {
-        setStep('select');
-        setSelectedCompanies({});
-        setJobs({});
-        setSearchTerm('');
-    }, 300);
   }
+  
+  const handleRerunFailed = () => {
+    const failedCompanies = Object.values(jobs)
+      .filter(j => j.status === 'ERROR' || j.status === 'TIMEOUT')
+      .map(j => j.company);
+    startConsultations(failedCompanies);
+  };
+
+  const handleNewQueryClick = () => {
+    setSelectedCompanies({});
+    setSearchTerm('');
+    onNewQuery();
+  };
 
   const progressStats = useMemo(() => {
     const jobValues = Object.values(jobs);
     const total = jobValues.length;
     if (total === 0) return { total: 0, done: 0, error: 0, pending: 0, progressValue: 0 };
 
-    const done = jobValues.filter(j => j.status === 'DONE').length;
+    const success = jobValues.filter(j => j.status === 'DONE' || j.status === 'DONE_NO_DATA').length;
     const error = jobValues.filter(j => j.status === 'ERROR' || j.status === 'TIMEOUT').length;
-    const completed = done + error;
+    const completed = success + error;
     const pending = total - completed;
     const progressValue = total > 0 ? (completed / total) * 100 : 0;
 
-    return { total, done, error, pending, progressValue };
+    return { total, success, error, pending, progressValue };
   }, [jobs]);
+
+  const filteredJobs = useMemo(() => {
+    const allJobs = Object.values(jobs);
+    if (jobFilter === 'all') return allJobs;
+    if (jobFilter === 'pending') return allJobs.filter(j => j.status === 'QUEUED' || j.status === 'PENDING');
+    if (jobFilter === 'success') return allJobs.filter(j => j.status === 'DONE' || j.status === 'DONE_NO_DATA');
+    if (jobFilter === 'failed') return allJobs.filter(j => j.status === 'ERROR' || j.status === 'TIMEOUT');
+    return allJobs;
+  }, [jobs, jobFilter]);
   
   const JobStatusIcon = ({ status }: { status: SintegraJob['status']}) => {
     switch (status) {
       case 'PENDING':
       case 'QUEUED':
-        return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+        return <Hourglass className="h-4 w-4 text-muted-foreground" />;
       case 'DONE':
         return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'DONE_NO_DATA':
+        return <Check className="h-4 w-4 text-muted-foreground" />;
       case 'ERROR':
         return <XCircle className="h-4 w-4 text-destructive" />;
       case 'TIMEOUT':
@@ -239,24 +264,43 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
     }
   };
 
+  const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
+    const Icon = icon;
+    return (
+        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary' : ''}`} onClick={onClick}>
+            <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${colorClass}`}>
+                        <Icon className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                        <div className="text-xl font-bold">{value}</div>
+                        <p className="text-xs text-muted-foreground">{title}</p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {step === 'select' && 'Consultar Empresas no Sintegra'}
-            {step === 'progress' && 'Consultando...'}
-            {step === 'complete' && 'Consulta Finalizada'}
+            {step === 'progress' && 'Acompanhar Consultas'}
+            {step === 'complete' && 'Resultados da Consulta'}
           </DialogTitle>
           <DialogDescription>
             {step === 'select' && 'Selecione as empresas para iniciar a consulta em lote.'}
-            {step === 'progress' && `Aguarde enquanto as consultas são processadas. ${progressStats.pending} de ${progressStats.total} restantes.`}
+            {step === 'progress' && `Aguarde enquanto as consultas são processadas.`}
             {step === 'complete' && 'Verifique os resultados abaixo.'}
           </DialogDescription>
         </DialogHeader>
 
         {step === 'select' ? (
-          <div className="flex-grow overflow-hidden flex flex-col gap-4">
+          <div className="flex-grow overflow-hidden flex flex-col gap-4 min-h-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -275,7 +319,7 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
             </div>
             <ScrollArea className="flex-grow border rounded-md">
               <div className="p-4 space-y-2">
-                {filteredCompanies.map(company => (
+                {filteredCompaniesForSelection.map(company => (
                   <div key={company.id} className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Checkbox
@@ -296,25 +340,49 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
             </ScrollArea>
           </div>
         ) : (
-          <div className="flex-grow overflow-hidden flex flex-col gap-4">
-            <Progress value={progressStats.progressValue} />
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <Card><CardContent className="p-2"><p className="text-lg font-bold">{progressStats.total}</p><p className="text-xs text-muted-foreground">Total</p></CardContent></Card>
-              <Card><CardContent className="p-2"><p className="text-lg font-bold">{progressStats.pending}</p><p className="text-xs text-muted-foreground">Pendentes</p></CardContent></Card>
-              <Card><CardContent className="p-2"><p className="text-lg font-bold text-green-500">{progressStats.done}</p><p className="text-xs text-muted-foreground">Sucesso</p></CardContent></Card>
-              <Card><CardContent className="p-2"><p className="text-lg font-bold text-destructive">{progressStats.error}</p><p className="text-xs text-muted-foreground">Falhas</p></CardContent></Card>
+          <div className="flex-grow overflow-hidden flex flex-col gap-4 min-h-0">
+            <Progress value={progressStats.progressValue} className="w-full" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-center">
+                <KpiCard title="Total" value={progressStats.total} icon={Search} colorClass="bg-gray-500" onClick={() => setJobFilter('all')} isActive={jobFilter === 'all'} />
+                <KpiCard title="Pendentes" value={progressStats.pending} icon={Hourglass} colorClass="bg-blue-500" onClick={() => setJobFilter('pending')} isActive={jobFilter === 'pending'} />
+                <KpiCard title="Sucesso" value={progressStats.success} icon={Check} colorClass="bg-green-500" onClick={() => setJobFilter('success')} isActive={jobFilter === 'success'} />
+                <KpiCard title="Falhas" value={progressStats.error} icon={AlertTriangle} colorClass="bg-red-500" onClick={() => setJobFilter('failed')} isActive={jobFilter === 'failed'} />
             </div>
             <ScrollArea className="flex-grow border rounded-md">
-                <div className="p-4 space-y-1">
-                    {Object.values(jobs).map(({ company, status, error }) => (
+                <div className="p-2 space-y-1">
+                    {filteredJobs.map(({ company, status, error, result }) => (
                         <div key={company.id} className="p-2 rounded-md hover:bg-muted/50 transition-colors flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                                 <JobStatusIcon status={status} />
-                                <div>
-                                    <p className="font-medium">{company.name}</p>
-                                    <p className="text-xs text-muted-foreground">{error || `${status}...`}</p>
+                                <div className='max-w-[400px]'>
+                                    <p className="font-medium truncate">{company.name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">
+                                        {status === 'DONE' && 'Sucesso'}
+                                        {status === 'DONE_NO_DATA' && 'Concluído sem dados'}
+                                        {status === 'QUEUED' && 'Na fila...'}
+                                        {status === 'PENDING' && 'Consultando...'}
+                                        {(status === 'ERROR' || status === 'TIMEOUT') && (error || 'Erro desconhecido')}
+                                    </p>
                                 </div>
                             </div>
+                             {result && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon"><FileSearch className="h-4 w-4" /></Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Dados Retornados para {company.name}</AlertDialogTitle>
+                                        </AlertDialogHeader>
+                                        <ScrollArea className="max-h-96 w-full rounded-md border">
+                                            <pre className="text-xs p-4">{JSON.stringify(result.raw || result.data || result.error, null, 2)}</pre>
+                                        </ScrollArea>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Fechar</AlertDialogCancel>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -329,10 +397,12 @@ export function SintegraConsultDialog({ open, onOpenChange, companies, onConsult
               <Button onClick={handleStart}>Iniciar Consultas</Button>
             </>
           )}
-          {step === 'progress' && <Button variant="destructive" onClick={handleClose}>Cancelar Consultas</Button>}
+          {step === 'progress' && <Button variant="destructive" onClick={handleClose}>Fechar</Button>}
           {step === 'complete' && (
              <>
-              {progressStats.error > 0 && <Button variant="outline" onClick={handleRerun}>Reexecutar Falhas</Button>}
+              <Button variant="outline" onClick={handleNewQueryClick}>Fazer nova consulta</Button>
+              <div className='flex-grow' />
+              {progressStats.error > 0 && <Button variant="secondary" onClick={handleRerunFailed}>Reexecutar Falhas</Button>}
               <Button onClick={handleClose}>Fechar</Button>
             </>
           )}

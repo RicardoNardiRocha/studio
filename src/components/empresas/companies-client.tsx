@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -30,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
@@ -38,8 +37,10 @@ import { differenceInDays, parse, isValid, startOfDay } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { BulkSyncDialog } from './bulk-sync-dialog';
 import { SintegraConsultDialog } from './sintegra-consult-dialog';
-import type { SintegraResult } from '@/lib/sintegra/types';
-import { calculateSintegraSituacao } from '@/lib/sintegra/status';
+import type { SintegraResult, SintegraJob } from '@/lib/sintegra/types';
+import { calculateSintegraSituacao, type SintegraStatus } from '@/lib/sintegra/status';
+import { useToast } from '@/hooks/use-toast';
+
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
@@ -83,7 +84,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo', 'Vencido', 'Não informado'];
-const companyStatuses = ['Todos', 'APTO', 'INAPTO', 'SEM IE', 'BAIXADA'];
+const companyStatuses: Array<'Todos' | SintegraStatus> = ['Todos', 'APTO', 'INAPTO', 'SEM IE', 'BAIXADA'];
 
 const cnpjMask = (value: string) => {
     if (!value) return '';
@@ -138,20 +139,25 @@ export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
   const [isBulkSyncDialogOpen, setIsBulkSyncDialogOpen] = useState(false);
-  const [isSintegraDialogOpen, setIsSintegraDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [taxRegimeFilter, setTaxRegimeFilter] = useState('Todos');
   const [certificateStatusFilter, setCertificateStatusFilter] = useState<'Todos' | CertificateStatus>('Todos');
-  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | SintegraStatus>('Todos');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const [showAlertsOnly, setShowAlertsOnly] = useState(false);
 
+  // State for Sintegra Dialog lifted up to parent
+  const [isSintegraDialogOpen, setIsSintegraDialogOpen] = useState(false);
+  const [sintegraJobs, setSintegraJobs] = useState<Record<string, SintegraJob>>({});
+  const [sintegraStep, setSintegraStep] = useState<'select' | 'progress' | 'complete'>('select');
+
 
   const firestore = useFirestore();
   const { profile } = useUser();
+  const { toast } = useToast();
 
   const companiesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -198,18 +204,35 @@ export function CompaniesClient() {
     setIsBulkSyncDialogOpen(false);
   };
   
-  const handleSintegraConsultationComplete = (companyId: string, result: SintegraResult) => {
+  const handleSintegraConsultationComplete = useCallback((companyId: string, result: SintegraResult) => {
     if (!firestore) return;
     const companyRef = doc(firestore, 'companies', companyId);
     
     const sintegraStatus = calculateSintegraSituacao(result.data);
 
     setDoc(companyRef, { 
-      sintegra: result,
+      sintegra: result.data || null, // Persist normalized data
       sintegraSituacao: sintegraStatus,
       sintegraUpdatedAt: serverTimestamp()
-    }, { merge: true });
-    forceRefetch();
+    }, { merge: true }).catch(err => {
+        console.error("Firestore update failed:", err);
+        toast({
+            title: "Erro ao Salvar",
+            description: `Não foi possível salvar os dados do Sintegra para a empresa.`,
+            variant: "destructive"
+        });
+        setSintegraJobs(prev => ({
+            ...prev,
+            [companyId]: { ...prev[companyId], status: 'ERROR', error: 'Falha ao salvar no Firestore.'}
+        }))
+    }).then(() => {
+       forceRefetch();
+    });
+  }, [firestore, toast, forceRefetch]);
+
+  const handleNewSintegraQuery = () => {
+    setSintegraJobs({});
+    setSintegraStep('select');
   };
 
   const handleOpenDetails = (company: Company) => {
@@ -250,6 +273,11 @@ export function CompaniesClient() {
         onOpenChange={setIsSintegraDialogOpen}
         companies={companies || []}
         onConsultationComplete={handleSintegraConsultationComplete}
+        jobs={sintegraJobs}
+        setJobs={setSintegraJobs}
+        step={sintegraStep}
+        setStep={setSintegraStep}
+        onNewQuery={handleNewSintegraQuery}
       />
       {selectedCompany && (
          <CompanyDetailsDialog
@@ -354,7 +382,7 @@ export function CompaniesClient() {
                 </Select>
             </div>
             <div className="w-full md:w-auto md:min-w-[180px]">
-                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                 <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'Todos' | SintegraStatus)}>
                     <SelectTrigger>
                         <SelectValue placeholder="Filtrar por situação..." />
                     </SelectTrigger>
