@@ -39,13 +39,15 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { BulkSyncDialog } from './bulk-sync-dialog';
 import { SintegraConsultDialog } from './sintegra-consult-dialog';
 import type { SintegraResult } from '@/lib/sintegra/types';
-import { getSintegraAptStatus } from '@/lib/sintegra/status';
+import { calculateSintegraSituacao } from '@/lib/sintegra/status';
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
   if (!status) return 'secondary';
-  switch (status.toLowerCase()) {
-    case 'apto': return 'default';
-    case 'inapto': return 'destructive';
+  switch (status) {
+    case 'APTO': return 'default';
+    case 'INAPTO': return 'destructive';
+    case 'BAIXADA': return 'outline';
+    case 'SEM IE': return 'secondary';
     default: return 'secondary';
   }
 };
@@ -81,7 +83,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo', 'Vencido', 'Não informado'];
-const companyStatuses = ['Todos', 'Apto', 'Inapto'];
+const companyStatuses = ['Todos', 'APTO', 'INAPTO', 'SEM IE', 'BAIXADA'];
 
 const cnpjMask = (value: string) => {
     if (!value) return '';
@@ -104,7 +106,7 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
 
     const displayValidity = certificateData?.validity || company.certificateA1Validity;
     const certStatus = getCertificateStatusInfo(displayValidity);
-    const sintegraStatus = getSintegraAptStatus(company.sintegra);
+    const sintegraStatus = company.sintegraSituacao || 'N/A';
 
     return (
         <TableRow key={company.id}>
@@ -181,7 +183,7 @@ export function CompaniesClient() {
       const taxRegimeMatch = taxRegimeFilter === 'Todos' || company.taxRegime === taxRegimeFilter;
       const certStatusMatch = certificateStatusFilter === 'Todos' || getCertificateStatusInfo(company.certificateA1Validity).status === certificateStatusFilter;
       
-      const sintegraStatus = getSintegraAptStatus(company.sintegra);
+      const sintegraStatus = company.sintegraSituacao || 'N/A';
       const statusMatch = statusFilter === 'Todos' || sintegraStatus === statusFilter;
       
       return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
@@ -200,10 +202,13 @@ export function CompaniesClient() {
     if (!firestore) return;
     const companyRef = doc(firestore, 'companies', companyId);
     
-    // Determine the final status based on the result.
-    const sintegraStatus = getSintegraAptStatus(result);
+    const sintegraStatus = calculateSintegraSituacao(result.data);
 
-    setDoc(companyRef, { sintegra: result, status: sintegraStatus }, { merge: true });
+    setDoc(companyRef, { 
+      sintegra: result,
+      sintegraSituacao: sintegraStatus,
+      sintegraUpdatedAt: serverTimestamp()
+    }, { merge: true });
     forceRefetch();
   };
 

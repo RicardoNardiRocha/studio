@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -32,7 +33,7 @@ import { Separator } from '../ui/separator';
 import { Loader2, Trash2, UploadCloud, Download, MessageSquare, Phone, Mail, RefreshCw } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -42,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompanyDocumentsTab } from './company-documents-tab';
 import { logActivity } from '@/lib/activity-log';
 import type { SintegraResult } from '@/lib/sintegra/types';
-import { getSintegraAptStatus } from '@/lib/sintegra/status';
+import type { SintegraStatus } from '@/lib/sintegra/status';
 
 interface RawPartnerFromApi {
   nome_socio: string;
@@ -82,6 +83,8 @@ export interface Company {
     internalPhone?: string;
     whatsappGroup?: string;
     sintegra?: SintegraResult;
+    sintegraSituacao?: SintegraStatus;
+    sintegraUpdatedAt?: Timestamp;
 }
 
 interface CompanyDetailsDialogProps {
@@ -101,9 +104,11 @@ const formSchema = z.object({
 
 const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
     if (!status) return 'secondary';
-    switch(status.toLowerCase()) {
-        case 'apto': return 'default';
-        case 'inapto': return 'destructive';
+    switch(status) {
+        case 'APTO': return 'default';
+        case 'INAPTO': return 'destructive';
+        case 'BAIXADA': return 'outline';
+        case 'SEM IE': return 'secondary';
         default: return 'secondary';
     }
 }
@@ -297,7 +302,7 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
 
   const displayValidity = certificateData?.validity || company.certificateA1Validity;
   const displayUrl = certificateData?.url || company.certificateA1Url;
-  const sintegraStatus = getSintegraAptStatus(company.sintegra);
+  const sintegraStatus = company.sintegraSituacao || 'N/A';
 
 
   return (

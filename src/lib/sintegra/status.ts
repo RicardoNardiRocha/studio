@@ -1,22 +1,38 @@
-import type { SintegraResult } from './types';
+import type { SintegraFinal } from './types';
+
+export type SintegraStatus = 'APTO' | 'INAPTO' | 'SEM IE' | 'BAIXADA';
 
 /**
- * Calculates the company's fitness status based on Sintegra data.
- * @param sintegra - The Sintegra consultation result object.
- * @returns 'Apto' if situation is 'Ativo' and fiscal occurrence is 'Ativa', otherwise 'Inapto'.
+ * Calculates the company's registration status based on Sintegra data.
+ * @param sintegraData - The normalized Sintegra data object for a company.
+ * @returns The calculated status: 'BAIXADA', 'SEM IE', 'APTO', or 'INAPTO'.
  */
-export function getSintegraAptStatus(sintegra: SintegraResult | undefined): 'Apto' | 'Inapto' {
-  // If there's no sintegra data at all, it's conservatively considered 'Inapto'.
-  if (!sintegra?.data) {
-    return 'Inapto';
+export function calculateSintegraSituacao(sintegraData: SintegraFinal | null | undefined): SintegraStatus {
+  if (!sintegraData) {
+    return 'INAPTO'; // Default if no data
   }
 
-  const cadastral = (sintegra.data.situacaoCadastral || "").trim().toLowerCase();
-  const fiscal = (sintegra.data.ocorrenciaFiscal || "").trim().toLowerCase();
+  const { ie, situacaoCadastral, ocorrenciaFiscal } = sintegraData;
 
-  const isCadastralOk = cadastral === "ativo";
-  const isFiscalOk = fiscal === "ativa";
+  // Rule 1: BAIXADA
+  if (situacaoCadastral && situacaoCadastral.toUpperCase().includes('BAIXADO')) {
+    return 'BAIXADA';
+  }
 
-  // Only if both conditions are met is the company considered 'Apto'.
-  return (isCadastralOk && isFiscalOk) ? "Apto" : "Inapto";
+  // Rule 2: SEM IE
+  const ieIsMissing = !ie || ie === 'N/A';
+  const isNotApplicable = situacaoCadastral === 'N/A' && ocorrenciaFiscal === 'N/A';
+  if (ieIsMissing || isNotApplicable) {
+    return 'SEM IE';
+  }
+
+  // Rule 3: APTO
+  const isCadastralOk = situacaoCadastral?.toLowerCase() === 'ativo';
+  const isFiscalOk = ocorrenciaFiscal?.toLowerCase() === 'ativa';
+  if (isCadastralOk && isFiscalOk) {
+    return 'APTO';
+  }
+
+  // Rule 4: INAPTO (fallback for all other cases)
+  return 'INAPTO';
 }
