@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch, Download, Loader2 } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
@@ -40,6 +40,7 @@ import { SintegraConsultDialog } from './sintegra-consult-dialog';
 import type { SintegraResult, SintegraJob } from '@/lib/sintegra/types';
 import { calculateSintegraSituacao, type SintegraStatus } from '@/lib/sintegra/status';
 import { useToast } from '@/hooks/use-toast';
+import { exportToExcel } from '@/lib/export-to-excel';
 
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
@@ -148,6 +149,7 @@ export function CompaniesClient() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const [showAlertsOnly, setShowAlertsOnly] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // State for Sintegra Dialog lifted up to parent
   const [isSintegraDialogOpen, setIsSintegraDialogOpen] = useState(false);
@@ -249,6 +251,57 @@ export function CompaniesClient() {
     e.stopPropagation();
     setShowAlertsOnly(false);
   };
+  
+  const handleExport = () => {
+    if (!filteredCompanies || filteredCompanies.length === 0) {
+      toast({
+        title: "Nenhuma empresa para exportar",
+        description: "A lista de empresas filtrada está vazia.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsExporting(true);
+    const toastId = toast({
+      title: "Gerando Excel...",
+      description: "Por favor, aguarde enquanto preparamos o seu arquivo."
+    });
+
+    try {
+      const dataForExcel = filteredCompanies.map((company) => ({
+        'Nome': company.name || '',
+        'CNPJ': cnpjMask(company.cnpj || ''),
+        'Regime Tributário': company.taxRegime || '',
+        'Situação': company.sintegraSituacao || '',
+        'Inscrição Estadual': company.sintegra?.data?.ie || '',
+        'Situação Cadastral (Sintegra)': company.sintegra?.data?.situacaoCadastral || '',
+        'Ocorrência Fiscal': company.sintegra?.data?.ocorrenciaFiscal || '',
+      }));
+
+      exportToExcel({
+        data: dataForExcel,
+        sheetName: 'Empresas',
+        fileName: 'Empresas.xlsx'
+      });
+
+      toast({
+        id: toastId,
+        title: "Sucesso!",
+        description: "Seu arquivo Excel foi gerado e o download foi iniciado.",
+      });
+
+    } catch (err: any) {
+      console.error("Falha ao exportar para Excel:", err);
+      toast({
+        id: toastId,
+        title: "Erro ao exportar",
+        description: err.message || "Não foi possível gerar o arquivo Excel.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <>
@@ -330,6 +383,10 @@ export function CompaniesClient() {
                <Button id="sintegra-consult-button" variant="outline" onClick={() => setIsSintegraDialogOpen(true)} disabled={!companies || companies.length === 0}>
                 <FileSearch className="mr-2 h-4 w-4" />
                 Consultar Sintegra
+              </Button>
+              <Button onClick={handleExport} disabled={isExporting} variant="outline">
+                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                Exportar Excel
               </Button>
               <Button id="sync-all-button" variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
