@@ -8,6 +8,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+} from '@/components/ui/dialog';
+import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
@@ -15,7 +17,7 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
   AlertDialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
