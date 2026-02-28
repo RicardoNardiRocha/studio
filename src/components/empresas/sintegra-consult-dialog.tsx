@@ -27,15 +27,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
-import { getSintegraStatus, startSintegraJob } from '@/lib/sintegra/api';
-import type { CompanyForSintegra, SintegraJob, SintegraResult, SintegraApiPayload, JobStatus } from '@/lib/sintegra/types';
+import type { CompanyForSintegra, SintegraJob, SintegraResult, JobStatus } from '@/lib/sintegra/types';
 import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 
-const CONCURRENCY_LIMIT = 10;
-const POLLING_INTERVAL_MS = 3000;
 const BATCH_POLLING_CHUNK_SIZE = 200;
-const MAX_ATTEMPTS = 120; // 6 minutes timeout (120 * 3s)
+const POLLING_INTERVAL_MS = 3000;
+const MAX_ATTEMPTS = 200; // 10 minutos (200 * 3s)
 
 type JobStatusFilter = 'all' | 'pending' | 'success' | 'failed';
 
@@ -104,7 +102,7 @@ export function SintegraConsultDialog({
     setSelectedCompanies(prev => ({ ...prev, ...newSelection }));
   };
 
-  const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra[]) => {
+const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra[]) => {
     if (companiesToRun.length === 0) {
       toast({ title: 'Nenhuma empresa selecionada', variant: 'destructive' });
       return;
@@ -117,44 +115,68 @@ export function SintegraConsultDialog({
     }, {} as Record<string, SintegraJob>);
     setJobs(initialJobs);
 
-    const createdRequestIds: string[] = [];
-    const processQueue = [...companiesToRun];
+    try {
+        const response = await fetch('/api/integrations/sintegra/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companies: companiesToRun }),
+        });
 
-    const worker = async () => {
-        while(processQueue.length > 0) {
-            const company = processQueue.shift();
-            if (!company) continue;
-
-            try {
-                const { requestId } = await startSintegraJob(company.cnpj, company.uf);
-                console.log(`[SINTEGRA JOB CREATE] Sucesso! Empresa ${company.name} recebeu requestId: ${requestId}`);
-                createdRequestIds.push(requestId);
-                setJobs(prev => ({
-                    ...prev,
-                    [company.id]: { company, status: 'PENDING', requestId }
-                }));
-            } catch (error: any) {
-                console.error(`[SINTEGRA JOB CREATE] FALHA ao criar job para empresa: ${company.name} (${company.cnpj}). Erro:`, error);
-                setJobs(prev => ({
-                    ...prev,
-                    [company.id]: { company, status: 'ERROR', error: error.message || 'Falha ao iniciar a consulta.' }
-                }));
-            }
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`Falha ao criar lote. Status: ${response.status}. Detalhes: ${errorBody}`);
         }
-    };
-    
-    const workers = Array(CONCURRENCY_LIMIT).fill(null).map(worker);
-    
-    await Promise.all(workers);
 
-    if (createdRequestIds.length > 0) {
-        setPendingRequestIds(createdRequestIds);
-        toast({ title: `${createdRequestIds.length} consultas iniciadas`, description: 'Acompanhando o status em tempo real.' });
-    } else {
-        toast({ title: 'Nenhuma consulta iniciada com sucesso', description: 'Verifique o console para mais detalhes.', variant: 'destructive'});
+        const { items } = await response.json();
+        
+        const newJobs = { ...initialJobs };
+        const newPendingRequestIds: string[] = [];
+
+        items.forEach((item: { companyId: string, requestId: string | null, status: JobStatus, error: string | null }) => {
+            if (newJobs[item.companyId]) {
+                if (item.status === 'ERROR') {
+                    newJobs[item.companyId].status = 'ERROR';
+                    newJobs[item.companyId].error = item.error || 'Erro na criação do job.';
+                } else if (item.requestId) {
+                    newJobs[item.companyId].status = 'PENDING';
+                    newJobs[item.companyId].requestId = item.requestId;
+                    newPendingRequestIds.push(item.requestId);
+                } else {
+                     newJobs[item.companyId].status = 'ERROR';
+                     newJobs[item.companyId].error = 'API não retornou um ID de requisição.';
+                }
+            }
+        });
+        
+        setJobs(newJobs);
+        setPendingRequestIds(newPendingRequestIds);
+        
+        if (newPendingRequestIds.length > 0) {
+            toast({ title: `${newPendingRequestIds.length} consultas iniciadas com sucesso`, description: 'Acompanhando o status em tempo real.' });
+        } else {
+            toast({ title: 'Nenhuma consulta pôde ser iniciada com sucesso.', description: 'Verifique o console para detalhes.', variant: 'destructive'});
+            setStep('complete');
+        }
+
+    } catch (error: any) {
+        console.error("Falha ao criar o lote de consultas.", error);
+        toast({ title: 'Erro Crítico na Criação do Lote', description: error.message, variant: 'destructive' });
+        
+        // Mark all queued jobs as failed
+        setJobs(prevJobs => {
+            const failedJobs = { ...prevJobs };
+            Object.keys(failedJobs).forEach(key => {
+                if (failedJobs[key].status === 'QUEUED') {
+                    failedJobs[key].status = 'ERROR';
+                    failedJobs[key].error = 'Falha na criação do lote principal.';
+                }
+            });
+            return failedJobs;
+        });
         setStep('complete');
     }
-  }, [setStep, setJobs, toast]);
+}, [setStep, setJobs, toast]);
+
 
   // Global Polling Effect
   useEffect(() => {
@@ -448,3 +470,5 @@ export function SintegraConsultDialog({
     </Dialog>
   );
 }
+
+    
