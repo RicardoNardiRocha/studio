@@ -14,6 +14,8 @@ const BatchRequestSchema = z.object({
   companies: z.array(CompanySchema),
 });
 
+const CONCURRENCY_LIMIT = 15; // Limite de requisições simultâneas para a API externa
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -29,27 +31,36 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Cannot process more than 500 companies per batch.' }, { status: 400 });
     }
 
-    const jobPromises = companies.map(async (company) => {
-      try {
-        const { requestId } = await startSintegraJob(company.cnpj, company.uf);
-        return {
-          companyId: company.id,
-          requestId,
-          status: 'QUEUED',
-          error: null,
-        };
-      } catch (e: any) {
-        console.error(`[API /sintegra/batch] Failed to start job for ${company.cnpj}:`, e.message);
-        return {
-          companyId: company.id,
-          requestId: null,
-          status: 'ERROR',
-          error: e.message || 'Failed to start job on external API.',
-        };
-      }
-    });
+    const results = [];
+    const queue = [...companies];
 
-    const results = await Promise.all(jobPromises);
+    // Processa a fila em pedaços (chunks) para respeitar o limite de concorrência
+    while (queue.length > 0) {
+      const chunkToProcess = queue.splice(0, CONCURRENCY_LIMIT);
+      
+      const chunkPromises = chunkToProcess.map(async (company) => {
+        try {
+          const { requestId } = await startSintegraJob(company.cnpj, company.uf);
+          return {
+            companyId: company.id,
+            requestId,
+            status: 'QUEUED',
+            error: null,
+          };
+        } catch (e: any) {
+          console.error(`[API /sintegra/batch] Failed to start job for ${company.cnpj}:`, e.message);
+          return {
+            companyId: company.id,
+            requestId: null,
+            status: 'ERROR',
+            error: e.message || 'Failed to start job on external API.',
+          };
+        }
+      });
+      
+      const chunkResults = await Promise.all(chunkPromises);
+      results.push(...chunkResults);
+    }
     
     return NextResponse.json({ items: results });
 
