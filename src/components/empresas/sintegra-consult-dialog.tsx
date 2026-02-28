@@ -116,26 +116,34 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
     }, {} as Record<string, SintegraJob>);
     setJobs(initialJobs);
 
+    const CHUNK_SIZE = 100;
+    const allItems: { companyId: string, requestId: string | null, status: JobStatus, error: string | null }[] = [];
+
     try {
+      // Process companies in chunks to avoid oversized request bodies
+      for (let i = 0; i < companiesToRun.length; i += CHUNK_SIZE) {
+        const chunk = companiesToRun.slice(i, i + CHUNK_SIZE);
         const response = await fetch('/api/integrations/sintegra/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ companies: companiesToRun }),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companies: chunk }),
         });
 
         if (!response.ok) {
-            const errorBodyText = await response.text();
-            console.error(`[SINTEGRA API ERROR] Falha na criação do lote. Endpoint: /api/integrations/sintegra/batch, Status: ${response.status}, Payload: ${JSON.stringify({ companies: companiesToRun.map(c => ({cnpj: c.cnpj, uf: c.uf})) })}`);
-            console.error('[SINTEGRA API ERROR] Response Body:', errorBodyText);
-            throw new Error(`Falha ao criar lote. Status: ${response.status}. Detalhes: ${errorBodyText}`);
+          const errorBodyText = await response.text();
+          console.error(`[SINTEGRA API ERROR] Falha na criação do lote. Endpoint: /api/integrations/sintegra/batch, Status: ${response.status}, Payload: ${JSON.stringify({ companies: chunk.map(c => ({cnpj: c.cnpj, uf: c.uf})) })}`);
+          console.error('[SINTEGRA API ERROR] Response Body:', errorBodyText);
+          throw new Error(`Falha ao criar um dos lotes. Status: ${response.status}. Detalhes: ${errorBodyText}`);
         }
-
+        
         const { items } = await response.json();
+        allItems.push(...items);
+      }
         
         const newJobs = { ...initialJobs };
         const newPendingRequestIds: string[] = [];
 
-        items.forEach((item: { companyId: string, requestId: string | null, status: JobStatus, error: string | null }) => {
+        allItems.forEach((item) => {
             if (newJobs[item.companyId]) {
                 if (item.status === 'ERROR') {
                     newJobs[item.companyId].status = 'ERROR';
