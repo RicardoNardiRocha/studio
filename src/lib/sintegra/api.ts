@@ -43,8 +43,10 @@ export async function startSintegraJob(
     });
 
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({ message: `HTTP error ${response.status}` }));
-      throw new Error(errorBody.message || `API retornou status ${response.status}`);
+      const errorBodyText = await response.text();
+      console.error(`[SINTEGRA API ERROR] Falha na criação do job. Endpoint: ${SINTEGRA_API_URL}/query, Status: ${response.status}, Payload: ${JSON.stringify({ cnpj, uf })}`);
+      console.error('[SINTEGRA API ERROR] Response Body:', errorBodyText);
+      throw new Error(`API de consulta retornou status ${response.status}: ${errorBodyText || 'Sem corpo de resposta'}`);
     }
 
     const data = await response.json();

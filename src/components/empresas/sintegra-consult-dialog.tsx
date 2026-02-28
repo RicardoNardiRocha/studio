@@ -102,8 +102,10 @@ export function SintegraConsultDialog({
   };
 
   const processJob = useCallback(async (company: CompanyForSintegra) => {
+    console.log(`[SINTEGRA JOB CREATE] Iniciando criação para empresa: ${company.name} (${company.cnpj})`);
     try {
         const { requestId } = await startSintegraJob(company.cnpj, company.uf);
+        console.log(`[SINTEGRA JOB CREATE] Sucesso! Empresa ${company.name} recebeu requestId: ${requestId}`);
         setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'PENDING', requestId } }));
 
         let attempts = 0;
@@ -114,9 +116,11 @@ export function SintegraConsultDialog({
             }
 
             attempts++;
+            console.log(`[SINTEGRA POLLING] Verificando status para requestId: ${requestId} (Empresa: ${company.name}, Tentativa: ${attempts})`);
             if (attempts > MAX_ATTEMPTS) {
                 clearInterval(intervalId);
                 activePolls.current.delete(requestId);
+                console.warn(`[SINTEGRA POLLING] TIMEOUT para requestId: ${requestId} (Empresa: ${company.name})`);
                 setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'TIMEOUT', error: 'Tempo de consulta excedido.' } }));
                 return;
             }
@@ -126,6 +130,7 @@ export function SintegraConsultDialog({
                 if (status === 'DONE') {
                     clearInterval(intervalId);
                     activePolls.current.delete(requestId);
+                    console.log(`[SINTEGRA POLLING] DONE para requestId: ${requestId} (Empresa: ${company.name}). Payload recebido.`);
                     const normalizedData = normalizeAndSanitizeSintegraPayload(payload || {});
                     const result: SintegraResult = { status: 'DONE', requestId, data: normalizedData, updatedAt: new Date(), raw: payload };
                     const finalStatus = result.data ? 'DONE' : 'DONE_NO_DATA';
@@ -136,18 +141,23 @@ export function SintegraConsultDialog({
                 } else if (status === 'ERROR') {
                     clearInterval(intervalId);
                     activePolls.current.delete(requestId);
+                    console.error(`[SINTEGRA POLLING] ERROR para requestId: ${requestId} (Empresa: ${company.name}). Erro da API:`, error);
                     const result: SintegraResult = { status: 'ERROR', requestId, data: null, updatedAt: new Date(), error: error || 'Erro desconhecido na API.' };
                     setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: result.error, result } }));
+                } else {
+                    console.log(`[SINTEGRA POLLING] PENDING para requestId: ${requestId} (Empresa: ${company.name})`);
                 }
             } catch (pollError: any) {
                 clearInterval(intervalId);
                 activePolls.current.delete(requestId);
+                console.error(`[SINTEGRA POLLING] FALHA na chamada de polling para requestId: ${requestId}. Erro:`, pollError);
                 setJobs(prev => ({...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: pollError.message || 'Falha ao consultar status.' } }));
             }
         }, POLLING_INTERVAL_MS);
         activePolls.current.add(requestId);
 
     } catch (startError: any) {
+        console.error(`[SINTEGRA JOB CREATE] FALHA ao criar job para empresa: ${company.name} (${company.cnpj}). Erro:`, startError.message);
         setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: startError.message || 'Falha ao iniciar a consulta.' } }));
     }
   }, [setJobs, onConsultationComplete]);
@@ -205,6 +215,7 @@ export function SintegraConsultDialog({
       toast({ title: 'Nenhuma empresa selecionada', variant: 'destructive' });
       return;
     }
+    console.log(`[SINTEGRA BATCH] Iniciando consultas para ${companiesToRun.length} empresas.`);
     startConsultations(companiesToRun);
   };
   

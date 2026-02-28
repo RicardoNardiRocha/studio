@@ -212,23 +212,26 @@ export function CompaniesClient() {
     
     const sintegraStatus = calculateSintegraSituacao(result.data);
 
+    console.log(`[SINTEGRA PERSIST] Tentando salvar resultado para companyId: ${companyId}. Status calculado: ${sintegraStatus}`);
+    
     setDoc(companyRef, { 
-      sintegra: result.data || null, // Persist normalized data
+      sintegra: result.data || null,
       sintegraSituacao: sintegraStatus,
       sintegraUpdatedAt: serverTimestamp()
-    }, { merge: true }).catch(err => {
-        console.error("Firestore update failed:", err);
+    }, { merge: true }).then(() => {
+       console.log(`[SINTEGRA PERSIST] Sucesso ao salvar dados para companyId: ${companyId}.`);
+       forceRefetch();
+    }).catch(err => {
+        console.error(`[SINTEGRA PERSIST] FALHA ao salvar dados para companyId ${companyId}:`, err);
         toast({
-            title: "Erro ao Salvar",
-            description: `Não foi possível salvar os dados do Sintegra para a empresa.`,
+            title: "Erro ao Salvar no Firestore",
+            description: `Não foi possível salvar os dados do Sintegra para a empresa. Causa: ${err.message}`,
             variant: "destructive"
         });
         setSintegraJobs(prev => ({
             ...prev,
-            [companyId]: { ...prev[companyId], status: 'ERROR', error: 'Falha ao salvar no Firestore.'}
+            [companyId]: { ...prev[companyId], status: 'ERROR', error: `Falha ao salvar no Firestore: ${err.message}` }
         }))
-    }).then(() => {
-       forceRefetch();
     });
   }, [firestore, toast, forceRefetch]);
 
