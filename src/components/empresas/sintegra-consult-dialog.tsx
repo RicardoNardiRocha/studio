@@ -28,13 +28,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { getSintegraStatus, startSintegraJob } from '@/lib/sintegra/api';
-import type { CompanyForSintegra, SintegraJob, SintegraResult, SintegraApiPayload } from '@/lib/sintegra/types';
+import type { CompanyForSintegra, SintegraJob, SintegraResult, SintegraApiPayload, JobStatus } from '@/lib/sintegra/types';
 import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 
 const CONCURRENCY_LIMIT = 10;
-const POLLING_INTERVAL_MS = 5000; // Aumentado para 5 segundos para reduzir carga
-const MAX_ATTEMPTS = 120; // 10 minutos de timeout (120 * 5s)
+const POLLING_INTERVAL_MS = 3000;
+const BATCH_POLLING_CHUNK_SIZE = 200;
+const MAX_ATTEMPTS = 120; // 6 minutes timeout (120 * 3s)
 
 type JobStatusFilter = 'all' | 'pending' | 'success' | 'failed';
 
@@ -71,6 +72,8 @@ export function SintegraConsultDialog({
   const [jobFilter, setJobFilter] = useState<JobStatusFilter>('all');
   const { toast } = useToast();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [pendingRequestIds, setPendingRequestIds] = useState<string[]>([]);
+
 
   const companiesForSintegra = useMemo((): CompanyForSintegra[] => {
     return companies
@@ -100,63 +103,6 @@ export function SintegraConsultDialog({
     });
     setSelectedCompanies(prev => ({ ...prev, ...newSelection }));
   };
-  
-  const startGlobalPolling = useCallback((pendingJobs: Record<string, SintegraJob>) => {
-    let currentPendingJobs = { ...pendingJobs };
-    const attempts: Record<string, number> = {};
-    Object.keys(currentPendingJobs).forEach(id => (attempts[id] = 0));
-
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
-
-    pollIntervalRef.current = setInterval(async () => {
-      if (Object.keys(currentPendingJobs).length === 0) {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setStep('complete');
-        return;
-      }
-
-      for (const companyId in currentPendingJobs) {
-        const job = currentPendingJobs[companyId];
-        if (!job.requestId) continue;
-
-        attempts[companyId]++;
-
-        if (attempts[companyId] > MAX_ATTEMPTS) {
-          console.warn(`[SINTEGRA POLLING] TIMEOUT para requestId: ${job.requestId} (Empresa: ${job.company.name})`);
-          setJobs(prev => ({ ...prev, [companyId]: { ...prev[companyId], status: 'TIMEOUT', error: 'Tempo de consulta excedido.' } }));
-          delete currentPendingJobs[companyId];
-          continue;
-        }
-
-        try {
-          const { status, payload, error } = await getSintegraStatus(job.requestId);
-          if (status === 'DONE') {
-            delete currentPendingJobs[companyId];
-            console.log(`[SINTEGRA POLLING] DONE para requestId: ${job.requestId} (Empresa: ${job.company.name}).`);
-            const normalizedData = normalizeAndSanitizeSintegraPayload(payload || {});
-            const result: SintegraResult = { status: 'DONE', requestId: job.requestId, data: normalizedData, updatedAt: new Date(), raw: payload };
-            const finalStatus = result.data ? 'DONE' : 'DONE_NO_DATA';
-            setJobs(prev => ({ ...prev, [companyId]: { ...prev[companyId], status: finalStatus, result } }));
-            if (finalStatus === 'DONE') {
-              onConsultationComplete(companyId, result);
-            }
-          } else if (status === 'ERROR') {
-            delete currentPendingJobs[companyId];
-            console.error(`[SINTEGRA POLLING] ERROR para requestId: ${job.requestId} (Empresa: ${job.company.name}). Erro da API:`, error);
-            const result: SintegraResult = { status: 'ERROR', requestId: job.requestId, data: null, updatedAt: new Date(), error: error || 'Erro desconhecido na API.' };
-            setJobs(prev => ({ ...prev, [companyId]: { ...prev[companyId], status: 'ERROR', error: result.error, result } }));
-          }
-        } catch (pollError: any) {
-          delete currentPendingJobs[companyId];
-          console.error(`[SINTEGRA POLLING] FALHA na chamada de polling para requestId: ${job.requestId}. Erro:`, pollError);
-          setJobs(prev => ({...prev, [companyId]: { ...prev[companyId], status: 'ERROR', error: pollError.message || 'Falha ao consultar status.' } }));
-        }
-      }
-    }, POLLING_INTERVAL_MS);
-
-  }, [setJobs, onConsultationComplete, setStep]);
 
   const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra[]) => {
     if (companiesToRun.length === 0) {
@@ -171,53 +117,131 @@ export function SintegraConsultDialog({
     }, {} as Record<string, SintegraJob>);
     setJobs(initialJobs);
 
-    const jobsToPoll: Record<string, SintegraJob> = {};
+    const createdRequestIds: string[] = [];
+    const processQueue = [...companiesToRun];
 
-    const createJob = async (company: CompanyForSintegra) => {
-        try {
-            const { requestId } = await startSintegraJob(company.cnpj, company.uf);
-            console.log(`[SINTEGRA JOB CREATE] Sucesso! Empresa ${company.name} recebeu requestId: ${requestId}`);
-            const newJob = { company, status: 'PENDING' as const, requestId };
-            setJobs(prev => ({ ...prev, [company.id]: newJob }));
-            jobsToPoll[company.id] = newJob;
-        } catch (error: any) {
-            console.error(`[SINTEGRA JOB CREATE] FALHA ao criar job para empresa: ${company.name} (${company.cnpj}). Erro:`, error);
-            setJobs(prev => ({ ...prev, [company.id]: { ...prev[company.id], status: 'ERROR', error: error.message || 'Falha ao iniciar a consulta.' } }));
+    const worker = async () => {
+        while(processQueue.length > 0) {
+            const company = processQueue.shift();
+            if (!company) continue;
+
+            try {
+                const { requestId } = await startSintegraJob(company.cnpj, company.uf);
+                console.log(`[SINTEGRA JOB CREATE] Sucesso! Empresa ${company.name} recebeu requestId: ${requestId}`);
+                createdRequestIds.push(requestId);
+                setJobs(prev => ({
+                    ...prev,
+                    [company.id]: { company, status: 'PENDING', requestId }
+                }));
+            } catch (error: any) {
+                console.error(`[SINTEGRA JOB CREATE] FALHA ao criar job para empresa: ${company.name} (${company.cnpj}). Erro:`, error);
+                setJobs(prev => ({
+                    ...prev,
+                    [company.id]: { company, status: 'ERROR', error: error.message || 'Falha ao iniciar a consulta.' }
+                }));
+            }
         }
     };
     
-    const queue = [...companiesToRun];
-    const workers = Array(CONCURRENCY_LIMIT).fill(null).map(async () => {
-        while (queue.length > 0) {
-            const company = queue.shift();
-            if (company) {
-                await createJob(company);
-            }
-        }
-    });
-
+    const workers = Array(CONCURRENCY_LIMIT).fill(null).map(worker);
+    
     await Promise.all(workers);
 
-    if (Object.keys(jobsToPoll).length > 0) {
-        startGlobalPolling(jobsToPoll);
+    if (createdRequestIds.length > 0) {
+        setPendingRequestIds(createdRequestIds);
+        toast({ title: `${createdRequestIds.length} consultas iniciadas`, description: 'Acompanhando o status em tempo real.' });
     } else {
+        toast({ title: 'Nenhuma consulta iniciada com sucesso', description: 'Verifique o console para mais detalhes.', variant: 'destructive'});
         setStep('complete');
-        toast({ title: 'Nenhum job de consulta foi criado com sucesso.', variant: 'destructive' });
     }
-  }, [setStep, setJobs, startGlobalPolling, toast]);
+  }, [setStep, setJobs, toast]);
+
+  // Global Polling Effect
+  useEffect(() => {
+    if (step !== 'progress' || pendingRequestIds.length === 0) {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        return;
+    }
+
+    const pollBatchStatus = async () => {
+        if (pendingRequestIds.length === 0) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            const areAllJobsSettled = Object.values(jobs).every(j => j.status !== 'PENDING' && j.status !== 'QUEUED');
+            if (areAllJobsSettled) {
+                setStep('complete');
+            }
+            return;
+        }
+
+        const currentIdsToPoll = [...pendingRequestIds];
+        let nextPendingIds: string[] = [];
+
+        for (let i = 0; i < currentIdsToPoll.length; i += BATCH_POLLING_CHUNK_SIZE) {
+            const chunk = currentIdsToPoll.slice(i, i + BATCH_POLLING_CHUNK_SIZE);
+            try {
+                const response = await fetch('/api/integrations/sintegra/status-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ requestIds: chunk }),
+                });
+
+                if (!response.ok) throw new Error(`API retornou status ${response.status}`);
+
+                const results: Array<{requestId: string, status: JobStatus, data: any, error: string | null}> = await response.json();
+
+                setJobs(prevJobs => {
+                    const newJobs = { ...prevJobs };
+                    results.forEach(result => {
+                        const jobToUpdate = Object.values(newJobs).find(j => j.requestId === result.requestId);
+                        if (!jobToUpdate || jobToUpdate.status !== 'PENDING') return;
+
+                        if (result.status === 'DONE') {
+                            const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
+                            const sintegraResult: SintegraResult = { status: 'DONE', requestId: result.requestId, data: normalizedData, updatedAt: new Date(), raw: result.data };
+                            if (normalizedData) {
+                                newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'DONE', result: sintegraResult };
+                                onConsultationComplete(jobToUpdate.company.id, sintegraResult);
+                            } else {
+                                newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'DONE_NO_DATA', result: sintegraResult, error: 'Dados retornados vazios ou inválidos.' };
+                            }
+                        } else if (result.status === 'ERROR') {
+                            newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'ERROR', error: result.error || 'Erro desconhecido na API' };
+                        } else if (result.status === 'TIMEOUT') {
+                             newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'TIMEOUT', error: 'Tempo de consulta excedido na API externa.' };
+                        } else {
+                            nextPendingIds.push(result.requestId);
+                        }
+                    });
+                    return newJobs;
+                });
+            } catch (error: any) {
+                console.error('[SINTEGRA BATCH POLLING] Erro na chamada em lote:', error.message);
+                // If a chunk fails, retry all its IDs in the next cycle
+                nextPendingIds.push(...chunk);
+            }
+        }
+        setPendingRequestIds(nextPendingIds);
+    };
+
+    pollIntervalRef.current = setInterval(pollBatchStatus, POLLING_INTERVAL_MS);
+
+    return () => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [step, pendingRequestIds, jobs, setJobs, setStep, onConsultationComplete]);
+
 
   const handleStart = () => {
     const companiesToRun = companiesForSintegra.filter(c => selectedCompanies[c.id]);
     startConsultations(companiesToRun);
   };
   
+  // Cleanup polling on dialog close
   useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) {
+    if (!open && pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
-      }
-    };
-  }, []);
+    }
+  }, [open]);
 
   const handleClose = () => {
     onOpenChange(false);
@@ -259,7 +283,7 @@ export function SintegraConsultDialog({
     return allJobs;
   }, [jobs, jobFilter]);
   
-  const JobStatusIcon = ({ status }: { status: SintegraJob['status']}) => {
+  const JobStatusIcon = ({ status }: { status: JobStatus}) => {
     switch (status) {
       case 'PENDING':
       case 'QUEUED':
@@ -280,10 +304,10 @@ export function SintegraConsultDialog({
   const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
     const Icon = icon;
     return (
-        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary' : ''}`} onClick={onClick}>
+        <Card className={'cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary' : ''}'} onClick={onClick}>
             <CardContent className="p-3">
                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${colorClass}`}>
+                    <div className={'p-2 rounded-full ${colorClass}'}>
                         <Icon className="h-4 w-4 text-white" />
                     </div>
                     <div>
@@ -307,7 +331,7 @@ export function SintegraConsultDialog({
           </DialogTitle>
           <DialogDescription>
             {step === 'select' && 'Selecione as empresas para iniciar a consulta em lote.'}
-            {step === 'progress' && `Aguarde enquanto as consultas são processadas.`}
+            {step === 'progress' && 'Aguarde enquanto as consultas são processadas.'}
             {step === 'complete' && 'Verifique os resultados abaixo.'}
           </DialogDescription>
         </DialogHeader>

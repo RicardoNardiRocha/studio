@@ -63,9 +63,12 @@ export interface CompanyForSintegra {
   uf: string;
 }
 
+export type JobStatus = 'QUEUED' | 'PENDING' | 'DONE' | 'DONE_NO_DATA' | 'ERROR' | 'TIMEOUT';
+
+
 export interface SintegraJob {
   company: CompanyForSintegra;
-  status: 'QUEUED' | 'PENDING' | 'DONE' | 'ERROR' | 'TIMEOUT';
+  status: JobStatus;
   requestId?: string;
   result?: SintegraResult | null;
   error?: string;
