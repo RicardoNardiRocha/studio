@@ -304,10 +304,10 @@ export function SintegraConsultDialog({
   const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
     const Icon = icon;
     return (
-        <Card className={'cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary' : ''}'} onClick={onClick}>
+        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary' : ''}`} onClick={onClick}>
             <CardContent className="p-3">
                 <div className="flex items-center gap-3">
-                    <div className={'p-2 rounded-full ${colorClass}'}>
+                    <div className={`p-2 rounded-full ${colorClass}`}>
                         <Icon className="h-4 w-4 text-white" />
                     </div>
                     <div>
