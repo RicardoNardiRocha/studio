@@ -123,8 +123,10 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
         });
 
         if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`Falha ao criar lote. Status: ${response.status}. Detalhes: ${errorBody}`);
+            const errorBodyText = await response.text();
+            console.error(`[SINTEGRA API ERROR] Falha na criação do lote. Endpoint: /api/integrations/sintegra/batch, Status: ${response.status}, Payload: ${JSON.stringify({ companies: companiesToRun.map(c => ({cnpj: c.cnpj, uf: c.uf})) })}`);
+            console.error('[SINTEGRA API ERROR] Response Body:', errorBodyText);
+            throw new Error(`Falha ao criar lote. Status: ${response.status}. Detalhes: ${errorBodyText}`);
         }
 
         const { items } = await response.json();
@@ -185,7 +187,10 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
         return;
     }
 
+    let attempts = 0;
+
     const pollBatchStatus = async () => {
+        attempts++;
         if (pendingRequestIds.length === 0) {
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             const areAllJobsSettled = Object.values(jobs).every(j => j.status !== 'PENDING' && j.status !== 'QUEUED');
@@ -194,6 +199,25 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
             }
             return;
         }
+
+        if (attempts > MAX_ATTEMPTS) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            setJobs(prevJobs => {
+                const timedOutJobs = { ...prevJobs };
+                pendingRequestIds.forEach(id => {
+                    const jobToUpdateKey = Object.keys(timedOutJobs).find(key => timedOutJobs[key].requestId === id);
+                    if (jobToUpdateKey) {
+                        timedOutJobs[jobToUpdateKey].status = 'TIMEOUT';
+                        timedOutJobs[jobToUpdateKey].error = 'Tempo de consulta excedido (10 minutos).';
+                    }
+                });
+                return timedOutJobs;
+            });
+            setPendingRequestIds([]);
+            setStep('complete');
+            return;
+        }
+
 
         const currentIdsToPoll = [...pendingRequestIds];
         let nextPendingIds: string[] = [];
@@ -210,35 +234,42 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
                 if (!response.ok) throw new Error(`API retornou status ${response.status}`);
 
                 const results: Array<{requestId: string, status: JobStatus, data: any, error: string | null}> = await response.json();
+                
+                const newlyCompletedJobs = [];
 
                 setJobs(prevJobs => {
                     const newJobs = { ...prevJobs };
                     results.forEach(result => {
-                        const jobToUpdate = Object.values(newJobs).find(j => j.requestId === result.requestId);
-                        if (!jobToUpdate || jobToUpdate.status !== 'PENDING') return;
+                        const jobToUpdateKey = Object.keys(newJobs).find(key => newJobs[key].requestId === result.requestId);
+                        if (!jobToUpdateKey || newJobs[jobToUpdateKey].status !== 'PENDING') return;
 
                         if (result.status === 'DONE') {
                             const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
                             const sintegraResult: SintegraResult = { status: 'DONE', requestId: result.requestId, data: normalizedData, updatedAt: new Date(), raw: result.data };
                             if (normalizedData) {
-                                newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'DONE', result: sintegraResult };
-                                onConsultationComplete(jobToUpdate.company.id, sintegraResult);
+                                newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'DONE', result: sintegraResult };
+                                newlyCompletedJobs.push({ companyId: newJobs[jobToUpdateKey].company.id, result: sintegraResult });
                             } else {
-                                newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'DONE_NO_DATA', result: sintegraResult, error: 'Dados retornados vazios ou inválidos.' };
+                                newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'DONE_NO_DATA', result: sintegraResult, error: 'Dados retornados vazios ou inválidos.' };
                             }
                         } else if (result.status === 'ERROR') {
-                            newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'ERROR', error: result.error || 'Erro desconhecido na API' };
+                            newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'ERROR', error: result.error || 'Erro desconhecido na API' };
                         } else if (result.status === 'TIMEOUT') {
-                             newJobs[jobToUpdate.company.id] = { ...jobToUpdate, status: 'TIMEOUT', error: 'Tempo de consulta excedido na API externa.' };
+                             newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'TIMEOUT', error: 'Tempo de consulta excedido na API externa.' };
                         } else {
                             nextPendingIds.push(result.requestId);
                         }
                     });
                     return newJobs;
                 });
+
+                // Persist completed jobs outside the state updater
+                newlyCompletedJobs.forEach(({ companyId, result }) => {
+                    onConsultationComplete(companyId, result);
+                });
+
             } catch (error: any) {
                 console.error('[SINTEGRA BATCH POLLING] Erro na chamada em lote:', error.message);
-                // If a chunk fails, retry all its IDs in the next cycle
                 nextPendingIds.push(...chunk);
             }
         }
@@ -470,5 +501,3 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
     </Dialog>
   );
 }
-
-    
