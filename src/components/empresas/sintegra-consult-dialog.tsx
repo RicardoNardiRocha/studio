@@ -31,6 +31,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { CompanyForSintegra, SintegraJob, SintegraResult, JobStatus } from '@/lib/sintegra/types';
 import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
+import { cn } from '@/lib/utils';
 
 const BATCH_POLLING_CHUNK_SIZE = 50;
 const POLLING_INTERVAL_MS = 3000;
