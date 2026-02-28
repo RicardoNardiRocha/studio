@@ -32,7 +32,7 @@ import type { CompanyForSintegra, SintegraJob, SintegraResult, JobStatus } from 
 import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 
-const BATCH_POLLING_CHUNK_SIZE = 200;
+const BATCH_POLLING_CHUNK_SIZE = 50;
 const POLLING_INTERVAL_MS = 3000;
 const MAX_ATTEMPTS = 200; // 10 minutos (200 * 3s)
 
@@ -366,10 +366,10 @@ const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra
   const KpiCard = ({ title, value, icon, onClick, colorClass, isActive }: { title: string; value: number; icon: React.ElementType, onClick: () => void, colorClass: string, isActive: boolean }) => {
     const Icon = icon;
     return (
-        <Card className={`cursor-pointer hover:shadow-md transition-all ${isActive ? 'ring-2 ring-primary' : ''}`} onClick={onClick}>
+        <Card className={cn('cursor-pointer hover:shadow-md transition-all', isActive ? 'ring-2 ring-primary' : '')} onClick={onClick}>
             <CardContent className="p-3">
                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${colorClass}`}>
+                    <div className={cn('p-2 rounded-full', colorClass)}>
                         <Icon className="h-4 w-4 text-white" />
                     </div>
                     <div>
