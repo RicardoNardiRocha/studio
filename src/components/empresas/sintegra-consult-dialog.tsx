@@ -35,7 +35,7 @@ import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 import { cn } from '@/lib/utils';
 
 const BATCH_CREATE_CHUNK_SIZE = 30;
-const BATCH_POLLING_CHUNK_SIZE = 50;
+const BATCH_POLLING_CHUNK_SIZE = 20;
 const POLLING_INTERVAL_MS = 3000;
 const MAX_GLOBAL_ATTEMPTS = 400; // Aprox. 20 minutos (400 * 3s)
 const MAX_FETCH_RETRIES = 5;
@@ -50,6 +50,11 @@ interface SintegraConsultDialogProps {
   onOpenChange: (open: boolean) => void;
   companies: Company[];
   onConsultationComplete: (companyId: string, result: SintegraResult) => void;
+  jobs: Record<string, SintegraJob>;
+  setJobs: React.Dispatch<React.SetStateAction<Record<string, SintegraJob>>>;
+  step: 'select' | 'progress' | 'complete';
+  setStep: React.Dispatch<React.SetStateAction<'select' | 'progress' | 'complete'>>;
+  onNewQuery: () => void;
 }
 
 const getUfFromAddress = (address: string = ''): string => {
@@ -62,15 +67,18 @@ export function SintegraConsultDialog({
   onOpenChange,
   companies,
   onConsultationComplete,
+  jobs,
+  setJobs,
+  step,
+  setStep,
+  onNewQuery,
 }: SintegraConsultDialogProps) {
-  const [step, setStep] = useState<'select' | 'progress' | 'complete'>('select');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompanies, setSelectedCompanies] = useState<Record<string, boolean>>({});
   const [jobFilter, setJobFilter] = useState<JobStatusFilter>('all');
   const { toast } = useToast();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
-  const [jobs, setJobs] = useState<Record<string, SintegraJob>>({});
   const [pendingRequestIds, setPendingRequestIds] = useState<string[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [runHistory, setRunHistory] = useState<AttemptHistory[]>([]);
@@ -343,8 +351,7 @@ export function SintegraConsultDialog({
     }
   };
 
-  const resetState = () => {
-    setStep('select');
+  const handleNewQueryClick = () => {
     setSelectedCompanies({});
     setSearchTerm('');
     setJobs({});
@@ -354,9 +361,9 @@ export function SintegraConsultDialog({
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
     }
-  }
-
-  const handleNewQueryClick = () => resetState();
+    isPollingRef.current = false;
+    onNewQuery();
+  };
 
   const progressStats = useMemo(() => {
     const jobValues = Object.values(jobs);
