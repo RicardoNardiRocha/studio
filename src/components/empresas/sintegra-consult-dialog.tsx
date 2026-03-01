@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -35,7 +34,7 @@ import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 import { cn } from '@/lib/utils';
 
 const BATCH_CREATE_CHUNK_SIZE = 30;
-const BATCH_POLLING_CHUNK_SIZE = 20;
+const BATCH_POLLING_CHUNK_SIZE = 15;
 const POLLING_INTERVAL_MS = 3000;
 const MAX_GLOBAL_ATTEMPTS = 400; // Aprox. 20 minutos (400 * 3s)
 const MAX_FETCH_RETRIES = 5;
