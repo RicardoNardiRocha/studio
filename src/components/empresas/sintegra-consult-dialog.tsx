@@ -201,6 +201,7 @@ export function SintegraConsultDialog({
   useEffect(() => {
     if (step !== 'progress' || pendingRequestIds.length === 0) {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        isPollingRef.current = false;
         return;
     }
 
@@ -260,14 +261,18 @@ export function SintegraConsultDialog({
                         
                         const results: Array<{requestId: string, status: JobStatus, data: any, error: string | null}> = await response.json();
                         
+                        const chunkStillPendingSet = new Set(chunk);
                         const newlyCompletedJobs: { companyId: string, result: SintegraResult }[] = [];
-                        const chunkStillPending: string[] = [];
 
                         setJobs(prevJobs => {
                             const newJobs = { ...prevJobs };
                             results.forEach(result => {
                                 const jobToUpdateKey = Object.keys(newJobs).find(key => newJobs[key].requestId === result.requestId);
                                 if (!jobToUpdateKey || newJobs[jobToUpdateKey].status !== 'PENDING') return;
+
+                                if (result.status === 'DONE' || result.status === 'ERROR' || result.status === 'TIMEOUT') {
+                                    chunkStillPendingSet.delete(result.requestId);
+                                }
 
                                 if (result.status === 'DONE') {
                                     const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
@@ -276,15 +281,13 @@ export function SintegraConsultDialog({
                                     newlyCompletedJobs.push({ companyId: newJobs[jobToUpdateKey].company.id, result: sintegraResult });
                                 } else if (result.status === 'ERROR' || result.status === 'TIMEOUT') {
                                     newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: result.status, error: result.error || 'Erro desconhecido na API' };
-                                } else {
-                                    chunkStillPending.push(result.requestId);
                                 }
                             });
                             return newJobs;
                         });
 
                         newlyCompletedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
-                        nextPendingIds.push(...chunkStillPending);
+                        nextPendingIds.push(...Array.from(chunkStillPendingSet));
                         success = true;
                         break;
                     } catch (error: any) {
