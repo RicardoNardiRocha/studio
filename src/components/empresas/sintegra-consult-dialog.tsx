@@ -69,6 +69,7 @@ export function SintegraConsultDialog({
   const [jobFilter, setJobFilter] = useState<JobStatusFilter>('all');
   const { toast } = useToast();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPollingRef = useRef(false);
   const [jobs, setJobs] = useState<Record<string, SintegraJob>>({});
   const [pendingRequestIds, setPendingRequestIds] = useState<string[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -206,109 +207,119 @@ export function SintegraConsultDialog({
     let globalAttempts = 0;
 
     const pollBatchStatus = async () => {
-        globalAttempts++;
-        if (pendingRequestIds.length === 0) {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            const areAllJobsSettled = Object.values(jobs).every(j => j.status !== 'PENDING' && j.status !== 'QUEUED');
-            if (areAllJobsSettled) setStep('complete');
+        if (isPollingRef.current) {
             return;
         }
+        isPollingRef.current = true;
 
-        if (globalAttempts > MAX_GLOBAL_ATTEMPTS) {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            setJobs(prevJobs => {
-                const timedOutJobs = { ...prevJobs };
-                pendingRequestIds.forEach(id => {
-                    const jobToUpdateKey = Object.keys(timedOutJobs).find(key => timedOutJobs[key].requestId === id);
-                    if (jobToUpdateKey) {
-                        timedOutJobs[jobToUpdateKey].status = 'TIMEOUT';
-                        timedOutJobs[jobToUpdateKey].error = 'Tempo de consulta global excedido.';
-                    }
+        try {
+            globalAttempts++;
+            if (pendingRequestIds.length === 0) {
+                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                const areAllJobsSettled = Object.values(jobs).every(j => j.status !== 'PENDING' && j.status !== 'QUEUED');
+                if (areAllJobsSettled) setStep('complete');
+                return;
+            }
+
+            if (globalAttempts > MAX_GLOBAL_ATTEMPTS) {
+                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                setJobs(prevJobs => {
+                    const timedOutJobs = { ...prevJobs };
+                    pendingRequestIds.forEach(id => {
+                        const jobToUpdateKey = Object.keys(timedOutJobs).find(key => timedOutJobs[key].requestId === id);
+                        if (jobToUpdateKey) {
+                            timedOutJobs[jobToUpdateKey].status = 'TIMEOUT';
+                            timedOutJobs[jobToUpdateKey].error = 'Tempo de consulta global excedido.';
+                        }
+                    });
+                    return timedOutJobs;
                 });
-                return timedOutJobs;
-            });
-            setPendingRequestIds([]);
-            setStep('complete');
-            return;
-        }
+                setPendingRequestIds([]);
+                setStep('complete');
+                return;
+            }
 
-        const currentIdsToPoll = [...pendingRequestIds];
-        let nextPendingIds: string[] = [];
+            const currentIdsToPoll = [...pendingRequestIds];
+            let nextPendingIds: string[] = [];
 
-        for (let i = 0; i < currentIdsToPoll.length; i += BATCH_POLLING_CHUNK_SIZE) {
-            const chunk = currentIdsToPoll.slice(i, i + BATCH_POLLING_CHUNK_SIZE);
-            let success = false;
-            
-            for (let attempt = 1; attempt <= MAX_FETCH_RETRIES; attempt++) {
-                try {
-                    const response = await fetch('/api/integrations/sintegra/status-batch', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ requestIds: chunk }),
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`API retornou status ${response.status}`);
-                    }
-                    
-                    const results: Array<{requestId: string, status: JobStatus, data: any, error: string | null}> = await response.json();
-                    
-                    const newlyCompletedJobs: { companyId: string, result: SintegraResult }[] = [];
-                    const chunkStillPending: string[] = [];
-
-                    setJobs(prevJobs => {
-                        const newJobs = { ...prevJobs };
-                        results.forEach(result => {
-                            const jobToUpdateKey = Object.keys(newJobs).find(key => newJobs[key].requestId === result.requestId);
-                            if (!jobToUpdateKey || newJobs[jobToUpdateKey].status !== 'PENDING') return;
-
-                            if (result.status === 'DONE') {
-                                const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
-                                const sintegraResult: SintegraResult = { status: 'DONE', requestId: result.requestId, data: normalizedData, updatedAt: new Date(), raw: result.data };
-                                newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'DONE', result: sintegraResult };
-                                newlyCompletedJobs.push({ companyId: newJobs[jobToUpdateKey].company.id, result: sintegraResult });
-                            } else if (result.status === 'ERROR' || result.status === 'TIMEOUT') {
-                                newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: result.status, error: result.error || 'Erro desconhecido na API' };
-                            } else {
-                                chunkStillPending.push(result.requestId);
-                            }
+            for (let i = 0; i < currentIdsToPoll.length; i += BATCH_POLLING_CHUNK_SIZE) {
+                const chunk = currentIdsToPoll.slice(i, i + BATCH_POLLING_CHUNK_SIZE);
+                let success = false;
+                
+                for (let attempt = 1; attempt <= MAX_FETCH_RETRIES; attempt++) {
+                    try {
+                        const response = await fetch('/api/integrations/sintegra/status-batch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ requestIds: chunk }),
                         });
-                        return newJobs;
-                    });
 
-                    newlyCompletedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
-                    nextPendingIds.push(...chunkStillPending);
-                    success = true;
-                    break;
-                } catch (error: any) {
-                    console.warn(`[POLL ATTEMPT ${attempt}] Falha ao buscar chunk. Erro: ${error.message}`);
-                    if (attempt === MAX_FETCH_RETRIES) {
-                        console.error(`[POLL FAILED] Chunk falhou após ${MAX_FETCH_RETRIES} tentativas. Marcando como TIMEOUT.`);
+                        if (!response.ok) {
+                            throw new Error(`API retornou status ${response.status}`);
+                        }
+                        
+                        const results: Array<{requestId: string, status: JobStatus, data: any, error: string | null}> = await response.json();
+                        
+                        const newlyCompletedJobs: { companyId: string, result: SintegraResult }[] = [];
+                        const chunkStillPending: string[] = [];
+
                         setJobs(prevJobs => {
-                            const timedOutJobs = { ...prevJobs };
-                            chunk.forEach(id => {
-                                const jobKey = Object.keys(timedOutJobs).find(key => timedOutJobs[key].requestId === id);
-                                if (jobKey && timedOutJobs[jobKey].status === 'PENDING') {
-                                    timedOutJobs[jobKey].status = 'TIMEOUT';
-                                    timedOutJobs[jobKey].error = `Falha de rede após ${MAX_FETCH_RETRIES} tentativas.`;
+                            const newJobs = { ...prevJobs };
+                            results.forEach(result => {
+                                const jobToUpdateKey = Object.keys(newJobs).find(key => newJobs[key].requestId === result.requestId);
+                                if (!jobToUpdateKey || newJobs[jobToUpdateKey].status !== 'PENDING') return;
+
+                                if (result.status === 'DONE') {
+                                    const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
+                                    const sintegraResult: SintegraResult = { status: 'DONE', requestId: result.requestId, data: normalizedData, updatedAt: new Date(), raw: result.data };
+                                    newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'DONE', result: sintegraResult };
+                                    newlyCompletedJobs.push({ companyId: newJobs[jobToUpdateKey].company.id, result: sintegraResult });
+                                } else if (result.status === 'ERROR' || result.status === 'TIMEOUT') {
+                                    newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: result.status, error: result.error || 'Erro desconhecido na API' };
+                                } else {
+                                    chunkStillPending.push(result.requestId);
                                 }
                             });
-                            return timedOutJobs;
+                            return newJobs;
                         });
-                    } else {
-                        const delayMs = Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1), 15000);
-                        await new Promise(resolve => setTimeout(resolve, delayMs));
+
+                        newlyCompletedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
+                        nextPendingIds.push(...chunkStillPending);
+                        success = true;
+                        break;
+                    } catch (error: any) {
+                        console.warn(`[POLL ATTEMPT ${attempt}] Falha ao buscar chunk. Erro: ${error.message}`);
+                        if (attempt === MAX_FETCH_RETRIES) {
+                            console.error(`[POLL FAILED] Chunk falhou após ${MAX_FETCH_RETRIES} tentativas. Marcando como TIMEOUT.`);
+                            setJobs(prevJobs => {
+                                const timedOutJobs = { ...prevJobs };
+                                chunk.forEach(id => {
+                                    const jobKey = Object.keys(timedOutJobs).find(key => timedOutJobs[key].requestId === id);
+                                    if (jobKey && timedOutJobs[jobKey].status === 'PENDING') {
+                                        timedOutJobs[jobKey].status = 'TIMEOUT';
+                                        timedOutJobs[jobKey].error = `Falha de rede após ${MAX_FETCH_RETRIES} tentativas.`;
+                                    }
+                                });
+                                return timedOutJobs;
+                            });
+                        } else {
+                            const delayMs = Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1), 15000);
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+                        }
                     }
                 }
             }
+            setPendingRequestIds(nextPendingIds);
+        } finally {
+            isPollingRef.current = false;
         }
-        setPendingRequestIds(nextPendingIds);
     };
 
     pollIntervalRef.current = setInterval(pollBatchStatus, POLLING_INTERVAL_MS);
 
     return () => {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        isPollingRef.current = false;
     };
   }, [step, pendingRequestIds, jobs, setJobs, setStep, onConsultationComplete]);
 
