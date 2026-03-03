@@ -1,0 +1,51 @@
+--- a/node_modules/react-joyride/dist/index.mjs
++++ b/node_modules/react-joyride/dist/index.mjs
+@@ -1,5 +1,5 @@
+-import ReactDOM from 'react-dom';
++import { createRoot } from 'react-dom/client';
+ import PropTypes from 'prop-types';
+ import { Children, Component, Fragment, PureComponent } from 'react';
+ import { auto, bottom, right, top, left, flip, preventOverflow, hide, offset, arrow } from '@popperjs/core';
+@@ -1318,29 +1318,17 @@
+ 
+     this.portal = document.createElement('div');
+     this.portal.id = "react-joyride-portal-".concat(get(this.props, 'nonce'));
++    this.root = createRoot(this.portal);
+     document.body.appendChild(this.portal);
+     this.renderSubtree();
+   }
+ 
+   componentDidUpdate() {
+     this.renderSubtree();
+   }
+ 
+-  componentWillUnmount() {
+-    const {
+-      portal,
+-      root
+-    } = this;
+-
+-    if (!portal) {
+-      return;
+-    }
+-
+-    ReactDOM.unmountComponentAtNode(portal);
+-    document.body.removeChild(portal);
+-
+-    if (root) {
+-      root.removeEventListener('keydown', this.handleKeyDown, {
+-        passive: false
+-      });
+-    }
++  componentWillUnmount() {
++    if (!this.portal) return;
++    this.root.unmount();
++    document.body.removeChild(this.portal);
+   }
+ 
+   renderSubtree() {
+-    ReactDOM.unstable_renderSubtreeIntoContainer(this, this.props.children, this.portal);
++    this.root.render(this.props.children);
+   }
+ 
+   render() {
