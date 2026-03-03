@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useDocument, useFirestore } from '@/firebase';
+import { useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { CompanyEditForm } from '@/app/(dashboard)/companies/components/company-edit-form';
 import {
@@ -28,7 +28,7 @@ export default function EditCompanyPage() {
 
   // Busca o documento da empresa no Firestore
   const companyRef = firestore ? doc(firestore, 'companies', companyId) : null;
-  const { data: company, isLoading } = useDocument<Company>(companyRef);
+  const { data: company, isLoading } = useDoc<Company>(companyRef);
 
   return (
     <div className="container mx-auto py-10">
