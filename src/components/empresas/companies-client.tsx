@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -43,11 +44,12 @@ import { useToast } from '@/hooks/use-toast';
 import { exportToExcel } from '@/lib/export-to-excel';
 
 
-const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | null | undefined => {
+const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | null | undefined => {
   if (!status) return 'secondary';
   switch (status) {
     case 'APTO': return 'default';
     case 'INAPTO': return 'destructive';
+    case 'SUSPENSA': return 'warning';
     case 'BAIXADA': return 'outline';
     case 'SEM IE': return 'secondary';
     default: return 'secondary';
@@ -85,7 +87,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
 
 const taxRegimes = ['Todos', 'Simples Nacional', 'Lucro Presumido', 'Lucro Real', 'Lucro Presumido / Real'];
 const certificateStatuses: Array<'Todos' | CertificateStatus> = ['Todos', 'Válido', 'Vencendo', 'Vencido', 'Não informado'];
-const companyStatuses: Array<'Todos' | SintegraStatus> = ['Todos', 'APTO', 'INAPTO', 'SEM IE', 'BAIXADA'];
+const companyStatuses: Array<'Todos' | SintegraStatus> = ['Todos', 'APTO', 'INAPTO', 'SUSPENSA', 'SEM IE', 'BAIXADA'];
 
 const cnpjMask = (value: string) => {
     if (!value) return '';

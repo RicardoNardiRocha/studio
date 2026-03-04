@@ -1,6 +1,7 @@
+
 import type { SintegraFinal } from './types';
 
-export type SintegraStatus = 'APTO' | 'INAPTO' | 'SEM IE' | 'BAIXADA';
+export type SintegraStatus = 'APTO' | 'INAPTO' | 'SEM IE' | 'BAIXADA' | 'SUSPENSA';
 
 /**
  * Calculates the company's registration status based on Sintegra data.
@@ -19,20 +20,25 @@ export function calculateSintegraSituacao(sintegraData: SintegraFinal | null | u
     return 'BAIXADA';
   }
 
-  // Rule 2: SEM IE
+  // Rule 2: SUSPENSA
+  if (situacaoCadastral && situacaoCadastral.toUpperCase().includes('SUSPENSO')) {
+    return 'SUSPENSA';
+  }
+
+  // Rule 3: SEM IE
   const ieIsMissing = !ie || ie === 'N/A';
   const isNotApplicable = situacaoCadastral === 'N/A' && ocorrenciaFiscal === 'N/A';
   if (ieIsMissing || isNotApplicable) {
     return 'SEM IE';
   }
 
-  // Rule 3: APTO
+  // Rule 4: APTO
   const isCadastralOk = situacaoCadastral?.toLowerCase() === 'ativo';
   const isFiscalOk = ocorrenciaFiscal?.toLowerCase() === 'ativa';
   if (isCadastralOk && isFiscalOk) {
     return 'APTO';
   }
 
-  // Rule 4: INAPTO (fallback for all other cases)
+  // Rule 5: INAPTO (fallback for all other cases)
   return 'INAPTO';
 }

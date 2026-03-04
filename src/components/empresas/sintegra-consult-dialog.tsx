@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -17,7 +18,8 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
   AlertDialogTrigger,
-  AlertDialogAction
+  AlertDialogAction,
+  AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,7 @@ import type { CompanyForSintegra, SintegraJob, SintegraResult, JobStatus } from 
 import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 import { cn } from '@/lib/utils';
+import type { SintegraStatus } from '@/lib/sintegra/status';
 
 const BATCH_CREATE_CHUNK_SIZE = 30;
 const BATCH_POLLING_CHUNK_SIZE = 15;
@@ -81,6 +84,7 @@ export function SintegraConsultDialog({
   const [pendingRequestIds, setPendingRequestIds] = useState<string[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [runHistory, setRunHistory] = useState<AttemptHistory[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
 
   const companiesForSintegra = useMemo((): CompanyForSintegra[] => {
@@ -90,6 +94,7 @@ export function SintegraConsultDialog({
         name: c.name,
         cnpj: c.cnpj.replace(/\D/g, ''),
         uf: getUfFromAddress(c.address),
+        sintegraSituacao: c.sintegraSituacao,
       }))
       .filter(c => c.uf);
   }, [companies]);
@@ -103,6 +108,22 @@ export function SintegraConsultDialog({
         c.cnpj.includes(lowercasedFilter)
     );
   }, [companiesForSintegra, searchTerm]);
+  
+  const handleSelectAtRisk = () => {
+    const atRiskStatuses: SintegraStatus[] = ['INAPTO', 'SUSPENSA', 'SEM IE'];
+    const atRiskCompanies = companiesForSintegra.filter(c => atRiskStatuses.includes(c.sintegraSituacao as any));
+    const atRiskIds = new Set(atRiskCompanies.map(c => c.id));
+    
+    const newSelection: Record<string, boolean> = {};
+    companiesForSintegra.forEach(c => {
+        if(atRiskIds.has(c.id)) {
+            newSelection[c.id] = true;
+        }
+    });
+
+    setSelectedCompanies(prev => ({...prev, ...newSelection}));
+    toast({ title: `${Object.keys(newSelection).length} empresas em risco selecionadas.` });
+  };
 
   const handleToggleAll = (checked: boolean) => {
     const newSelection: Record<string, boolean> = {};
@@ -112,6 +133,23 @@ export function SintegraConsultDialog({
     setSelectedCompanies(prev => ({ ...prev, ...newSelection }));
   };
 
+  const handleMouseDown = (companyId: string) => {
+    setIsDragging(true);
+    // Invert selection on initial click
+    setSelectedCompanies(prev => ({ ...prev, [companyId]: !prev[companyId] }));
+  };
+
+  const handleMouseOver = (companyId: string) => {
+    if (isDragging) {
+      // Only select when dragging over
+      setSelectedCompanies(prev => ({ ...prev, [companyId]: true }));
+    }
+  };
+  
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra[]) => {
     if (companiesToRun.length === 0) {
       toast({ title: 'Nenhuma empresa selecionada', variant: 'destructive' });
@@ -119,11 +157,14 @@ export function SintegraConsultDialog({
     }
     
     setStep('progress');
-    const initialJobs = companiesToRun.reduce((acc, company) => {
-      acc[company.id] = { company, status: 'QUEUED' };
-      return acc;
-    }, {} as Record<string, SintegraJob>);
-    setJobs(initialJobs);
+    
+    setJobs(prevJobs => {
+        const mergedJobs = { ...prevJobs };
+        companiesToRun.forEach(company => {
+            mergedJobs[company.id] = { company, status: 'QUEUED' };
+        });
+        return mergedJobs;
+    });
 
     const allItems: { companyId: string, requestId: string | null, status: JobStatus, error: string | null }[] = [];
     let companiesFailedToCreate = 0;
@@ -154,27 +195,32 @@ export function SintegraConsultDialog({
         companiesFailedToCreate += items.filter((item: any) => item.status === 'ERROR').length;
       }
         
-        const newJobs = { ...initialJobs };
+        const jobsToUpdate: Record<string, Partial<SintegraJob>> = {};
         const newPendingRequestIds: string[] = [];
 
         allItems.forEach((item) => {
-            if (newJobs[item.companyId]) {
-                if (item.status === 'ERROR') {
-                    newJobs[item.companyId].status = 'ERROR';
-                    newJobs[item.companyId].error = item.error || 'Erro na criação do job.';
-                } else if (item.requestId) {
-                    newJobs[item.companyId].status = 'PENDING';
-                    newJobs[item.companyId].requestId = item.requestId;
-                    newPendingRequestIds.push(item.requestId);
-                } else {
-                     newJobs[item.companyId].status = 'ERROR';
-                     newJobs[item.companyId].error = 'API não retornou um ID de requisição.';
-                }
+            if (item.status === 'ERROR') {
+                jobsToUpdate[item.companyId] = { status: 'ERROR', error: item.error || 'Erro na criação do job.' };
+            } else if (item.requestId) {
+                jobsToUpdate[item.companyId] = { status: 'PENDING', requestId: item.requestId };
+                newPendingRequestIds.push(item.requestId);
+            } else {
+                 jobsToUpdate[item.companyId] = { status: 'ERROR', error: 'API não retornou um ID de requisição.' };
             }
         });
         
-        setJobs(newJobs);
-        setPendingRequestIds(newPendingRequestIds);
+        setJobs(prevJobs => {
+            const updatedJobs = { ...prevJobs };
+            Object.keys(jobsToUpdate).forEach(companyId => {
+                if (updatedJobs[companyId]) {
+                    updatedJobs[companyId] = { ...updatedJobs[companyId], ...jobsToUpdate[companyId] };
+                }
+            });
+            return updatedJobs;
+        });
+
+        setPendingRequestIds(currentPending => [...currentPending, ...newPendingRequestIds]);
+
         setRunHistory(prev => [...prev, { round: prev.length + 1, sent: companiesToRun.length, failed: companiesFailedToCreate }]);
         
         if (newPendingRequestIds.length > 0) {
@@ -202,7 +248,7 @@ export function SintegraConsultDialog({
         });
         setStep('complete');
     }
-  }, [setStep, setJobs, toast]);
+  }, [setStep, setJobs, toast, setPendingRequestIds, setRunHistory]);
 
 
   useEffect(() => {
@@ -225,7 +271,9 @@ export function SintegraConsultDialog({
             if (pendingRequestIds.length === 0) {
                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                 const areAllJobsSettled = Object.values(jobs).every(j => j.status !== 'PENDING' && j.status !== 'QUEUED');
-                if (areAllJobsSettled) setStep('complete');
+                if (areAllJobsSettled) {
+                    setTimeout(() => setStep('complete'), 0);
+                }
                 return;
             }
 
@@ -275,7 +323,9 @@ export function SintegraConsultDialog({
                             const newJobs = { ...prevJobs };
                             results.forEach(result => {
                                 const jobToUpdateKey = Object.keys(newJobs).find(key => newJobs[key].requestId === result.requestId);
-                                if (!jobToUpdateKey || newJobs[jobToUpdateKey].status !== 'PENDING') return;
+                                if (!jobToUpdateKey) return;
+                                const st = newJobs[jobToUpdateKey].status;
+                                if (st !== 'PENDING' && st !== 'QUEUED') return;
 
                                 if (result.status === 'DONE' || result.status === 'ERROR' || result.status === 'TIMEOUT') {
                                     chunkStillPendingSet.delete(result.requestId);
@@ -414,10 +464,12 @@ export function SintegraConsultDialog({
         </Card>
     );
   };
+  
+  const selectedCount = Object.values(selectedCompanies).filter(Boolean).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col" onMouseUp={handleMouseUp}>
         <DialogHeader>
           <DialogTitle>
             {step === 'select' && 'Consultar Empresas no Sintegra'}
@@ -448,11 +500,19 @@ export function SintegraConsultDialog({
                 onCheckedChange={checked => handleToggleAll(Boolean(checked))}
               />
               <Label htmlFor="select-all">Selecionar todas as empresas visíveis</Label>
+              <div className="flex-grow" />
+              <Button variant="outline" onClick={handleSelectAtRisk}>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Selecionar em Risco
+              </Button>
             </div>
             <ScrollArea className="flex-grow border rounded-md">
               <div className="p-4 space-y-2">
                 {filteredCompaniesForSelection.map(company => (
-                  <div key={company.id} className="flex items-center justify-between">
+                  <div key={company.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
+                       onMouseDown={() => handleMouseDown(company.id)}
+                       onMouseOver={() => handleMouseOver(company.id)}
+                  >
                     <div className="flex items-center space-x-3">
                       <Checkbox
                         id={company.id}
@@ -526,7 +586,9 @@ export function SintegraConsultDialog({
           {step === 'select' && (
             <>
               <Button variant="ghost" onClick={handleClose}>Cancelar</Button>
-              <Button onClick={handleStart}>Iniciar Consultas</Button>
+              <Button onClick={handleStart} disabled={selectedCount === 0}>
+                Iniciar Consulta ({selectedCount})
+              </Button>
             </>
           )}
           {step === 'progress' && <Button variant="destructive" onClick={handleClose}>Interromper e Fechar</Button>}

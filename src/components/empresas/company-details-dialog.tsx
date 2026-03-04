@@ -102,11 +102,12 @@ const formSchema = z.object({
   whatsappGroup: z.string().optional(),
 });
 
-const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | null | undefined => {
+const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" | 'warning' | null | undefined => {
     if (!status) return 'secondary';
     switch(status) {
         case 'APTO': return 'default';
         case 'INAPTO': return 'destructive';
+        case 'SUSPENSA': return 'warning';
         case 'BAIXADA': return 'outline';
         case 'SEM IE': return 'secondary';
         default: return 'secondary';
