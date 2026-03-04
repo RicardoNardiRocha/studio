@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -217,7 +218,7 @@ export function CompaniesClient() {
     console.log(`[SINTEGRA PERSIST] Tentando salvar resultado para companyId: ${companyId}. Status calculado: ${sintegraStatus}`);
     
     setDoc(companyRef, { 
-      sintegra: result.data || null,
+      sintegra: result,
       sintegraSituacao: sintegraStatus,
       sintegraUpdatedAt: serverTimestamp()
     }, { merge: true }).then(() => {
@@ -230,10 +231,6 @@ export function CompaniesClient() {
             description: `Não foi possível salvar os dados do Sintegra para a empresa. Causa: ${err.message}`,
             variant: "destructive"
         });
-        setSintegraJobs(prev => ({
-            ...prev,
-            [companyId]: { ...prev[companyId], status: 'ERROR', error: `Falha ao salvar no Firestore: ${err.message}` }
-        }))
     });
   }, [firestore, toast, forceRefetch]);
 

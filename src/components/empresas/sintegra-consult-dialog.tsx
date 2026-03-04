@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -317,33 +318,37 @@ export function SintegraConsultDialog({
                         const results: Array<{requestId: string, status: JobStatus, data: any, error: string | null}> = await response.json();
                         
                         const chunkStillPendingSet = new Set(chunk);
-                        const newlyCompletedJobs: { companyId: string, result: SintegraResult }[] = [];
+                        const newlyCompletedOrFailedJobs: { companyId: string, result: SintegraResult }[] = [];
 
                         setJobs(prevJobs => {
                             const newJobs = { ...prevJobs };
                             results.forEach(result => {
                                 const jobToUpdateKey = Object.keys(newJobs).find(key => newJobs[key].requestId === result.requestId);
                                 if (!jobToUpdateKey) return;
-                                const st = newJobs[jobToUpdateKey].status;
-                                if (st !== 'PENDING' && st !== 'QUEUED') return;
+                                const currentJob = newJobs[jobToUpdateKey];
+                                if (currentJob.status !== 'PENDING' && currentJob.status !== 'QUEUED') return;
 
                                 if (result.status === 'DONE' || result.status === 'ERROR' || result.status === 'TIMEOUT') {
                                     chunkStillPendingSet.delete(result.requestId);
-                                }
+                                    let sintegraResult: SintegraResult;
 
-                                if (result.status === 'DONE') {
-                                    const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
-                                    const sintegraResult: SintegraResult = { status: 'DONE', requestId: result.requestId, data: normalizedData, updatedAt: new Date(), raw: result.data };
-                                    newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: 'DONE', result: sintegraResult };
-                                    newlyCompletedJobs.push({ companyId: newJobs[jobToUpdateKey].company.id, result: sintegraResult });
-                                } else if (result.status === 'ERROR' || result.status === 'TIMEOUT') {
-                                    newJobs[jobToUpdateKey] = { ...newJobs[jobToUpdateKey], status: result.status, error: result.error || 'Erro desconhecido na API' };
+                                    if (result.status === 'DONE') {
+                                        const normalizedData = normalizeAndSanitizeSintegraPayload(result.data || {});
+                                        sintegraResult = { status: 'DONE', requestId: result.requestId, data: normalizedData, updatedAt: new Date(), raw: result.data };
+                                        newJobs[jobToUpdateKey] = { ...currentJob, status: 'DONE', result: sintegraResult };
+                                    } else { // ERROR or TIMEOUT
+                                        const errorMsg = result.error || 'Erro desconhecido na API';
+                                        sintegraResult = { status: result.status, requestId: result.requestId, data: null, error: errorMsg, updatedAt: new Date() };
+                                        newJobs[jobToUpdateKey] = { ...currentJob, status: result.status, error: errorMsg, result: sintegraResult };
+                                    }
+                                    newlyCompletedOrFailedJobs.push({ companyId: currentJob.company.id, result: sintegraResult });
                                 }
                             });
                             return newJobs;
                         });
 
-                        newlyCompletedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
+                        newlyCompletedOrFailedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
+                        
                         nextPendingIds.push(...Array.from(chunkStillPendingSet));
                         success = true;
                         break;
@@ -351,17 +356,23 @@ export function SintegraConsultDialog({
                         console.warn(`[POLL ATTEMPT ${attempt}] Falha ao buscar chunk. Erro: ${error.message}`);
                         if (attempt === MAX_FETCH_RETRIES) {
                             console.error(`[POLL FAILED] Chunk falhou após ${MAX_FETCH_RETRIES} tentativas. Marcando como TIMEOUT.`);
+                            const newlyFailedJobs: { companyId: string, result: SintegraResult }[] = [];
                             setJobs(prevJobs => {
                                 const timedOutJobs = { ...prevJobs };
                                 chunk.forEach(id => {
                                     const jobKey = Object.keys(timedOutJobs).find(key => timedOutJobs[key].requestId === id);
-                                    if (jobKey && timedOutJobs[jobKey].status === 'PENDING') {
-                                        timedOutJobs[jobKey].status = 'TIMEOUT';
-                                        timedOutJobs[jobKey].error = `Falha de rede após ${MAX_FETCH_RETRIES} tentativas.`;
+                                    if (jobKey && (timedOutJobs[jobKey].status === 'PENDING' || timedOutJobs[jobKey].status === 'QUEUED')) {
+                                        const errorMsg = `Falha de rede após ${MAX_FETCH_RETRIES} tentativas.`;
+                                        const sintegraResult: SintegraResult = { status: 'TIMEOUT', requestId: id, data: null, error: errorMsg, updatedAt: new Date() };
+                                        timedOutJobs[jobKey] = { ...timedOutJobs[jobKey], status: 'TIMEOUT', error: errorMsg, result: sintegraResult };
+                                        newlyFailedJobs.push({ companyId: timedOutJobs[jobKey].company.id, result: sintegraResult });
                                     }
                                 });
                                 return timedOutJobs;
                             });
+                            
+                            newlyFailedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
+
                         } else {
                             const delayMs = Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1), 15000);
                             await new Promise(resolve => setTimeout(resolve, delayMs));
