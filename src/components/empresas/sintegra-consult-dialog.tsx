@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -159,13 +157,12 @@ export function SintegraConsultDialog({
     
     setStep('progress');
     
-    setJobs(prevJobs => {
-        const mergedJobs = { ...prevJobs };
-        companiesToRun.forEach(company => {
-            mergedJobs[company.id] = { company, status: 'QUEUED' };
-        });
-        return mergedJobs;
+    // Set initial job statuses
+    const initialJobs: Record<string, SintegraJob> = {};
+    companiesToRun.forEach(company => {
+      initialJobs[company.id] = { company, status: 'QUEUED' };
     });
+    setJobs(prev => ({...prev, ...initialJobs}));
 
     const allItems: { companyId: string, requestId: string | null, status: JobStatus, error: string | null }[] = [];
     let companiesFailedToCreate = 0;
@@ -183,12 +180,11 @@ export function SintegraConsultDialog({
             const errorBodyText = await response.text();
             console.error(`[SINTEGRA API ERROR] Falha na criação do lote. Endpoint: /api/integrations/sintegra/batch, Status: ${response.status}, Payload: ${JSON.stringify({ companies: chunk.map(c => ({cnpj: c.cnpj, uf: c.uf})) })}`);
             console.error('[SINTEGRA API ERROR] Response Body:', errorBodyText);
-            // Mark all companies in this chunk as failed
             chunk.forEach(c => {
                 allItems.push({ companyId: c.id, requestId: null, status: 'ERROR', error: `Falha na criação do lote (HTTP ${response.status})` });
             });
             companiesFailedToCreate += chunk.length;
-            continue; // Continue to the next chunk
+            continue;
         }
         
         const { items } = await response.json();
@@ -225,13 +221,11 @@ export function SintegraConsultDialog({
         setRunHistory(prev => [...prev, { round: prev.length + 1, sent: companiesToRun.length, failed: companiesFailedToCreate }]);
         
         if (newPendingRequestIds.length > 0) {
-            toast({ title: `${newPendingRequestIds.length} consultas iniciadas com sucesso`, description: 'Acompanhando o status em tempo real.' });
+            toast({ title: `${newPendingRequestIds.length} consultas iniciadas`, description: 'Acompanhando o status em tempo real.' });
         } else if (companiesFailedToCreate > 0) {
             toast({ title: 'Algumas consultas não puderam ser iniciadas.', description: `${companiesFailedToCreate} falharam na criação.`, variant: 'destructive'});
-            setStep('complete');
         } else {
-             toast({ title: 'Nenhuma consulta pôde ser iniciada com sucesso.', variant: 'destructive'});
-             setStep('complete');
+             toast({ title: 'Nenhuma consulta pôde ser iniciada.', variant: 'destructive'});
         }
 
     } catch (error: any) {
@@ -247,21 +241,32 @@ export function SintegraConsultDialog({
             });
             return failedJobs;
         });
-        setStep('complete');
     }
   }, [setStep, setJobs, toast, setPendingRequestIds, setRunHistory]);
 
+  // Effect to check if all jobs are done and transition to 'complete' step
+  useEffect(() => {
+    if (step === 'progress' && Object.keys(jobs).length > 0) {
+      const areAnyJobsRunning = Object.values(jobs).some(
+        j => j.status === 'PENDING' || j.status === 'QUEUED'
+      );
 
+      if (!areAnyJobsRunning) {
+        // Defer update to avoid issues with render cycles
+        setTimeout(() => setStep('complete'), 0);
+      }
+    }
+  }, [jobs, step, setStep]);
+
+  // Effect to manage the polling interval
   useEffect(() => {
     if (step !== 'progress' || pendingRequestIds.length === 0) {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        isPollingRef.current = false;
-        
-        const areAnyJobsRunning = Object.values(jobs).some(j => j.status === 'PENDING' || j.status === 'QUEUED');
-        if (step === 'progress' && !areAnyJobsRunning && Object.keys(jobs).length > 0) {
-            setTimeout(() => setStep('complete'), 0);
-        }
-        return;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      isPollingRef.current = false;
+      return;
     }
 
     let globalAttempts = 0;
@@ -276,10 +281,6 @@ export function SintegraConsultDialog({
             globalAttempts++;
             if (pendingRequestIds.length === 0) {
                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                const areAllJobsSettled = Object.values(jobs).every(j => j.status !== 'PENDING' && j.status !== 'QUEUED');
-                if (areAllJobsSettled) {
-                    setTimeout(() => setStep('complete'), 0);
-                }
                 return;
             }
 
@@ -297,7 +298,6 @@ export function SintegraConsultDialog({
                     return timedOutJobs;
                 });
                 setPendingRequestIds([]);
-                setStep('complete');
                 return;
             }
 
@@ -306,7 +306,6 @@ export function SintegraConsultDialog({
 
             for (let i = 0; i < currentIdsToPoll.length; i += BATCH_POLLING_CHUNK_SIZE) {
                 const chunk = currentIdsToPoll.slice(i, i + BATCH_POLLING_CHUNK_SIZE);
-                let success = false;
                 
                 for (let attempt = 1; attempt <= MAX_FETCH_RETRIES; attempt++) {
                     try {
@@ -355,8 +354,7 @@ export function SintegraConsultDialog({
                         newlyCompletedOrFailedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
                         
                         nextPendingIds.push(...Array.from(chunkStillPendingSet));
-                        success = true;
-                        break;
+                        break; // Success, break retry loop for this chunk
                     } catch (error: any) {
                         console.warn(`[POLL ATTEMPT ${attempt}] Falha ao buscar chunk. Erro: ${error.message}`);
                         if (attempt === MAX_FETCH_RETRIES) {
@@ -377,7 +375,6 @@ export function SintegraConsultDialog({
                             });
                             
                             newlyFailedJobs.forEach(({ companyId, result }) => onConsultationComplete(companyId, result));
-
                         } else {
                             const delayMs = Math.min(INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1), 15000);
                             await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -390,14 +387,15 @@ export function SintegraConsultDialog({
             isPollingRef.current = false;
         }
     };
-
+    
     pollIntervalRef.current = setInterval(pollBatchStatus, POLLING_INTERVAL_MS);
 
     return () => {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        isPollingRef.current = false;
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
     };
-  }, [step, pendingRequestIds, jobs, setJobs, setStep, onConsultationComplete]);
+  }, [step, pendingRequestIds, onConsultationComplete, setJobs, setPendingRequestIds, jobs]);
 
   const handleStart = () => {
     const companiesToRun = companiesForSintegra.filter(c => selectedCompanies[c.id]);
@@ -519,7 +517,7 @@ export function SintegraConsultDialog({
               <div className="flex-grow" />
               <Button variant="outline" onClick={handleSelectAtRisk}>
                   <AlertTriangle className="mr-2 h-4 w-4" />
-                  Selecionar em Risco
+                  Selecionar Em Risco
               </Button>
             </div>
             <ScrollArea className="flex-grow border rounded-md">
@@ -646,4 +644,3 @@ export function SintegraConsultDialog({
     </Dialog>
   );
 }
-
