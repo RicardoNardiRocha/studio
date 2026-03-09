@@ -43,6 +43,7 @@ import type { SintegraResult, SintegraJob } from '@/lib/sintegra/types';
 import { calculateSintegraSituacao, type SintegraStatus } from '@/lib/sintegra/status';
 import { useToast } from '@/hooks/use-toast';
 import { exportToExcel } from '@/lib/export-to-excel';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | null | undefined => {
@@ -112,6 +113,13 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
     const displayValidity = certificateData?.validity || company.certificateA1Validity;
     const certStatus = getCertificateStatusInfo(displayValidity);
     const sintegraStatus = company.sintegraSituacao || 'N/A';
+    
+    const ocorrenciaFiscal = company.sintegra?.data?.ocorrenciaFiscal?.toLowerCase();
+    const showWarningForInapto =
+        sintegraStatus === 'INAPTO' &&
+        ocorrenciaFiscal &&
+        !['ativo', 'ativa', 'regular', 'nenhuma'].includes(ocorrenciaFiscal);
+
 
     return (
         <TableRow key={company.id}>
@@ -119,7 +127,21 @@ function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetail
             <TableCell>{cnpjMask(company.cnpj)}</TableCell>
             <TableCell>{company.taxRegime}</TableCell>
             <TableCell>
-                <Badge variant={getStatusVariant(sintegraStatus)}>{sintegraStatus}</Badge>
+                 <div className="flex items-center gap-2">
+                    <Badge variant={getStatusVariant(sintegraStatus)}>{sintegraStatus}</Badge>
+                    {showWarningForInapto && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Ocorrência Fiscal: {company.sintegra?.data?.ocorrenciaFiscal}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
             </TableCell>
             <TableCell className="space-y-1">
                 <Badge variant={certStatus.variant} className="gap-1.5 whitespace-nowrap">

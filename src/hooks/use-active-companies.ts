@@ -16,8 +16,7 @@ export function useActiveCompanies() {
       setIsLoading(true);
       try {
         const companiesQuery = query(
-          collection(firestore, 'companies'),
-          where('status', '==', 'ATIVA')
+          collection(firestore, 'companies')
         );
         const snapshot = await getCountFromServer(companiesQuery);
         setCount(snapshot.data().count);

@@ -30,10 +30,10 @@ export function KpiCards() {
   const kpis = [
      {
       id: 'activeCompanies',
-      title: 'Empresas Ativas',
+      title: 'Total de Empresas',
       value: activeCompanies,
       icon: 'Building',
-      description: 'Clientes com status "Ativa"',
+      description: 'Total de clientes cadastrados',
       isLoading: isLoadingCompanies,
       href: '/empresas'
     },
