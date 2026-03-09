@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Separator } from '../ui/separator';
-import { Loader2, Trash2, UploadCloud, Download, MessageSquare, Phone, Mail, RefreshCw } from 'lucide-react';
+import { Loader2, Trash2, UploadCloud, Download, MessageSquare, Phone, Mail, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
@@ -44,6 +44,7 @@ import { CompanyDocumentsTab } from './company-documents-tab';
 import { logActivity } from '@/lib/activity-log';
 import type { SintegraResult } from '@/lib/sintegra/types';
 import type { SintegraStatus } from '@/lib/sintegra/status';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 interface RawPartnerFromApi {
   nome_socio: string;
@@ -304,6 +305,12 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
   const displayValidity = certificateData?.validity || company.certificateA1Validity;
   const displayUrl = certificateData?.url || company.certificateA1Url;
   const sintegraStatus = company.sintegraSituacao || 'N/A';
+  const ocorrenciaFiscal = company.sintegra?.data?.ocorrenciaFiscal?.toLowerCase();
+  
+  const showWarningForInapto =
+    sintegraStatus === 'INAPTO' &&
+    ocorrenciaFiscal &&
+    !['ativo', 'ativa', 'regular', 'nenhuma'].includes(ocorrenciaFiscal);
 
 
   return (
@@ -322,7 +329,21 @@ export function CompanyDetailsDialog({ company, open, onOpenChange, onCompanyUpd
                 <DialogTitle className='font-headline text-2xl'>{company.name}</DialogTitle>
                 <DialogDescription>{company.fantasyName || 'Sem nome fantasia'}</DialogDescription>
               </div>
-              <Badge variant={getStatusVariant(sintegraStatus)}>{sintegraStatus}</Badge>
+               <div className="flex items-center gap-2">
+                {showWarningForInapto && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                         <AlertTriangle className="h-5 w-5 text-destructive" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Ocorrência Fiscal: {company.sintegra?.data?.ocorrenciaFiscal}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                <Badge variant={getStatusVariant(sintegraStatus)}>{sintegraStatus}</Badge>
+              </div>
             </div>
           </DialogHeader>
           
