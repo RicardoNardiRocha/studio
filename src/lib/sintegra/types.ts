@@ -61,6 +61,8 @@ export interface CompanyForSintegra {
   name: string;
   cnpj: string;
   uf: string;
+  sintegra?: SintegraResult;
+  sintegraSituacao?: SintegraStatus;
 }
 
 export type JobStatus = 'QUEUED' | 'PENDING' | 'DONE' | 'DONE_NO_DATA' | 'ERROR' | 'TIMEOUT';

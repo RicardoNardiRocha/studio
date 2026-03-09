@@ -93,6 +93,7 @@ export function SintegraConsultDialog({
         name: c.name,
         cnpj: c.cnpj.replace(/\D/g, ''),
         uf: getUfFromAddress(c.address),
+        sintegra: c.sintegra,
         sintegraSituacao: c.sintegraSituacao,
       }))
       .filter(c => c.uf);
@@ -110,15 +111,27 @@ export function SintegraConsultDialog({
   
   const handleSelectAtRisk = () => {
     const atRiskStatuses: SintegraStatus[] = ['INAPTO', 'SUSPENSA', 'SEM IE'];
-    const atRiskCompanies = companiesForSintegra.filter(c => atRiskStatuses.includes(c.sintegraSituacao as any));
-    const atRiskIds = new Set(atRiskCompanies.map(c => c.id));
     
-    const newSelection: Record<string, boolean> = {};
-    companiesForSintegra.forEach(c => {
-        if(atRiskIds.has(c.id)) {
-            newSelection[c.id] = true;
-        }
+    const atRiskCompanies = companiesForSintegra.filter(c => {
+      // Condition 1: No sintegra data at all.
+      if (!c.sintegra) {
+        return true;
+      }
+      // Condition 2: Last consultation resulted in an error or timeout.
+      if (c.sintegra.status === 'ERROR' || c.sintegra.status === 'TIMEOUT') {
+        return true;
+      }
+      // Condition 3: Status is one of the at-risk statuses.
+      if (atRiskStatuses.includes(c.sintegraSituacao as any)) {
+        return true;
+      }
+      return false;
     });
+
+    const newSelection = atRiskCompanies.reduce((acc, company) => {
+        acc[company.id] = true;
+        return acc;
+    }, {} as Record<string, boolean>);
 
     setSelectedCompanies(prev => ({...prev, ...newSelection}));
     toast({ title: `${Object.keys(newSelection).length} empresas em risco selecionadas.` });
