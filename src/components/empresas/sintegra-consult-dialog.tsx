@@ -83,7 +83,6 @@ export function SintegraConsultDialog({
   const [pendingRequestIds, setPendingRequestIds] = useState<string[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [runHistory, setRunHistory] = useState<AttemptHistory[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
 
 
   const companiesForSintegra = useMemo((): CompanyForSintegra[] => {
@@ -143,23 +142,6 @@ export function SintegraConsultDialog({
       newSelection[c.id] = checked;
     });
     setSelectedCompanies(prev => ({ ...prev, ...newSelection }));
-  };
-
-  const handleMouseDown = (companyId: string) => {
-    setIsDragging(true);
-    // Invert selection on initial click
-    setSelectedCompanies(prev => ({ ...prev, [companyId]: !prev[companyId] }));
-  };
-
-  const handleMouseOver = (companyId: string) => {
-    if (isDragging) {
-      // Only select when dragging over
-      setSelectedCompanies(prev => ({ ...prev, [companyId]: true }));
-    }
-  };
-  
-  const handleMouseUp = () => {
-    setIsDragging(false);
   };
 
   const startConsultations = useCallback(async (companiesToRun: CompanyForSintegra[]) => {
@@ -496,7 +478,7 @@ export function SintegraConsultDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col" onMouseUp={handleMouseUp}>
+      <DialogContent className="sm:max-w-3xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {step === 'select' && 'Consultar Empresas no Sintegra'}
@@ -536,22 +518,24 @@ export function SintegraConsultDialog({
             <ScrollArea className="flex-grow border rounded-md">
               <div className="p-4 space-y-2">
                 {filteredCompaniesForSelection.map(company => (
-                  <div key={company.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
-                       onMouseDown={() => handleMouseDown(company.id)}
-                       onMouseOver={() => handleMouseOver(company.id)}
+                  <div
+                    key={company.id}
+                    className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50"
                   >
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        id={company.id}
-                        checked={selectedCompanies[company.id] || false}
-                        onCheckedChange={checked =>
-                          setSelectedCompanies(prev => ({ ...prev, [company.id]: !!checked }))
-                        }
-                      />
-                      <div>
-                        <Label htmlFor={company.id} className="font-medium">{company.name}</Label>
-                        <p className="text-xs text-muted-foreground">{company.cnpj} - {company.uf}</p>
-                      </div>
+                    <Checkbox
+                      id={company.id}
+                      checked={selectedCompanies[company.id] || false}
+                      onCheckedChange={(checked) =>
+                        setSelectedCompanies((prev) => ({ ...prev, [company.id]: !!checked }))
+                      }
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label htmlFor={company.id} className="font-medium cursor-pointer">
+                        {company.name}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {company.cnpj} - {company.uf}
+                      </p>
                     </div>
                   </div>
                 ))}
