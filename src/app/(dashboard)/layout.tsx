@@ -2,7 +2,7 @@
 'use client';
 
 import { AppSidebar } from '@/components/layout/app-sidebar';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useUser } from '@/firebase';
 import { Loader2, ArrowRightToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,6 @@ import { useAuth } from '@/firebase';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { AppHeader } from '@/components/layout/header'; // Importado aqui
-
-// Importa o script de desenvolvimento para que ele seja carregado no ambiente do cliente.
-import '@/lib/dev/set-admin';
-
 
 function AppContent({ children }: { children: ReactNode }) {
   return (
@@ -76,6 +72,12 @@ export default function MainAppLayout({ children }: { children: ReactNode }) {
     const { user, profile, isUserLoading, userError } = useUser();
     const auth = useAuth();
     const isMobile = useIsMobile();
+
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            import('@/lib/dev/set-admin');
+        }
+    }, []);
 
     if (isUserLoading) {
         return (
