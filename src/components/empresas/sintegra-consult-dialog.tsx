@@ -256,6 +256,11 @@ export function SintegraConsultDialog({
     if (step !== 'progress' || pendingRequestIds.length === 0) {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         isPollingRef.current = false;
+        
+        const areAnyJobsRunning = Object.values(jobs).some(j => j.status === 'PENDING' || j.status === 'QUEUED');
+        if (step === 'progress' && !areAnyJobsRunning && Object.keys(jobs).length > 0) {
+            setTimeout(() => setStep('complete'), 0);
+        }
         return;
     }
 
@@ -641,3 +646,4 @@ export function SintegraConsultDialog({
     </Dialog>
   );
 }
+
