@@ -39,6 +39,7 @@ export interface UserProfile {
 const defaultPermissions = {
   dashboard: { read: true, create: false, update: false, delete: false },
   empresas: { read: false, create: false, update: false, delete: false },
+  sintegra: { read: false, create: false, update: false, delete: false },
   societario: { read: false, create: false, update: false, delete: false },
   processos: { read: false, create: false, update: false, delete: false },
   obrigacoes: { read: false, create: false, update: false, delete: false },
@@ -52,6 +53,7 @@ const defaultPermissions = {
 const adminPermissions = {
   dashboard: allPermissions,
   empresas: allPermissions,
+  sintegra: allPermissions,
   societario: allPermissions,
   processos: allPermissions,
   obrigacoes: allPermissions,

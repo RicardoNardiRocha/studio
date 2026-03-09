@@ -45,6 +45,7 @@ interface EditUserDialogProps {
 const modules: Array<keyof UserProfile['permissions']> = [
   'dashboard',
   'empresas',
+  'sintegra',
   'societario',
   'processos',
   'obrigacoes',
@@ -52,6 +53,7 @@ const modules: Array<keyof UserProfile['permissions']> = [
   'documentos',
   'financeiro',
   'usuarios',
+  'tutorial',
 ];
 
 const permissionSchema = z.object({
@@ -65,6 +67,7 @@ const formSchema = z.object({
   permissions: z.object({
     dashboard: permissionSchema,
     empresas: permissionSchema,
+    sintegra: permissionSchema,
     societario: permissionSchema,
     processos: permissionSchema,
     obrigacoes: permissionSchema,
@@ -72,6 +75,7 @@ const formSchema = z.object({
     documentos: permissionSchema,
     financeiro: permissionSchema,
     usuarios: permissionSchema,
+    tutorial: permissionSchema,
   }),
 });
 
@@ -79,6 +83,7 @@ const allPermissions: ModulePermissions = { read: true, create: true, update: tr
 const adminPermissions: Record<keyof UserProfile['permissions'], ModulePermissions> = {
   dashboard: allPermissions,
   empresas: allPermissions,
+  sintegra: allPermissions,
   societario: allPermissions,
   processos: allPermissions,
   obrigacoes: allPermissions,
@@ -86,12 +91,14 @@ const adminPermissions: Record<keyof UserProfile['permissions'], ModulePermissio
   documentos: allPermissions,
   financeiro: allPermissions,
   usuarios: allPermissions,
+  tutorial: allPermissions,
 };
 
 
 const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], ModulePermissions> => ({
   dashboard: { read: true, create: false, update: false, delete: false },
   empresas: { read: false, create: false, update: false, delete: false },
+  sintegra: { read: false, create: false, update: false, delete: false },
   societario: { read: false, create: false, update: false, delete: false },
   processos: { read: false, create: false, update: false, delete: false },
   obrigacoes: { read: false, create: false, update: false, delete: false },
@@ -99,6 +106,7 @@ const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], Modul
   documentos: { read: false, create: false, update: false, delete: false },
   financeiro: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
+  tutorial: { read: true, create: false, update: false, delete: false },
 });
 
 
@@ -227,6 +235,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                     {modules.map((moduleName) => {
                         const isFinance = moduleName === 'financeiro';
                         const isDashboard = moduleName === 'dashboard';
+                        const isTutorial = moduleName === 'tutorial';
                         return (
                             <div key={moduleName} className={`flex items-center p-4 rounded-lg border bg-card shadow-sm ${isFinance ? 'border-amber-500/50' : ''}`}>
                                 <div className="flex-1">
@@ -238,7 +247,7 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                                 <div className="w-20 flex justify-center">
                                      <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon" disabled={isDashboard}>
+                                          <Button variant="ghost" size="icon" disabled={isDashboard || isTutorial}>
                                             <Settings className="h-4 w-4" />
                                           </Button>
                                         </DropdownMenuTrigger>
@@ -267,13 +276,13 @@ export function EditUserDialog({ userToEdit, open, onOpenChange, onUserUpdated }
                                                              <Switch
                                                                 checked={field.value}
                                                                 onCheckedChange={field.onChange}
-                                                                disabled={isDashboard}
+                                                                disabled={isDashboard || isTutorial}
                                                             />
                                                         ) : (
                                                             <Checkbox
                                                                 checked={field.value}
                                                                 onCheckedChange={field.onChange}
-                                                                disabled={!form.watch(`permissions.${moduleName}.read`) || isDashboard}
+                                                                disabled={!form.watch(`permissions.${moduleName}.read`) || isDashboard || isTutorial}
                                                             />
                                                         )}
                                                     </FormControl>

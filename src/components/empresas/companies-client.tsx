@@ -402,30 +402,36 @@ export function CompaniesClient() {
               Visualize e gerencie todas as empresas atendidas pelo escritório.
             </CardDescription>
           </div>
-          {profile?.permissions.empresas.create && (
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-               <Button id="sintegra-consult-button" variant="outline" onClick={() => setIsSintegraDialogOpen(true)} disabled={!companies || companies.length === 0}>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+             {profile?.permissions.sintegra?.read && (
+              <Button id="sintegra-consult-button" variant="outline" onClick={() => setIsSintegraDialogOpen(true)} disabled={!companies || companies.length === 0}>
                 <FileSearch className="mr-2 h-4 w-4" />
                 Consultar Sintegra
               </Button>
-              <Button onClick={handleExport} disabled={isExporting} variant="outline">
-                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                Exportar Excel
-              </Button>
+            )}
+            <Button onClick={handleExport} disabled={isExporting} variant="outline">
+              {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Exportar Excel
+            </Button>
+            {profile?.permissions.empresas.update && (
               <Button id="sync-all-button" variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Sincronizar Todas
               </Button>
-              <Button id="bulk-import-button" variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
-                <Upload className="mr-2 h-4 w-4" />
-                Importar em Lote
-              </Button>
-              <Button id="add-company-button" onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nova Empresa
-              </Button>
-            </div>
-          )}
+            )}
+            {profile?.permissions.empresas.create && (
+              <>
+                <Button id="bulk-import-button" variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importar em Lote
+                </Button>
+                <Button id="add-company-button" onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nova Empresa
+                </Button>
+              </>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div id="company-filters" className="flex flex-col md:flex-row items-center gap-4 mb-4">
