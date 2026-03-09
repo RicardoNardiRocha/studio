@@ -121,17 +121,19 @@ export function AppSidebar() {
             <NavLink key={item.id} {...item} isCollapsed={isCollapsed && !isMobile} pathname={pathname} />
           ))}
            <Separator className='bg-sidebar-border my-2' />
-            <div
-                onClick={() => setIsIframeModalOpen(true)}
-                className={cn(
-                    "flex h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors hover:bg-sidebar-accent",
-                    isCollapsed && !isMobile ? 'justify-center' : ''
-                )}
-                title={(isCollapsed && !isMobile) ? "Fluxo XML" : undefined}
-            >
-                <Workflow className="h-5 w-5 shrink-0" />
-                {(!isCollapsed || isMobile) && <span>Fluxo XML</span>}
-            </div>
+            {hasAccess('fluxoXml', profile) && (
+              <div
+                  onClick={() => setIsIframeModalOpen(true)}
+                  className={cn(
+                      "flex h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors hover:bg-sidebar-accent",
+                      isCollapsed && !isMobile ? 'justify-center' : ''
+                  )}
+                  title={(isCollapsed && !isMobile) ? "Fluxo XML" : undefined}
+              >
+                  <Workflow className="h-5 w-5 shrink-0" />
+                  {(!isCollapsed || isMobile) && <span>Fluxo XML</span>}
+              </div>
+            )}
         </nav>
 
         <footer className="shrink-0 border-t border-sidebar-border p-2 space-y-2">

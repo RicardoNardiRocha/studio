@@ -54,6 +54,7 @@ const modules: Array<keyof UserProfile['permissions']> = [
   'financeiro',
   'usuarios',
   'tutorial',
+  'fluxoXml',
 ];
 
 const permissionSchema = z.object({
@@ -76,6 +77,7 @@ const formSchema = z.object({
     financeiro: permissionSchema,
     usuarios: permissionSchema,
     tutorial: permissionSchema,
+    fluxoXml: permissionSchema,
   }),
 });
 
@@ -92,6 +94,7 @@ const adminPermissions: Record<keyof UserProfile['permissions'], ModulePermissio
   financeiro: allPermissions,
   usuarios: allPermissions,
   tutorial: allPermissions,
+  fluxoXml: allPermissions,
 };
 
 
@@ -107,6 +110,7 @@ const getDefaultPermissions = (): Record<keyof UserProfile['permissions'], Modul
   financeiro: { read: false, create: false, update: false, delete: false },
   usuarios: { read: false, create: false, update: false, delete: false },
   tutorial: { read: true, create: false, update: false, delete: false },
+  fluxoXml: { read: false, create: false, update: false, delete: false },
 });
 
 
