@@ -26,6 +26,15 @@ import { ThemeToggle } from './theme-toggle';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useState } from 'react';
+import { IframeModal } from './iframe-modal';
+import { Button } from '../ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const mainMenuItems = [
     { id: 'dashboard', href: '/dashboard', label: 'Dashboard', icon: BarChartBig },
@@ -76,6 +85,7 @@ export function AppSidebar() {
   const { user, profile } = useUser();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const isMobile = useIsMobile();
+  const [isIframeModalOpen, setIsIframeModalOpen] = useState(false);
 
 
   const visibleMainMenuItems = mainMenuItems.filter(item => hasAccess(item.id, profile));
@@ -83,6 +93,14 @@ export function AppSidebar() {
   const visibleSettingsMenuItems = settingsMenuItems.filter(item => hasAccess(item.id, profile));
 
   return (
+    <>
+      <IframeModal
+        open={isIframeModalOpen}
+        onOpenChange={setIsIframeModalOpen}
+        title="Fluxo XML"
+        description="Aplicação para automação de fluxo de arquivos XML."
+        src="https://fluxo-xml.vercel.app/"
+      />
       <aside
         className={cn(
           "fixed top-0 left-0 z-50 flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
@@ -131,6 +149,26 @@ export function AppSidebar() {
 
             <div className={`flex items-center ${isCollapsed && !isMobile ? 'justify-start' : 'justify-start'}`}>
                 <ThemeToggle />
+                <TooltipProvider delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsIframeModalOpen(true)}
+                        className="dark:bg-transparent dark:text-sidebar-foreground dark:hover:bg-sidebar-accent bg-background text-foreground hover:bg-muted"
+                      >
+                        <Workflow className="h-[1.2rem] w-[1.2rem]" />
+                        <span className="sr-only">Abrir Fluxo XML</span>
+                      </Button>
+                    </TooltipTrigger>
+                    {isCollapsed && !isMobile && (
+                      <TooltipContent side="right" sideOffset={10}>
+                        Fluxo XML
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
             </div>
             
             <Separator className='bg-sidebar-border' />
@@ -151,5 +189,6 @@ export function AppSidebar() {
             </Link>
         </footer>
       </aside>
+    </>
   );
 }
