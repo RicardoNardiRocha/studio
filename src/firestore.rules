@@ -62,6 +62,14 @@ service cloud.firestore {
     function isAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
+    
+     /**
+     * Checks if a user has a specific permission for a module.
+     * Example: hasPermission('empresas', 'update')
+     */
+    function hasPermission(module, permission) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions[module][permission] == true;
+    }
 
     /**
      * Checks if a user is a member of a specific company by verifying their UID
@@ -191,20 +199,18 @@ service cloud.firestore {
      * @principle Uses a denormalized 'members' map for shared access control, restricting management to global admins.
      */
     match /companies/{companyId} {
-      allow get: if canReadCompanyData(companyId);
-      // Listing requires a client-side query to filter by membership, e.g., where('members.<user_uid>', '!=', null)
-      allow list: if isSignedIn();
-      allow create: if isCreatingOwnCompany();
-      allow update: if (isAdmin() || isCompanyMember(companyId)) && resource != null;
-      allow delete: if (isAdmin() || isCompanyMember(companyId)) && resource != null;
+      allow get: if hasPermission('empresas', 'read');
+      allow list: if hasPermission('empresas', 'read');
+      allow create: if hasPermission('empresas', 'create');
+      allow update: if hasPermission('empresas', 'update');
+      allow delete: if hasPermission('empresas', 'delete');
 
       /**
-       * @description Certificate details for a company. Read access is open to all signed-in users
-       * to allow the UI to display certificate status in lists. Write access is restricted.
+       * @description Certificate details for a company. Access is based on 'empresas' module permissions.
        */
       match /certificates/{certificateId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin() || isCompanyMember(companyId);
+        allow read: if hasPermission('empresas', 'read');
+        allow write: if hasPermission('empresas', 'update');
       }
 
       /**
@@ -215,10 +221,10 @@ service cloud.firestore {
        * @principle Restricts access to company members and enforces creator-only writes for subcollection documents.
        */
       match /taxObligations/{taxObligationId} {
-        allow read: if isSignedIn();
-        allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
-        allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
-        allow delete: if isExistingResponsibleUserOrAdmin();
+        allow read: if hasPermission('obrigacoes', 'read');
+        allow create: if hasPermission('obrigacoes', 'create');
+        allow update: if hasPermission('obrigacoes', 'update');
+        allow delete: if hasPermission('obrigacoes', 'delete');
       }
 
       /**
@@ -229,10 +235,10 @@ service cloud.firestore {
        * @principle Restricts access to company members and enforces creator-only writes for subcollection documents.
        */
       match /documents/{documentId} {
-        allow read: if isSignedIn();
-        allow create: if canReadCompanyData(companyId) && hasConsistentCompanyId(companyId) && isRequestingUserResponsible();
-        allow update: if isExistingResponsibleUserOrAdmin() && isCompanyIdImmutable() && isResponsibleUserImmutable();
-        allow delete: if isExistingResponsibleUserOrAdmin();
+        allow read: if hasPermission('documentos', 'read');
+        allow create: if hasPermission('documentos', 'create');
+        allow update: if hasPermission('documentos', 'update');
+        allow delete: if hasPermission('documentos', 'delete');
       }
 
       /**
@@ -255,5 +261,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

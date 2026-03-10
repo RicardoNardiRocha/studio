@@ -34,6 +34,7 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 | `GEMINI_API_KEY`                          | `SUA_CHAVE_DE_API_DO_GEMINI`                  | Sua chave de API para o Google AI Studio (Gemini).                             |
 | `INTERNAL_API_SECRET`                     | `UMA_SENHA_LONGA_E_SECRETA`                   | Token secreto para autenticação da API interna de integração.                  |
 | `SINTEGRA_API_KEY`                        | `SUA_CHAVE_DE_API_DO_SINTEGRA`                | Sua chave de API para o serviço de consulta do Sintegra.                       |
+| `CERTIFICATE_SECRET_KEY`                  | `CHAVE_HEX_DE_64_CARACTERES`                  | **[NOVO]** Chave para criptografar senhas de certificados. Gere com `openssl rand -hex 32`. |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`            | `AIzaSy...` (do seu projeto Firebase)         | Valor de `apiKey` do seu objeto de configuração do Firebase.                   |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | `seu-projeto.firebaseapp.com`                 | Valor de `authDomain` do seu objeto de configuração do Firebase.               |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID`         | `seu-projeto-id`                              | Valor de `projectId` do seu objeto de configuração do Firebase.                |
@@ -43,6 +44,7 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 | `FIREBASE_PROJECT_ID`                     | `seu-projeto-id`                              | **[NOVO]** ID do seu projeto Firebase (o mesmo que `NEXT_PUBLIC_FIREBASE_PROJECT_ID`). |
 | `FIREBASE_CLIENT_EMAIL`                   | `firebase-adminsdk-...@...`                   | **[NOVO]** E-mail da conta de serviço do Firebase Admin SDK.                      |
 | `FIREBASE_PRIVATE_KEY`                    | `-----BEGIN PRIVATE KEY-----\n...`            | **[NOVO]** Chave privada da conta de serviço do Firebase Admin SDK.              |
+
 
 **Como encontrar os valores do Firebase?**
 1.  Vá para o [Console do Firebase](https://console.firebase.google.com/).
@@ -63,6 +65,11 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 1.  Acesse o [Google AI Studio](https://aistudio.google.com/).
 2.  Clique em **"Get API key"** no menu à esquerda.
 3.  Crie ou copie sua chave de API existente.
+
+**Como gerar a `CERTIFICATE_SECRET_KEY`?**
+1.  Abra um terminal no seu computador.
+2.  Execute o seguinte comando: `openssl rand -hex 32`
+3.  Copie a longa sequência de 64 caracteres que for gerada. Este é o valor da sua chave.
 
 4.  **Clique em "Deploy":**
     *   Após adicionar todas as variáveis, clique no botão **"Deploy"**.
