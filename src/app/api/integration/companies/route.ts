@@ -10,7 +10,6 @@ export async function GET() {
   console.log('GET /api/integration/companies: Request received.');
   try {
     const companies = await getCompaniesData();
-    console.log(`GET /api/integration/companies: Found ${companies.length} companies. Returning data.`);
     return NextResponse.json(companies);
   } catch (error: any) {
     console.error(`[API ERROR] Error in GET /api/integration/companies: ${error.message}`);

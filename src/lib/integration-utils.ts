@@ -82,36 +82,27 @@ export async function getCompaniesData(companyId?: string) {
   if (companyId) {
     const docRef = companiesRef.doc(companyId);
     const docSnap = await docRef.get();
-    snapshot = docSnap.exists ? { docs: [docSnap], empty: false } : { docs: [], empty: true };
+    snapshot = docSnap.exists ? { docs: [docSnap], empty: false, size: 1 } : { docs: [], empty: true, size: 0 };
   } else {
     snapshot = await companiesRef.get();
   }
 
+  console.log(`[API Integration] Consulting collection path: ${companiesRef.path}`);
+  console.log(`[API Integration] Documents found in query snapshot: ${snapshot.size}`);
+
   if (snapshot.empty) {
+    console.log('[API Integration] Snapshot is empty. Returning [].');
     return [];
   }
+  
+  console.log(`[API Integration] First document ID: ${snapshot.docs[0].id}`);
+  console.log(`[API Integration] Raw data for first doc:`, JSON.stringify(snapshot.docs[0].data(), null, 2));
+
 
   const companiesData = await Promise.all(snapshot.docs.map(async (doc) => {
     const data = doc.data();
     const docId = doc.id;
 
-    // Log do primeiro documento bruto, conforme solicitado
-    if (snapshot.docs.indexOf(doc) === 0) {
-        console.log(`[API Integration] Consulting collection path: ${companiesRef.path}`);
-        console.log(`[API Integration] Raw data for first doc ID (${docId}):`, JSON.stringify(data, null, 2));
-    }
-
-    const uf = data.sintegra?.data?.endereco?.uf || 
-               data.sintegra?.data?.uf || 
-               data.sintegra?.uf || 
-               getUfFromAddress(data.address) || 
-               "";
-    
-    const status = data.status || 
-                   data.sintegraSituacao || 
-                   data.sintegra?.data?.situacaoCadastral ||
-                   null;
-                   
     const updatedAtTimestamp = data.updatedAt || data.sintegraUpdatedAt;
     const updatedAt = updatedAtTimestamp instanceof Timestamp 
       ? updatedAtTimestamp.toDate().toISOString() 
@@ -124,22 +115,22 @@ export async function getCompaniesData(companyId?: string) {
       cnpj: data.cnpj || null,
       razaoSocial: data.name || data.razao_social || data.razaoSocial || null,
       nomeFantasia: data.fantasyName || data.nome_fantasia || data.nomeFantasia || "",
-      uf,
-      status,
+      uf: data.sintegra?.data?.endereco?.uf || data.sintegra?.data?.uf || data.sintegra?.uf || getUfFromAddress(data.address) || "",
+      status: data.status || data.sintegraSituacao || data.sintegra?.data?.situacaoCadastral || null,
       tenantId: data.tenantId || null,
       certificateRef: certificateInfo.certificateRef,
       certificateStatus: certificateInfo.certificateStatus,
       certificateExpiresAt: certificateInfo.certificateExpiresAt,
       updatedAt,
     };
-
-    // Log do primeiro objeto transformado, conforme solicitado
+    
     if (snapshot.docs.indexOf(doc) === 0) {
       console.log(`[API Integration] Transformed data for first doc:`, JSON.stringify(transformedData, null, 2));
     }
 
     return transformedData;
   }));
-
+  
+  console.log(`[API Integration] Total documents transformed: ${companiesData.length}`);
   return companiesData;
 }
