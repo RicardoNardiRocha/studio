@@ -77,6 +77,8 @@ async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: 
 export async function getCompaniesData(companyId?: string) {
   const db = getAdminDb();
   const companiesRef = db.collection('companies');
+
+  console.log(`[API Integration] Consulting collection: ${companiesRef.path}`);
   
   let snapshot;
   if (companyId) {
@@ -94,6 +96,8 @@ export async function getCompaniesData(companyId?: string) {
   const companiesData = await Promise.all(snapshot.docs.map(async (doc) => {
     const data = doc.data();
     const docId = doc.id;
+
+    console.log(`[API Integration] Raw data for doc ID ${docId}:`, JSON.stringify(data, null, 2));
 
     const uf = data.sintegra?.data?.uf || 
                data.sintegra?.uf || 
@@ -113,7 +117,7 @@ export async function getCompaniesData(companyId?: string) {
 
     const certificateInfo = await getCertificateData(db, data, docId);
 
-    return {
+    const transformedData = {
       id: data.id || docId,
       cnpj: data.cnpj || null,
       razaoSocial: data.name || null,
@@ -126,6 +130,10 @@ export async function getCompaniesData(companyId?: string) {
       certificateExpiresAt: certificateInfo.certificateExpiresAt,
       updatedAt,
     };
+
+    console.log(`[API Integration] Transformed data for doc ID ${docId}:`, JSON.stringify(transformedData, null, 2));
+
+    return transformedData;
   }));
 
   return companiesData;
