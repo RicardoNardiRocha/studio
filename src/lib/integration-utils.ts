@@ -6,8 +6,6 @@ import { getUfFromAddress } from '@/lib/utils';
 
 type ValidityStatus = 'Válido' | 'Vencendo' | 'Vencido' | 'Não informado';
 
-// --- Funções de Extração de Dados ---
-
 const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; daysLeft?: number; dateText: string } => {
   if (!validity) {
     return { text: 'Não informado', status: 'Não informado', dateText: 'N/A' };
@@ -36,16 +34,24 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
 };
 
 
-// --- Função Principal de Busca de Dados ---
+async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: any, companyId: string) {
+    // Denormalized data on the company doc takes precedence
+    if (companyData.certificateA1Validity) {
+        const statusInfo = getCertificateStatusInfo(companyData.certificateA1Validity);
+        return {
+            certificateRef: companyData.certificateA1Url || `companies/${companyId}/certificates/A1`,
+            certificateStatus: statusInfo.status,
+            certificateExpiresAt: statusInfo.dateText,
+        };
+    }
 
-async function getCertificateData(companyId: string) {
-    const db = getAdminDb();
+    // Fallback to subcollection
     const certRef = db.doc(`companies/${companyId}/certificates/A1`);
     const certSnap = await certRef.get();
 
     if (certSnap.exists) {
         const certData = certSnap.data();
-        if (certData) {
+        if (certData && certData.validity) {
             const statusInfo = getCertificateStatusInfo(certData.validity);
             return {
                 certificateRef: certRef.path,
@@ -54,6 +60,7 @@ async function getCertificateData(companyId: string) {
             };
         }
     }
+    
     return {
         certificateRef: null,
         certificateStatus: 'Não informado',
@@ -64,7 +71,7 @@ async function getCertificateData(companyId: string) {
 
 /**
  * Busca dados de empresas no Firestore usando o Admin SDK.
- * Se um `companyId` (CNPJ) for fornecido, busca uma única empresa.
+ * Se um `companyId` (CNPJ numérico) for fornecido, busca uma única empresa.
  * Caso contrário, busca todas as empresas.
  */
 export async function getCompaniesData(companyId?: string) {
@@ -73,8 +80,9 @@ export async function getCompaniesData(companyId?: string) {
   
   let snapshot;
   if (companyId) {
-    const q = companiesRef.where("cnpj", "==", companyId);
-    snapshot = await q.get();
+    const docRef = companiesRef.doc(companyId);
+    const docSnap = await docRef.get();
+    snapshot = docSnap.exists ? { docs: [docSnap], empty: false } : { docs: [], empty: true };
   } else {
     snapshot = await companiesRef.get();
   }
@@ -83,23 +91,36 @@ export async function getCompaniesData(companyId?: string) {
     return [];
   }
 
-  const companiesData = await Promise.all(snapshot.docs.map(async (companyDoc) => {
-    const company = companyDoc.data();
-    const certificateInfo = await getCertificateData(company.id);
+  const companiesData = await Promise.all(snapshot.docs.map(async (doc) => {
+    const data = doc.data();
+    const docId = doc.id;
+
+    const uf = data.sintegra?.data?.uf || 
+               data.sintegra?.uf || 
+               data.sintegra?.data?.endereco?.uf || 
+               getUfFromAddress(data.address) || 
+               "";
     
-    // Convertendo Timestamps do Firestore para strings ISO
-    const updatedAt = company.updatedAt instanceof Timestamp 
-      ? company.updatedAt.toDate().toISOString() 
-      : (company.updatedAt || null);
+    const status = data.status || 
+                   data.sintegraSituacao || 
+                   data.sintegra?.data?.situacaoCadastral || 
+                   null;
+                   
+    const updatedAtTimestamp = data.updatedAt || data.sintegraUpdatedAt;
+    const updatedAt = updatedAtTimestamp instanceof Timestamp 
+      ? updatedAtTimestamp.toDate().toISOString() 
+      : null;
+
+    const certificateInfo = await getCertificateData(db, data, docId);
 
     return {
-      id: company.id,
-      cnpj: company.cnpj,
-      razaoSocial: company.name,
-      nomeFantasia: company.fantasyName || null,
-      uf: getUfFromAddress(company.address),
-      status: company.sintegraSituacao || null, // Usando o status do sintegra se disponível
-      tenantId: null, // Placeholder, se não houver tenantId real
+      id: data.id || docId,
+      cnpj: data.cnpj || null,
+      razaoSocial: data.name || null,
+      nomeFantasia: data.fantasyName || null,
+      uf,
+      status,
+      tenantId: data.tenantId || null,
       certificateRef: certificateInfo.certificateRef,
       certificateStatus: certificateInfo.certificateStatus,
       certificateExpiresAt: certificateInfo.certificateExpiresAt,
