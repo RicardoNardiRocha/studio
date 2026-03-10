@@ -128,6 +128,13 @@ export function CertificateUploadDialog({
             updatedAt: new Date().toISOString(),
         }, { merge: true });
 
+        // Denormalize validity date to parent company doc for filtering
+        const companyDocRef = doc(firestore, 'companies', company.id);
+        setDocumentNonBlocking(companyDocRef, {
+          certificateA1Validity: validityDateString,
+          certificateA1Url: fileUrl,
+        }, { merge: true });
+
         toast({
           title: 'Certificado Processado!',
           description: `A data de validade foi salva e o arquivo foi armazenado para a empresa ${company.name}.`,
