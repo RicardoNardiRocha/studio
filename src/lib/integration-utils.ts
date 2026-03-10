@@ -2,6 +2,7 @@ import 'server-only';
 import { initializeApp, getApps, getApp, FirebaseOptions } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, getDoc, query, where, Timestamp } from 'firebase/firestore';
 import { differenceInDays, isValid, startOfDay } from 'date-fns';
+import { getUfFromAddress } from '@/lib/utils';
 
 type ValidityStatus = 'Válido' | 'Vencendo' | 'Vencido' | 'Não informado';
 
@@ -23,11 +24,6 @@ const getDb = () => {
 
 
 // --- Funções de Extração de Dados ---
-
-export const getUfFromAddress = (address: string = ''): string => {
-  const match = address.match(/-\s([A-Z]{2})(?:\s*,|\s*$)/);
-  return match ? match[1] : '';
-};
 
 const getCertificateStatusInfo = (validity?: string): { text: string; status: ValidityStatus; daysLeft?: number; dateText: string } => {
   if (!validity) {

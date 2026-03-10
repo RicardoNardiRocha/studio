@@ -34,7 +34,7 @@ import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 import { cn } from '@/lib/utils';
 import type { SintegraStatus } from '@/lib/sintegra/status';
-import { getUfFromAddress } from '@/lib/integration-utils';
+import { getUfFromAddress } from '@/lib/utils';
 
 const BATCH_CREATE_CHUNK_SIZE = 30;
 const BATCH_POLLING_CHUNK_SIZE = 15;
