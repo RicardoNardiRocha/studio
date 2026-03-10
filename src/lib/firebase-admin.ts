@@ -16,7 +16,10 @@ const getServiceAccount = () => {
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-  console.log(`[Firebase Admin] Attempting to use Project ID from env: ${projectId}`);
+  // Diagnostic log (safe to print existence)
+  console.log(`[Firebase Admin Check] FIREBASE_PROJECT_ID exists: ${!!projectId}`);
+  console.log(`[Firebase Admin Check] FIREBASE_CLIENT_EMAIL exists: ${!!clientEmail}`);
+  console.log(`[Firebase Admin Check] FIREBASE_PRIVATE_KEY exists: ${!!privateKey}`);
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error('Firebase Admin SDK environment variables not set. Required: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY.');
@@ -39,6 +42,8 @@ function initializeFirebaseAdmin(): FirebaseAdminApp {
   }
 
   const serviceAccount = getServiceAccount();
+
+  console.log(`[Firebase Admin] Attempting to use Project ID from env: ${serviceAccount.projectId}`);
 
   const app = admin.initializeApp({
     credential: admin.credential.cert({
