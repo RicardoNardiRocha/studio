@@ -126,6 +126,8 @@ export function CertificateUploadDialog({
             url: fileUrl,
             type: 'A1',
             updatedAt: new Date().toISOString(),
+            password: password,
+            hasPassword: true,
         }, { merge: true });
 
         // Denormalize validity date to parent company doc for filtering
@@ -165,7 +167,7 @@ export function CertificateUploadDialog({
         <DialogHeader>
           <DialogTitle>Adicionar/Atualizar Certificado A1</DialogTitle>
           <DialogDescription>
-            Faça o upload do arquivo .pfx e digite a senha. O sistema validará o CNPJ, salvará o arquivo e a data de validade. A senha não será armazenada.
+            Faça o upload do arquivo .pfx e digite a senha. O sistema validará o CNPJ, salvará o arquivo e a data de validade.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

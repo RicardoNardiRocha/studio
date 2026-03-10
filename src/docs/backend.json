@@ -34,8 +34,7 @@
             "documentos": { "$ref": "#/entities/ModulePermissions" },
             "financeiro": { "$ref": "#/entities/ModulePermissions" },
             "usuarios": { "$ref": "#/entities/ModulePermissions" },
-            "tutorial": { "$ref": "#/entities/ModulePermissions" },
-            "fluxoXml": { "$ref": "#/entities/ModulePermissions" }
+            "tutorial": { "$ref": "#/entities/ModulePermissions" }
           }
         },
         "photoURL": {
@@ -142,6 +141,21 @@
         "status",
         "startDate"
       ]
+    },
+    "CertificateA1": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CertificateA1",
+      "type": "object",
+      "description": "Stores details for an A1 digital certificate.",
+      "properties": {
+        "type": { "type": "string", "enum": ["A1"] },
+        "validity": { "type": "string", "format": "date" },
+        "url": { "type": "string", "format": "uri" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "hasPassword": { "type": "boolean" },
+        "password": { "type": "string", "description": "The certificate password, stored in plain text. USE WITH CAUTION." }
+      },
+      "required": ["type", "validity", "url", "updatedAt"]
     },
      "Partner": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -336,7 +350,9 @@
        {
         "path": "/companies/{companyId}/certificates/{certificateId}",
         "definition": {
-          "description": "Subcollection to store certificate details like validity and URL."
+          "entityName": "CertificateA1",
+          "schema": { "$ref": "#/entities/CertificateA1" },
+          "description": "Subcollection to store A1 certificate details. The document ID is typically 'A1'."
         }
       },
       {

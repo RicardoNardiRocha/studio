@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
-import { decrypt, type EncryptedPayload } from '@/lib/crypto';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const companyId = params.id;
@@ -21,33 +20,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     const data = certSnap.data()!;
 
-    if (!data.hasPassword || !data.passwordEncrypted || !data.passwordIv || !data.passwordTag) {
+    if (!data.hasPassword || !data.password) {
       return NextResponse.json({ message: 'Certificate password is not stored.' }, { status: 404 });
     }
-
-    const encryptedPayload: EncryptedPayload = {
-      iv: data.passwordIv,
-      encryptedData: data.passwordEncrypted,
-      authTag: data.passwordTag,
-    };
-
-    const decryptedPassword = decrypt(encryptedPayload);
 
     const accessData = {
       url: data.url || null,
       storagePath: data.storagePath || null,
-      password: decryptedPassword,
+      password: data.password,
     };
 
     return NextResponse.json(accessData);
   } catch (error: any) {
     console.error(`[API ERROR] /certificate-access for ${companyId}:`, error.message);
-    if (error.message.includes('Unsupported state or unable to authenticate')) {
-       return NextResponse.json(
-        { message: 'Decryption failed. Check if the secret key is correct.', error: 'Authentication tag check failed.' },
-        { status: 500 }
-      );
-    }
     return NextResponse.json(
       { message: 'Error retrieving certificate access data.', error: error.message },
       { status: 500 }
