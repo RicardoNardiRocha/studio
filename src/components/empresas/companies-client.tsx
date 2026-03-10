@@ -66,16 +66,18 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Ce
     return { text: 'Não informado', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'N/A' };
   }
   try {
-    const [year, month, day] = validity.split('-').map(Number);
-    const validityDate = startOfDay(new Date(year, month - 1, day));
-    
-     if (!isValid(validityDate)) {
-        return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
+    // Use `parse` for robust date string parsing, assuming 'yyyy-MM-dd' format.
+    const validityDate = parse(validity, 'yyyy-MM-dd', new Date());
+
+    if (!isValid(validityDate)) {
+      return { text: 'Data inválida', status: 'Não informado', variant: 'secondary', Icon: ShieldQuestion, dateText: 'Inválida' };
     }
 
     const today = startOfDay(new Date());
-    const daysLeft = differenceInDays(validityDate, today);
-    const dateText = validityDate.toLocaleDateString('pt-BR');
+    // Use startOfDay on validityDate as well to ensure we are comparing calendar days without time interference
+    const daysLeft = differenceInDays(startOfDay(validityDate), today);
+    // Format date ensuring it's treated as UTC to avoid timezone shifts in display
+    const dateText = validityDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
     if (daysLeft < 0) {
       return { text: 'Vencido', status: 'Vencido', variant: 'destructive', daysLeft, Icon: ShieldX, dateText };
