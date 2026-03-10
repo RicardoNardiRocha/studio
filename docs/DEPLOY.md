@@ -32,6 +32,7 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 | Nome da Variável                          | Valor                                         | Descrição                                                                      |
 | ----------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------ |
 | `GEMINI_API_KEY`                          | `SUA_CHAVE_DE_API_DO_GEMINI`                  | Sua chave de API para o Google AI Studio (Gemini).                             |
+| `INTERNAL_API_SECRET`                     | `UMA_SENHA_LONGA_E_SECRETA`                   | Token secreto para autenticação da API interna de integração.                  |
 | `SINTEGRA_API_KEY`                        | `SUA_CHAVE_DE_API_DO_SINTEGRA`                | Sua chave de API para o serviço de consulta do Sintegra.                       |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`            | `AIzaSy...` (do seu projeto Firebase)         | Valor de `apiKey` do seu objeto de configuração do Firebase.                   |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | `seu-projeto.firebaseapp.com`                 | Valor de `authDomain` do seu objeto de configuração do Firebase.               |
@@ -52,8 +53,8 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 2.  Clique em **"Get API key"** no menu à esquerda.
 3.  Crie ou copie sua chave de API existente.
 
-**Como encontrar a `SINTEGRA_API_KEY`?**
-Esta chave é fornecida pelo serviço externo de consulta ao Sintegra. Você deve inseri-la para que a funcionalidade de consulta de Inscrição Estadual funcione em produção.
+**Como encontrar a `SINTEGRA_API_KEY` e `INTERNAL_API_SECRET`?**
+A `SINTEGRA_API_KEY` é fornecida pelo serviço externo de consulta. A `INTERNAL_API_SECRET` deve ser uma senha forte criada por você para proteger sua API interna.
 
 4.  **Clique em "Deploy":**
     *   Após adicionar todas as variáveis, clique no botão **"Deploy"**.

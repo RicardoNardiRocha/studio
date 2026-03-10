@@ -34,6 +34,7 @@ import type { Company } from './company-details-dialog';
 import { normalizeAndSanitizeSintegraPayload } from '@/lib/sintegra/normalize';
 import { cn } from '@/lib/utils';
 import type { SintegraStatus } from '@/lib/sintegra/status';
+import { getUfFromAddress } from '@/lib/integration-utils';
 
 const BATCH_CREATE_CHUNK_SIZE = 30;
 const BATCH_POLLING_CHUNK_SIZE = 15;
@@ -57,11 +58,6 @@ interface SintegraConsultDialogProps {
   setStep: React.Dispatch<React.SetStateAction<'select' | 'progress' | 'complete'>>;
   onNewQuery: () => void;
 }
-
-const getUfFromAddress = (address: string = ''): string => {
-  const match = address.match(/-\s([A-Z]{2})(?:\s*,|\s*$)/);
-  return match ? match[1] : '';
-};
 
 export function SintegraConsultDialog({
   open,
