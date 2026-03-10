@@ -40,7 +40,7 @@ async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: 
     if (companyData.certificateA1Validity) {
         const statusInfo = getCertificateStatusInfo(companyData.certificateA1Validity);
         return {
-            certificateRef: companyData.certificateA1Url || `companies/${companyId}/certificates/A1`,
+            certificateRef: companyData.certificateA1Url || null, // Use the URL if available
             certificateStatus: statusInfo.status,
             certificateExpiresAt: statusInfo.dateText,
         };
@@ -56,7 +56,7 @@ async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: 
         if (certData && certData.validity) {
             const statusInfo = getCertificateStatusInfo(certData.validity);
             return {
-                certificateRef: certRef.path, // Return the path as the reference
+                certificateRef: certData.url || null, // Use the URL from the subcollection document
                 certificateStatus: statusInfo.status,
                 certificateExpiresAt: statusInfo.dateText,
             };
