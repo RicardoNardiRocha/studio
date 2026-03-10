@@ -1,27 +1,10 @@
 import 'server-only';
-import { initializeApp, getApps, getApp, FirebaseOptions } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, getDoc, query, where, Timestamp } from 'firebase/firestore';
+import { getAdminDb } from './firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import { differenceInDays, isValid, startOfDay } from 'date-fns';
 import { getUfFromAddress } from '@/lib/utils';
 
 type ValidityStatus = 'Válido' | 'Vencendo' | 'Vencido' | 'Não informado';
-
-// --- Configuração do Firebase Admin ---
-// Usamos a configuração do cliente, mas garantimos que seja inicializado apenas uma vez no lado do servidor.
-const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const getDb = () => {
-  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  return getFirestore(app);
-};
-
 
 // --- Funções de Extração de Dados ---
 
@@ -56,18 +39,20 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
 // --- Função Principal de Busca de Dados ---
 
 async function getCertificateData(companyId: string) {
-    const db = getDb();
-    const certRef = doc(db, `companies/${companyId}/certificates/A1`);
-    const certSnap = await getDoc(certRef);
+    const db = getAdminDb();
+    const certRef = db.doc(`companies/${companyId}/certificates/A1`);
+    const certSnap = await certRef.get();
 
-    if (certSnap.exists()) {
+    if (certSnap.exists) {
         const certData = certSnap.data();
-        const statusInfo = getCertificateStatusInfo(certData.validity);
-        return {
-            certificateRef: certRef.path,
-            certificateStatus: statusInfo.status,
-            certificateExpiresAt: statusInfo.dateText,
-        };
+        if (certData) {
+            const statusInfo = getCertificateStatusInfo(certData.validity);
+            return {
+                certificateRef: certRef.path,
+                certificateStatus: statusInfo.status,
+                certificateExpiresAt: statusInfo.dateText,
+            };
+        }
     }
     return {
         certificateRef: null,
@@ -78,20 +63,20 @@ async function getCertificateData(companyId: string) {
 
 
 /**
- * Busca dados de empresas no Firestore.
+ * Busca dados de empresas no Firestore usando o Admin SDK.
  * Se um `companyId` (CNPJ) for fornecido, busca uma única empresa.
  * Caso contrário, busca todas as empresas.
  */
 export async function getCompaniesData(companyId?: string) {
-  const db = getDb();
-  const companiesRef = collection(db, 'companies');
+  const db = getAdminDb();
+  const companiesRef = db.collection('companies');
   
   let snapshot;
   if (companyId) {
-    const q = query(companiesRef, where("cnpj", "==", companyId));
-    snapshot = await getDocs(q);
+    const q = companiesRef.where("cnpj", "==", companyId);
+    snapshot = await q.get();
   } else {
-    snapshot = await getDocs(companiesRef);
+    snapshot = await companiesRef.get();
   }
 
   if (snapshot.empty) {

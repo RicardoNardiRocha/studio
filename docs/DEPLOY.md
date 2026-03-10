@@ -40,21 +40,29 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`     | `seu-projeto.appspot.com`                     | Valor de `storageBucket` do seu objeto de configuração do Firebase.            |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `1234567890`                                  | Valor de `messagingSenderId` do seu objeto de configuração do Firebase.        |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`             | `1:1234...` (do seu projeto Firebase)         | Valor de `appId` do seu objeto de configuração do Firebase.                    |
+| `FIREBASE_PROJECT_ID`                     | `seu-projeto-id`                              | **[NOVO]** ID do seu projeto Firebase (o mesmo que `NEXT_PUBLIC_FIREBASE_PROJECT_ID`). |
+| `FIREBASE_CLIENT_EMAIL`                   | `firebase-adminsdk-...@...`                   | **[NOVO]** E-mail da conta de serviço do Firebase Admin SDK.                      |
+| `FIREBASE_PRIVATE_KEY`                    | `-----BEGIN PRIVATE KEY-----\n...`            | **[NOVO]** Chave privada da conta de serviço do Firebase Admin SDK.              |
 
 **Como encontrar os valores do Firebase?**
 1.  Vá para o [Console do Firebase](https://console.firebase.google.com/).
 2.  Selecione seu projeto.
 3.  Clique no ícone de engrenagem (Configurações do projeto) ao lado de "Visão geral do projeto".
 4.  Na aba "Geral", role para baixo até a seção "Seus apps".
-5.  Selecione seu aplicativo da web. Você verá um objeto de configuração `firebaseConfig`. Copie os valores correspondentes para as variáveis de ambiente na Vercel.
+5.  Selecione seu aplicativo da web. Você verá um objeto de configuração `firebaseConfig`. Copie os valores correspondentes para as variáveis de ambiente `NEXT_PUBLIC_*` na Vercel.
+
+**Como encontrar os valores da Conta de Serviço do Firebase (para `FIREBASE_*`)?**
+1.  No Console do Firebase, vá para **Configurações do Projeto > Contas de serviço**.
+2.  Selecione o nó "Node.js" e clique em **"Gerar nova chave privada"**.
+3.  Um arquivo JSON será baixado. Abra-o e copie os seguintes valores:
+    *   `project_id` -> `FIREBASE_PROJECT_ID`
+    *   `client_email` -> `FIREBASE_CLIENT_EMAIL`
+    *   `private_key` -> `FIREBASE_PRIVATE_KEY` (Copie o valor completo, incluindo `-----BEGIN PRIVATE KEY-----` e `-----END PRIVATE KEY-----`. **Importante:** Ao colar na Vercel, o campo pode formatar as quebras de linha. Se o deploy falhar, tente substituir as quebras de linha literais `\n` no valor por `\\n`).
 
 **Como encontrar a `GEMINI_API_KEY`?**
 1.  Acesse o [Google AI Studio](https://aistudio.google.com/).
 2.  Clique em **"Get API key"** no menu à esquerda.
 3.  Crie ou copie sua chave de API existente.
-
-**Como encontrar a `SINTEGRA_API_KEY` e `INTERNAL_API_SECRET`?**
-A `SINTEGRA_API_KEY` é fornecida pelo serviço externo de consulta. A `INTERNAL_API_SECRET` deve ser uma senha forte criada por você para proteger sua API interna.
 
 4.  **Clique em "Deploy":**
     *   Após adicionar todas as variáveis, clique no botão **"Deploy"**.
