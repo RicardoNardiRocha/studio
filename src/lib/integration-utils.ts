@@ -101,21 +101,18 @@ export async function getCompaniesData(companyId?: string) {
         console.log(`[API Integration] Raw data for first doc ID (${docId}):`, JSON.stringify(data, null, 2));
     }
 
-    // Lógica de fallback para UF, conforme solicitado
-    const uf = data.sintegra?.data?.uf 
-               || data.sintegra?.uf 
-               || data.sintegra?.data?.endereco?.uf 
-               || getUfFromAddress(data.address) 
-               || "";
+    const uf = data.sintegra?.data?.uf || 
+               data.sintegra?.uf || 
+               data.sintegra?.data?.endereco?.uf || 
+               getUfFromAddress(data.address) || 
+               "";
     
-    // Lógica de fallback para Status, conforme solicitado
-    const status = data.status 
-                   || data.sintegraSituacao 
-                   || data.sintegra?.data?.situacaoCadastral 
-                   || data.descricao_situacao_cadastral // Fallback para nome do campo da BrasilAPI
-                   || null;
+    const status = data.status || 
+                   data.sintegraSituacao || 
+                   data.sintegra?.data?.situacaoCadastral ||
+                   data.descricao_situacao_cadastral || // Fallback para nome do campo da BrasilAPI
+                   null;
                    
-    // Lógica de fallback para Data de Atualização, conforme solicitado
     const updatedAtTimestamp = data.updatedAt || data.sintegraUpdatedAt;
     const updatedAt = updatedAtTimestamp instanceof Timestamp 
       ? updatedAtTimestamp.toDate().toISOString() 
@@ -126,8 +123,8 @@ export async function getCompaniesData(companyId?: string) {
     const transformedData = {
       id: data.id || data.cnpj || docId,
       cnpj: data.cnpj || null,
-      razaoSocial: data.name || data.razao_social || null,
-      nomeFantasia: data.fantasyName || data.nome_fantasia || null,
+      razaoSocial: data.name || data.razao_social || null, // Fallback para nome do campo da BrasilAPI
+      nomeFantasia: data.fantasyName || data.nome_fantasia || null, // Fallback para nome do campo da BrasilAPI
       uf,
       status,
       tenantId: data.tenantId || null,
