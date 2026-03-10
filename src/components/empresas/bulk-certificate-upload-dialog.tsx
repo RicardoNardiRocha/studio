@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState, useId, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, X, PlusCircle, FileUp, ShieldCheck, AlertTriangle, Building, HelpCircle, CheckCircle } from 'lucide-react';
+import { Loader2, X, FileUp, ShieldCheck, AlertTriangle, Building, HelpCircle, CheckCircle } from 'lucide-react';
 import { useFirestore, useStorage, useUser } from '@/firebase';
 import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -21,20 +21,14 @@ import * as forge from 'node-forge';
 import { uploadCertificate } from '@/lib/storage/upload';
 import { logActivity } from '@/lib/activity-log';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '../ui/badge';
-import { Separator } from '../ui/separator';
+import { cn } from '@/lib/utils';
+
 
 interface BulkCertificateUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete: () => void;
 }
-
-type CertRow = {
-  id: string;
-  file: File | null;
-  password: string;
-};
 
 type ProcessResult = {
     fileName: string;
@@ -48,8 +42,9 @@ type ProcessResult = {
 const CNPJ_OID = '2.16.76.1.3.3';
 
 export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: BulkCertificateUploadDialogProps) {
-    const uniqueId = useId();
-    const [rows, setRows] = useState<CertRow[]>([{ id: `row-${uniqueId}-0`, file: null, password: '' }]);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [passwords, setPasswords] = useState<Record<string, string>>({});
+    const [isDragging, setIsDragging] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [results, setResults] = useState<ProcessResult[]>([]);
     const { toast } = useToast();
@@ -57,27 +52,69 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
     const storage = useStorage();
     const { user } = useUser();
 
-    const addRow = () => {
-        if (rows.length < 5) {
-            setRows(prev => [...prev, { id: `row-${uniqueId}-${prev.length}`, file: null, password: '' }]);
+    const handleFilesChange = (files: FileList | null) => {
+        if (!files) return;
+        const newFiles = Array.from(files);
+        
+        // Filter out files that are already selected
+        const uniqueNewFiles = newFiles.filter(
+            newFile => !selectedFiles.some(existingFile => existingFile.name === newFile.name && existingFile.size === newFile.size)
+        );
+
+        const updatedFiles = [...selectedFiles, ...uniqueNewFiles];
+
+        if (updatedFiles.length > 5) {
+            toast({
+                title: "Limite de arquivos excedido",
+                description: "Você pode enviar no máximo 5 certificados por vez.",
+                variant: "destructive",
+            });
+            setSelectedFiles(updatedFiles.slice(0, 5));
+        } else {
+            setSelectedFiles(updatedFiles);
         }
     };
 
-    const removeRow = (id: string) => {
-        setRows(prev => prev.filter(row => row.id !== id));
+    const handlePasswordChange = (fileName: string, password: string) => {
+        setPasswords(prev => ({ ...prev, [fileName]: password }));
     };
 
-    const handleFileChange = (id: string, file: File | null) => {
-        setRows(prev => prev.map(row => row.id === id ? { ...row, file } : row));
+    const removeFile = (fileName: string) => {
+        setSelectedFiles(prev => prev.filter(f => f.name !== fileName));
+        setPasswords(prev => {
+            const newPasswords = { ...prev };
+            delete newPasswords[fileName];
+            return newPasswords;
+        });
     };
+    
+    // Drag and drop handlers
+    const handleDragOver = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    }, []);
+    
+    const handleDragLeave = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    }, []);
 
-    const handlePasswordChange = (id: string, password: string) => {
-        setRows(prev => prev.map(row => row.id === id ? { ...row, password } : row));
-    };
+    const handleDrop = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFilesChange(e.dataTransfer.files);
+            e.dataTransfer.clearData();
+        }
+    }, [handleFilesChange]);
     
     const handleClose = () => {
         if (isLoading) return;
-        setRows([{ id: `row-${uniqueId}-0`, file: null, password: '' }]);
+        setSelectedFiles([]);
+        setPasswords({});
         setResults([]);
         onOpenChange(false);
         if (results.some(r => r.status === 'success')) {
@@ -86,34 +123,33 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
     };
 
     const processCertificates = async () => {
-        const validRows = rows.filter(r => r.file && r.password);
-        if (validRows.length === 0) {
-            toast({ title: "Nenhum certificado para processar", description: "Por favor, adicione um arquivo .pfx e sua senha.", variant: "destructive"});
+        const filesToProcess = selectedFiles.filter(file => passwords[file.name]?.trim());
+        if (filesToProcess.length === 0) {
+            toast({ title: "Nenhum certificado pronto", description: "Adicione arquivos e digite as senhas.", variant: "destructive"});
             return;
         }
 
         setIsLoading(true);
         setResults([]);
-
         const processedResults: ProcessResult[] = [];
 
-        for (const row of validRows) {
+        for (const file of filesToProcess) {
+            const password = passwords[file.name];
             let result: ProcessResult = {
-                fileName: row.file!.name,
+                fileName: file.name,
                 status: 'error',
                 message: 'Erro desconhecido',
             };
 
             try {
-                const fileBuffer = await row.file!.arrayBuffer();
+                const fileBuffer = await file.arrayBuffer();
                 const pfxAsn1 = forge.asn1.fromDer(new Uint8Array(fileBuffer).toString('binary'));
-                const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, row.password);
+                const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, password);
                 
                 const certBags = p12.getBags({bagType: forge.pki.oids.certBag});
                 const certBag = certBags[forge.pki.oids.certBag]?.[0];
-                if (!certBag || !certBag.cert) {
-                    throw new Error('Certificado inválido ou corrompido.');
-                }
+                if (!certBag || !certBag.cert) throw new Error('Certificado inválido ou corrompido.');
+                
                 const certificate = certBag.cert;
                 
                 const subjectAttributes = certificate.subject.attributes;
@@ -125,28 +161,24 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
                      const commonNameAttr = certificate.subject.getField('CN');
                      if (commonNameAttr && typeof commonNameAttr.value === 'string') {
                          const match = commonNameAttr.value.match(/(\d{2}[\.\s]?\d{3}[\.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2})/);
-                         if (match) {
-                             certCnpj = match[0].replace(/\D/g, '');
-                         }
+                         if (match) certCnpj = match[0].replace(/\D/g, '');
                      }
                  }
-                if (!certCnpj) {
-                    throw new Error('CNPJ não encontrado no certificado.');
-                }
+                if (!certCnpj) throw new Error('CNPJ não encontrado no certificado.');
+                
                 result.cnpj = certCnpj;
 
                 const q = query(collection(firestore!, 'companies'), where('cnpj', '==', certCnpj));
                 const querySnapshot = await getDocs(q);
-                if (querySnapshot.empty) {
-                    throw new Error('Empresa não encontrada no sistema.');
-                }
+                if (querySnapshot.empty) throw new Error('Empresa não encontrada no sistema.');
+                
                 const companyDoc = querySnapshot.docs[0];
                 const companyData = companyDoc.data();
                 result.companyName = companyData.name;
                 
                 const validity = certificate.validity.notAfter;
                 const validityDateString = validity.toISOString().split('T')[0];
-                const fileUrl = await uploadCertificate(storage!, `companies/${companyDoc.id}`, row.file!);
+                const fileUrl = await uploadCertificate(storage!, `companies/${companyDoc.id}`, file);
                 
                 const companyDocRef = doc(firestore!, 'companies', companyDoc.id);
                 setDocumentNonBlocking(companyDocRef, {
@@ -166,12 +198,9 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
                 
                 result.status = 'success';
                 result.message = `Vinculado com sucesso. Validade: ${validity.toLocaleDateString('pt-BR')}`;
+
             } catch (err: any) {
-                if(err.message.includes('Invalid MAC')) {
-                    result.message = 'Senha inválida ou arquivo corrompido.';
-                } else {
-                    result.message = err.message;
-                }
+                result.message = err.message.includes('Invalid MAC') ? 'Senha inválida ou arquivo corrompido.' : err.message;
                 result.status = err.message.includes('não encontrada') ? 'warning' : 'error';
             }
             processedResults.push(result);
@@ -187,7 +216,9 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
             case 'error': return <AlertTriangle className="text-destructive" />;
             default: return <HelpCircle className="text-muted-foreground" />;
         }
-    }
+    };
+    
+    const allPasswordsEntered = selectedFiles.length > 0 && selectedFiles.every(file => passwords[file.name]?.trim());
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
@@ -195,39 +226,80 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
                 <DialogHeader>
                     <DialogTitle>Atualizar Certificados em Lote</DialogTitle>
                     <DialogDescription>
-                        Envie até 5 certificados A1 (.pfx) com suas respectivas senhas. O sistema identificará o CNPJ e vinculará automaticamente à empresa.
+                        Arraste ou selecione até 5 certificados A1 (.pfx). Depois, preencha as senhas e processe todos de uma vez.
                     </DialogDescription>
                 </DialogHeader>
 
                 {results.length === 0 ? (
-                    <div className="space-y-4 py-4">
-                        <ScrollArea className="max-h-[60vh] p-1">
-                            <div className="space-y-4 pr-4">
-                                {rows.map((row, index) => (
-                                    <div key={row.id} className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-lg relative">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor={`file-${row.id}`}>Arquivo .pfx</Label>
-                                            <Input id={`file-${row.id}`} type="file" accept=".pfx" onChange={(e) => handleFileChange(row.id, e.target.files ? e.target.files[0] : null)} />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor={`password-${row.id}`}>Senha do Certificado</Label>
-                                            <Input id={`password-${row.id}`} type="password" value={row.password} onChange={(e) => handlePasswordChange(row.id, e.target.value)} />
-                                        </div>
-                                        {rows.length > 1 && (
-                                            <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => removeRow(row.id)}>
-                                                <X className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
+                  <div className="space-y-4 py-4">
+                    {selectedFiles.length === 0 ? (
+                        <Label
+                          htmlFor="file-upload"
+                          className={cn(
+                            "relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted",
+                            isDragging && "ring-2 ring-primary border-solid bg-primary/10"
+                          )}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                        >
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                                <FileUp className="w-10 h-10 mb-3 text-muted-foreground" />
+                                <p className="mb-2 text-sm text-muted-foreground">
+                                    <span className="font-semibold">Clique para selecionar</span> ou arraste e solte
+                                </p>
+                                <p className="text-xs text-muted-foreground">Até 5 arquivos .pfx</p>
                             </div>
-                        </ScrollArea>
-                        {rows.length < 5 && (
-                            <Button variant="outline" onClick={addRow} className="w-full">
-                                <PlusCircle className="mr-2 h-4 w-4" /> Adicionar Outro Certificado
-                            </Button>
-                        )}
-                    </div>
+                            <Input 
+                                id="file-upload" 
+                                type="file" 
+                                className="hidden" 
+                                multiple 
+                                accept=".pfx"
+                                onChange={(e) => handleFilesChange(e.target.files)}
+                            />
+                        </Label>
+                    ) : (
+                      <ScrollArea className="max-h-[60vh] pr-4">
+                        <div className="space-y-4">
+                           {selectedFiles.map((file) => (
+                                <div key={file.name} className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-lg relative">
+                                    <div className="space-y-1.5 overflow-hidden">
+                                        <Label htmlFor={`password-${file.name}`} className="truncate">{file.name}</Label>
+                                        <p className="text-xs text-muted-foreground">Tamanho: {(file.size / 1024).toFixed(2)} KB</p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Input 
+                                          id={`password-${file.name}`} 
+                                          type="password" 
+                                          placeholder="Senha do certificado"
+                                          value={passwords[file.name] || ''}
+                                          onChange={(e) => handlePasswordChange(file.name, e.target.value)}
+                                        />
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => removeFile(file.name)}>
+                                        <X className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {selectedFiles.length < 5 && (
+                                <Label htmlFor="file-add-more" className="flex items-center justify-center w-full py-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted">
+                                    <FileUp className="w-5 h-5 mr-2 text-muted-foreground"/>
+                                    Adicionar mais arquivos
+                                     <Input 
+                                        id="file-add-more" 
+                                        type="file" 
+                                        className="hidden" 
+                                        multiple 
+                                        accept=".pfx"
+                                        onChange={(e) => handleFilesChange(e.target.files)}
+                                    />
+                                </Label>
+                            )}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
                 ) : (
                     <div className="space-y-4 py-4">
                         <h3 className="font-semibold">Resultado do Processamento</h3>
@@ -254,8 +326,8 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
                     ) : (
                         <>
                             <Button type="button" variant="ghost" onClick={handleClose}>Cancelar</Button>
-                            <Button onClick={processCertificates} disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                            <Button onClick={processCertificates} disabled={isLoading || selectedFiles.length === 0 || !allPasswordsEntered}>
+                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                                 Processar Certificados
                             </Button>
                         </>
