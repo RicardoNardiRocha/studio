@@ -77,8 +77,6 @@ async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: 
 export async function getCompaniesData(companyId?: string) {
   const db = getAdminDb();
   const companiesRef = db.collection('companies');
-
-  console.log(`[API Integration] Consulting collection: ${companiesRef.path}`);
   
   let snapshot;
   if (companyId) {
@@ -97,7 +95,11 @@ export async function getCompaniesData(companyId?: string) {
     const data = doc.data();
     const docId = doc.id;
 
-    console.log(`[API Integration] Raw data for doc ID ${docId}:`, JSON.stringify(data, null, 2));
+    // Log do primeiro documento bruto, conforme solicitado
+    if (snapshot.docs.indexOf(doc) === 0) {
+        console.log(`[API Integration] Consulting collection path: ${companiesRef.path}`);
+        console.log(`[API Integration] Raw data for first doc ID (${docId}):`, JSON.stringify(data, null, 2));
+    }
 
     const uf = data.sintegra?.data?.uf || 
                data.sintegra?.uf || 
@@ -118,7 +120,7 @@ export async function getCompaniesData(companyId?: string) {
     const certificateInfo = await getCertificateData(db, data, docId);
 
     const transformedData = {
-      id: data.id || docId,
+      id: data.id || data.cnpj || docId,
       cnpj: data.cnpj || null,
       razaoSocial: data.name || null,
       nomeFantasia: data.fantasyName || null,
@@ -131,7 +133,10 @@ export async function getCompaniesData(companyId?: string) {
       updatedAt,
     };
 
-    console.log(`[API Integration] Transformed data for doc ID ${docId}:`, JSON.stringify(transformedData, null, 2));
+    // Log do primeiro objeto transformado, conforme solicitado
+    if (snapshot.docs.indexOf(doc) === 0) {
+      console.log(`[API Integration] Transformed data for first doc:`, JSON.stringify(transformedData, null, 2));
+    }
 
     return transformedData;
   }));
