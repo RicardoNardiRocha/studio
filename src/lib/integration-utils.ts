@@ -101,16 +101,15 @@ export async function getCompaniesData(companyId?: string) {
         console.log(`[API Integration] Raw data for first doc ID (${docId}):`, JSON.stringify(data, null, 2));
     }
 
-    const uf = data.sintegra?.data?.uf || 
+    const uf = data.sintegra?.data?.endereco?.uf || 
+               data.sintegra?.data?.uf || 
                data.sintegra?.uf || 
-               data.sintegra?.data?.endereco?.uf || 
                getUfFromAddress(data.address) || 
                "";
     
     const status = data.status || 
                    data.sintegraSituacao || 
                    data.sintegra?.data?.situacaoCadastral ||
-                   data.descricao_situacao_cadastral || // Fallback para nome do campo da BrasilAPI
                    null;
                    
     const updatedAtTimestamp = data.updatedAt || data.sintegraUpdatedAt;
@@ -123,8 +122,8 @@ export async function getCompaniesData(companyId?: string) {
     const transformedData = {
       id: data.id || data.cnpj || docId,
       cnpj: data.cnpj || null,
-      razaoSocial: data.name || data.razao_social || null, // Fallback para nome do campo da BrasilAPI
-      nomeFantasia: data.fantasyName || data.nome_fantasia || null, // Fallback para nome do campo da BrasilAPI
+      razaoSocial: data.name || data.razao_social || data.razaoSocial || null,
+      nomeFantasia: data.fantasyName || data.nome_fantasia || data.nomeFantasia || "",
       uf,
       status,
       tenantId: data.tenantId || null,
