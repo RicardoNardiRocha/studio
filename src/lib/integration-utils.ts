@@ -1,3 +1,4 @@
+
 import 'server-only';
 import { getAdminDb } from './firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -35,7 +36,7 @@ const getCertificateStatusInfo = (validity?: string): { text: string; status: Va
 
 
 async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: any, companyId: string) {
-    // Denormalized data on the company doc takes precedence
+    // 1. Prioritize denormalized data on the company doc for performance
     if (companyData.certificateA1Validity) {
         const statusInfo = getCertificateStatusInfo(companyData.certificateA1Validity);
         return {
@@ -45,22 +46,24 @@ async function getCertificateData(db: FirebaseFirestore.Firestore, companyData: 
         };
     }
 
-    // Fallback to subcollection
+    // 2. Fallback to subcollection if denormalized data is missing
     const certRef = db.doc(`companies/${companyId}/certificates/A1`);
     const certSnap = await certRef.get();
 
     if (certSnap.exists) {
         const certData = certSnap.data();
+        // The actual field in the subcollection is 'validity'
         if (certData && certData.validity) {
             const statusInfo = getCertificateStatusInfo(certData.validity);
             return {
-                certificateRef: certRef.path,
+                certificateRef: certRef.path, // Return the path as the reference
                 certificateStatus: statusInfo.status,
                 certificateExpiresAt: statusInfo.dateText,
             };
         }
     }
     
+    // 3. Default if nothing found
     return {
         certificateRef: null,
         certificateStatus: 'Não informado',
@@ -103,6 +106,7 @@ export async function getCompaniesData(companyId?: string) {
     const data = doc.data();
     const docId = doc.id;
 
+    // Use a fallback chain for updatedAt
     const updatedAtTimestamp = data.updatedAt || data.sintegraUpdatedAt;
     const updatedAt = updatedAtTimestamp instanceof Timestamp 
       ? updatedAtTimestamp.toDate().toISOString() 
@@ -124,6 +128,7 @@ export async function getCompaniesData(companyId?: string) {
       updatedAt,
     };
     
+    // Log only the first transformed document for diagnosis
     if (snapshot.docs.indexOf(doc) === 0) {
       console.log(`[API Integration] Transformed data for first doc:`, JSON.stringify(transformedData, null, 2));
     }
