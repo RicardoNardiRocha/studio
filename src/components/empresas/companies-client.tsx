@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -30,8 +28,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch, Download, Loader2 } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
-import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
+import { collection, query, orderBy, doc, setDoc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 import { CompanyDetailsDialog, type Company } from './company-details-dialog';
 import { BulkAddCompaniesDialog } from './bulk-add-companies-dialog';
@@ -104,15 +102,7 @@ const cnpjMask = (value: string) => {
   };
 
 function CompanyRow({ company, onOpenDetails }: { company: Company, onOpenDetails: (company: Company) => void }) {
-    const firestore = useFirestore();
-    const certificateRef = useMemoFirebase(() => 
-        firestore ? doc(firestore, `companies/${company.id}/certificates/A1`) : null,
-        [firestore, company.id]
-    );
-    const { data: certificateData } = useDoc(certificateRef);
-
-    const displayValidity = certificateData?.validity || company.certificateA1Validity;
-    const certStatus = getCertificateStatusInfo(displayValidity);
+    const certStatus = getCertificateStatusInfo(company.certificateA1Validity);
     const sintegraStatus = company.sintegraSituacao || 'N/A';
     
     const ocorrenciaFiscal = company.sintegra?.data?.ocorrenciaFiscal?.toLowerCase();
@@ -176,6 +166,8 @@ export function CompaniesClient() {
   const [isAlertDismissed, setIsAlertDismissed] = useState(false);
   const [showAlertsOnly, setShowAlertsOnly] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [enrichedCompanies, setEnrichedCompanies] = useState<Company[] | null>(null);
+  const [isEnriching, setIsEnriching] = useState(true);
 
   // State for Sintegra Dialog lifted up to parent
   const [isSintegraDialogOpen, setIsSintegraDialogOpen] = useState(false);
@@ -192,24 +184,62 @@ export function CompaniesClient() {
     return query(collection(firestore, 'companies'), orderBy('name', sortOrder));
   }, [firestore, sortOrder]);
   
-  const { data: companies, isLoading, forceRefetch } = useCollection<Company>(companiesQuery);
+  const { data: companies, isLoading: isLoadingInitialCompanies, forceRefetch } = useCollection<Company>(companiesQuery);
   
+  useEffect(() => {
+    if (!companies || !firestore) return;
+
+    const enrichData = async () => {
+      setIsEnriching(true);
+      const enriched = await Promise.all(
+        companies.map(async (company) => {
+          if (company.certificateA1Validity) {
+            return company;
+          }
+          try {
+            const certRef = doc(firestore, `companies/${company.id}/certificates/A1`);
+            const certSnap = await getDoc(certRef);
+            if (certSnap.exists()) {
+              const certData = certSnap.data();
+              if (certData && certData.validity) {
+                return {
+                  ...company,
+                  certificateA1Validity: certData.validity,
+                };
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to fetch certificate for company ${company.id}:`, error);
+          }
+          return company;
+        })
+      );
+      setEnrichedCompanies(enriched);
+      setIsEnriching(false);
+    };
+
+    enrichData();
+  }, [companies, firestore]);
+  
+  const isLoading = isLoadingInitialCompanies || isEnriching;
+  const listToUse = enrichedCompanies || [];
+
   const expiringCertificates = useMemo(() => {
-    if (!companies) return [];
-    return companies.filter(c => {
+    if (!listToUse) return [];
+    return listToUse.filter(c => {
       const statusInfo = getCertificateStatusInfo(c.certificateA1Validity);
       return statusInfo.status === 'Vencido' || statusInfo.status === 'Vencendo';
     });
-  }, [companies]);
+  }, [listToUse]);
 
   const filteredCompanies = useMemo(() => {
-    if (!companies) return [];
+    if (!listToUse) return [];
 
-    let filtered = companies;
+    let filtered = listToUse;
 
     if (showAlertsOnly) {
       const expiringIds = new Set(expiringCertificates.map(c => c.id));
-      filtered = companies.filter(c => expiringIds.has(c.id));
+      filtered = listToUse.filter(c => expiringIds.has(c.id));
     }
 
     return filtered.filter(company => {
@@ -222,7 +252,7 @@ export function CompaniesClient() {
       
       return nameMatch && taxRegimeMatch && certStatusMatch && statusMatch;
     });
-  }, [companies, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter, showAlertsOnly, expiringCertificates]);
+  }, [listToUse, searchTerm, taxRegimeFilter, certificateStatusFilter, statusFilter, showAlertsOnly, expiringCertificates]);
 
 
   const handleAction = () => {
@@ -344,7 +374,7 @@ export function CompaniesClient() {
         open={isBulkSyncDialogOpen}
         onOpenChange={setIsBulkSyncDialogOpen}
         onSyncCompleted={handleAction}
-        companies={companies || []}
+        companies={listToUse || []}
       />
       <SintegraConsultDialog
         open={isSintegraDialogOpen}
