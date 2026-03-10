@@ -109,7 +109,8 @@ export async function getCompaniesData(companyId?: string) {
     
     const status = data.status || 
                    data.sintegraSituacao || 
-                   data.sintegra?.data?.situacaoCadastral || 
+                   data.sintegra?.data?.situacaoCadastral ||
+                   data.descricao_situacao_cadastral || // Fallback para nome do campo da BrasilAPI
                    null;
                    
     const updatedAtTimestamp = data.updatedAt || data.sintegraUpdatedAt;
@@ -122,8 +123,8 @@ export async function getCompaniesData(companyId?: string) {
     const transformedData = {
       id: data.id || data.cnpj || docId,
       cnpj: data.cnpj || null,
-      razaoSocial: data.name || null,
-      nomeFantasia: data.fantasyName || null,
+      razaoSocial: data.name || data.razao_social || null, // Fallback para nome do campo da BrasilAPI
+      nomeFantasia: data.fantasyName || data.nome_fantasia || null, // Fallback para nome do campo da BrasilAPI
       uf,
       status,
       tenantId: data.tenantId || null,
