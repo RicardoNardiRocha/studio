@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -26,7 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch, Download, Loader2, FileUp } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch, Download, Loader2, FileUp, MoreVertical } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, doc, setDoc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
@@ -43,6 +44,7 @@ import { useToast } from '@/hooks/use-toast';
 import { exportToExcel } from '@/lib/export-to-excel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { BulkCertificateUploadDialog } from './bulk-certificate-upload-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | null | undefined => {
@@ -448,12 +450,6 @@ export function CompaniesClient() {
                 Consultar Sintegra
               </Button>
             )}
-             {profile?.permissions.empresas.update && (
-              <Button id="bulk-cert-button" variant="outline" onClick={() => setIsBulkCertDialogOpen(true)} className="w-full sm:w-auto">
-                <FileUp className="mr-2 h-4 w-4" />
-                Atualizar Certificados
-              </Button>
-            )}
             {profile?.permissions.empresas.update && (
               <Button id="sync-all-button" variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
@@ -461,16 +457,36 @@ export function CompaniesClient() {
               </Button>
             )}
             {profile?.permissions.empresas.create && (
-              <>
                 <Button id="bulk-import-button" variant="outline" onClick={() => setIsBulkAddDialogOpen(true)} className="w-full sm:w-auto">
                   <Upload className="mr-2 h-4 w-4" />
                   Importar em Lote
                 </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Mais ações</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {profile?.permissions.empresas.update && (
+                  <DropdownMenuItem onClick={() => setIsBulkCertDialogOpen(true)}>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Atualizar Certificados
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={handleExport} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                  <span>Baixar Excel</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {profile?.permissions.empresas.create && (
                 <Button id="add-company-button" onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Nova Empresa
                 </Button>
-              </>
             )}
           </div>
         </CardHeader>
