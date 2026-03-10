@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch, Download, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Upload, Search, ShieldCheck, ShieldX, ShieldQuestion, AlertTriangle, X, RefreshCw, ArrowDownAZ, ArrowUpAZ, FileSearch, Download, Loader2, FileUp } from 'lucide-react';
 import { AddCompanyDialog } from './add-company-dialog';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, doc, setDoc, serverTimestamp, getDocs, getDoc } from 'firebase/firestore';
@@ -42,6 +42,7 @@ import { calculateSintegraSituacao, type SintegraStatus } from '@/lib/sintegra/s
 import { useToast } from '@/hooks/use-toast';
 import { exportToExcel } from '@/lib/export-to-excel';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { BulkCertificateUploadDialog } from './bulk-certificate-upload-dialog';
 
 
 const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'warning' | null | undefined => {
@@ -156,6 +157,7 @@ export function CompaniesClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
   const [isBulkSyncDialogOpen, setIsBulkSyncDialogOpen] = useState(false);
+  const [isBulkCertDialogOpen, setIsBulkCertDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -260,6 +262,7 @@ export function CompaniesClient() {
     setIsDetailsDialogOpen(false);
     setIsBulkAddDialogOpen(false);
     setIsBulkSyncDialogOpen(false);
+    setIsBulkCertDialogOpen(false);
   };
   
   const handleSintegraConsultationComplete = useCallback((companyId: string, result: SintegraResult) => {
@@ -376,6 +379,11 @@ export function CompaniesClient() {
         onSyncCompleted={handleAction}
         companies={listToUse || []}
       />
+       <BulkCertificateUploadDialog
+        open={isBulkCertDialogOpen}
+        onOpenChange={setIsBulkCertDialogOpen}
+        onComplete={handleAction}
+      />
       <SintegraConsultDialog
         open={isSintegraDialogOpen}
         onOpenChange={setIsSintegraDialogOpen}
@@ -440,10 +448,12 @@ export function CompaniesClient() {
                 Consultar Sintegra
               </Button>
             )}
-            <Button onClick={handleExport} disabled={isExporting} variant="outline">
-              {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              Exportar Excel
-            </Button>
+             {profile?.permissions.empresas.update && (
+              <Button id="bulk-cert-button" variant="outline" onClick={() => setIsBulkCertDialogOpen(true)} className="w-full sm:w-auto">
+                <FileUp className="mr-2 h-4 w-4" />
+                Atualizar Certificados
+              </Button>
+            )}
             {profile?.permissions.empresas.update && (
               <Button id="sync-all-button" variant="outline" onClick={() => setIsBulkSyncDialogOpen(true)} className="w-full sm:w-auto">
                 <RefreshCw className="mr-2 h-4 w-4" />
