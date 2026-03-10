@@ -143,7 +143,13 @@ export function BulkCertificateUploadDialog({ open, onOpenChange, onComplete }: 
 
             try {
                 const fileBuffer = await file.arrayBuffer();
-                const pfxAsn1 = forge.asn1.fromDer(new Uint8Array(fileBuffer).toString('binary'));
+                const bytes = new Uint8Array(fileBuffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const pfxAsn1 = forge.asn1.fromDer(binary);
+                
                 const p12 = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, password);
                 
                 const certBags = p12.getBags({bagType: forge.pki.oids.certBag});
