@@ -1,4 +1,5 @@
 import 'server-only';
+import 'dotenv/config';
 import * as admin from 'firebase-admin';
 
 interface FirebaseAdminApp {
