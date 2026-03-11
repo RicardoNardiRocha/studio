@@ -1,25 +1,17 @@
 'use server';
 
-import { getAuth } from 'firebase/auth';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getStorage } from 'firebase-admin/storage';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { serverTimestamp } from 'firebase-admin/firestore';
 import * as forge from 'node-forge';
 import { encrypt } from '@/lib/crypto';
-import { logActivity } from '@/lib/activity-log';
 import { revalidatePath } from 'next/cache';
 
-// This is a helper function to simulate getting the current user on the server.
-// In a real app, you might get this from a session or by verifying a token.
+// This is a placeholder. In a real app, you'd get the user from a session.
 async function getAuthenticatedUser() {
-    // This part is tricky in Server Actions without a session library.
-    // For the purpose of this example, we'll assume a way to get the user's UID.
-    // In a real scenario, you'd use something like NextAuth.js or verify a bearer token.
-    // Let's assume an admin user for now for the backend operation.
-    // A more robust solution is needed for multi-user environments.
     return {
-        uid: 'server-admin', // Placeholder
-        displayName: 'Sistema'
+        uid: 'server-admin-placeholder',
+        displayName: 'Sistema (Server Action)'
     };
 }
 
@@ -37,7 +29,7 @@ export async function saveCertificateAction(formData: FormData) {
   const bucket = getStorage().bucket(`gs://${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}`);
 
   try {
-    const user = await getAuthenticatedUser(); // Placeholder for auth
+    const user = await getAuthenticatedUser();
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     
@@ -51,7 +43,7 @@ export async function saveCertificateAction(formData: FormData) {
     }
     const certificate = certBag.cert;
     const validityDate = certificate.validity.notAfter;
-    const validityDateString = validityDate.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    const validityDateString = validityDate.toISOString().split('T')[0];
 
     // 2. Criptografe a senha
     const encryptedPasswordPayload = encrypt(password);
@@ -59,13 +51,8 @@ export async function saveCertificateAction(formData: FormData) {
     // 3. Faça o upload do arquivo para o Firebase Storage
     const storagePath = `companies/${companyId}/certificate.pfx`;
     const storageFile = bucket.file(storagePath);
-    await storageFile.save(fileBuffer, {
-        contentType: 'application/x-pkcs12',
-    });
-    const [url] = await storageFile.getSignedUrl({
-        action: 'read',
-        expires: '03-09-2491' // Far future date
-    });
+    await storageFile.save(fileBuffer, { contentType: 'application/x-pkcs12' });
+    const [url] = await storageFile.getSignedUrl({ action: 'read', expires: '03-09-2491' });
 
     // 4. Salve os metadados e a senha criptografada no Firestore
     const batch = db.batch();
@@ -94,10 +81,9 @@ export async function saveCertificateAction(formData: FormData) {
         certificateA1Url: url,
     });
     
-    // await logActivity(db, user, `atualizou o certificado A1 da empresa.`);
     await batch.commit();
 
-    revalidatePath(`/empresas`);
+    revalidatePath(`/empresas`); // Revalidates the company list page
     return { success: true, message: 'Certificado salvo com sucesso!' };
 
   } catch (error: any) {

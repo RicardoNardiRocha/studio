@@ -142,6 +142,27 @@
         "startDate"
       ]
     },
+    "CertificateA1": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CertificateA1",
+      "type": "object",
+      "description": "Stores details and encrypted credentials for an A1 digital certificate.",
+      "properties": {
+        "type": { "type": "string", "enum": ["A1"] },
+        "storagePath": { "type": "string", "description": "The full path to the .pfx file in Firebase Storage." },
+        "url": { "type": "string", "format": "uri", "description": "The public-access URL for the certificate file." },
+        "validity": { "type": "string", "format": "date", "description": "Expiration date of the certificate in YYYY-MM-DD format." },
+        "hasPassword": { "type": "boolean", "description": "Indicates if a password has been encrypted and stored." },
+        "passwordEncrypted": { "type": "string", "description": "The AES-256-GCM encrypted password, as a hex string." },
+        "passwordIv": { "type": "string", "description": "The initialization vector used for encryption, as a hex string." },
+        "passwordTag": { "type": "string", "description": "The authentication tag from the GCM encryption, as a hex string." },
+        "encryptionVersion": { "type": "string", "description": "The version of the encryption schema used." },
+        "uploadedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "uploadedBy": { "type": "string" }
+      },
+      "required": ["type", "storagePath", "url", "validity", "hasPassword", "updatedAt"]
+    },
      "Partner": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Partner",
@@ -335,7 +356,9 @@
        {
         "path": "/companies/{companyId}/certificates/{certificateId}",
         "definition": {
-          "description": "Subcollection to store certificate details like validity and URL."
+          "entityName": "CertificateA1",
+          "schema": { "$ref": "#/entities/CertificateA1" },
+          "description": "Subcollection to store A1 certificate details. The document ID is typically 'A1'."
         }
       },
       {
