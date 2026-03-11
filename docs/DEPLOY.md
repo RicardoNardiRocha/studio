@@ -34,16 +34,16 @@ Seu código já está quase pronto. As principais alterações foram feitas para
 | `GEMINI_API_KEY`                          | `SUA_CHAVE_DE_API_DO_GEMINI`                  | Sua chave de API para o Google AI Studio (Gemini).                             |
 | `INTERNAL_API_SECRET`                     | `UMA_SENHA_LONGA_E_SECRETA`                   | Token secreto para autenticação da API interna de integração.                  |
 | `SINTEGRA_API_KEY`                        | `SUA_CHAVE_DE_API_DO_SINTEGRA`                | Sua chave de API para o serviço de consulta do Sintegra.                       |
-| `CERTIFICATE_SECRET_KEY`                  | `CHAVE_HEX_DE_64_CARACTERES`                  | **[NOVO]** Chave para criptografar senhas de certificados. Gere com `openssl rand -hex 32`. |
+| `CERTIFICATE_SECRET_KEY`                  | `CHAVE_HEX_DE_64_CARACTERES`                  | Chave para criptografar senhas de certificados. Gere com `openssl rand -hex 32`. |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`            | `AIzaSy...` (do seu projeto Firebase)         | Valor de `apiKey` do seu objeto de configuração do Firebase.                   |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`        | `seu-projeto.firebaseapp.com`                 | Valor de `authDomain` do seu objeto de configuração do Firebase.               |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID`         | `seu-projeto-id`                              | Valor de `projectId` do seu objeto de configuração do Firebase.                |
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`     | `seu-projeto.appspot.com`                     | Valor de `storageBucket` do seu objeto de configuração do Firebase.            |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | `1234567890`                                  | Valor de `messagingSenderId` do seu objeto de configuração do Firebase.        |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`             | `1:1234...` (do seu projeto Firebase)         | Valor de `appId` do seu objeto de configuração do Firebase.                    |
-| `FIREBASE_PROJECT_ID`                     | `seu-projeto-id`                              | **[NOVO]** ID do seu projeto Firebase (o mesmo que `NEXT_PUBLIC_FIREBASE_PROJECT_ID`). |
-| `FIREBASE_CLIENT_EMAIL`                   | `firebase-adminsdk-...@...`                   | **[NOVO]** E-mail da conta de serviço do Firebase Admin SDK.                      |
-| `FIREBASE_PRIVATE_KEY`                    | `-----BEGIN PRIVATE KEY-----\n...`            | **[NOVO]** Chave privada da conta de serviço do Firebase Admin SDK.              |
+| `FIREBASE_PROJECT_ID`                     | `seu-projeto-id`                              | ID do seu projeto Firebase (o mesmo que `NEXT_PUBLIC_FIREBASE_PROJECT_ID`). |
+| `FIREBASE_CLIENT_EMAIL`                   | `firebase-adminsdk-...@...`                   | E-mail da conta de serviço do Firebase Admin SDK.                      |
+| `FIREBASE_PRIVATE_KEY`                    | `-----BEGIN PRIVATE KEY-----\n...`            | Chave privada da conta de serviço do Firebase Admin SDK.              |
 
 
 **Como encontrar os valores do Firebase?**

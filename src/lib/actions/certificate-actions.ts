@@ -2,7 +2,7 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 import { getStorage } from 'firebase-admin/storage';
-import { serverTimestamp } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as forge from 'node-forge';
 import { encrypt } from '@/lib/crypto';
 import { revalidatePath } from 'next/cache';
@@ -68,8 +68,8 @@ export async function saveCertificateAction(formData: FormData) {
         passwordIv: encryptedPasswordPayload.iv,
         passwordTag: encryptedPasswordPayload.authTag,
         encryptionVersion: 'v1',
-        uploadedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        uploadedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         uploadedBy: user.displayName,
     };
     batch.set(certificateDocRef, certificateData, { merge: true });
